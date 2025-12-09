@@ -1,13 +1,13 @@
-// old project
+// app/login/page.tsx
 
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import Image from "next/image";
 
-export default function SignUp() {
+export default function Login() {
   const { signIn } = useAuthActions();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,8 +32,9 @@ export default function SignUp() {
         <div className="hidden md:flex md:w-1/2 relative overflow-hidden bg-white dark:bg-zinc-900 flex-col items-start p-8">
           {/* Logos */}
           <div className="flex items-center gap-2 mb-8 w-full">
-            <img src="/logo.png" alt="Logo" className="h-12 object-contain" />
-            <img src="/y.png" alt="Y Logo" className="h-12 object-contain" />
+            <Image src="/convex.svg" alt="Convex Logo" width={48} height={48} className="h-12 object-contain" />
+            <Image src="/nextjs-icon-light-background.svg" alt="Next.js Logo" width={48} height={48} className="h-12 object-contain dark:hidden" />
+            <Image src="/nextjs-icon-dark-background.svg" alt="Next.js Logo" width={48} height={48} className="h-12 object-contain hidden dark:block" />
           </div>
           <div className="shrink-0 mb-1 w-full flex justify-center relative">
             {/* Floating elements around the image */}
@@ -113,30 +114,54 @@ export default function SignUp() {
               <div className="absolute top-1/2 right-4 -translate-y-1/2 w-8 h-8 rounded-full border-2 border-zinc-400 dark:border-zinc-600 opacity-30 dark:opacity-20 animate-float-medium"></div>
             </div>
 
-            <div className="relative z-10 depth-of-field-container">
-              <img
-                src="/cy (2).png"
-                alt="Profile"
-                className="max-w-full max-h-[400px] object-contain relative z-10"
-                style={{
-                  filter: "drop-shadow(0 25px 50px rgba(0, 0, 0, 0.15))",
-                }}
-              />
+            <div className="relative z-10 depth-of-field-container flex items-center justify-center w-full">
+              <div className="flex items-center gap-6">
+                <Image
+                  src="/convex.svg"
+                  alt="Convex Logo"
+                  width={120}
+                  height={120}
+                  style={{
+                    filter: "drop-shadow(0 25px 50px rgba(0, 0, 0, 0.15))",
+                  }}
+                />
+                <div className="w-px h-32 bg-zinc-300 dark:bg-zinc-600"></div>
+                <Image
+                  src="/nextjs-icon-light-background.svg"
+                  alt="Next.js Logo"
+                  width={120}
+                  height={120}
+                  className="dark:hidden"
+                  style={{
+                    filter: "drop-shadow(0 25px 50px rgba(0, 0, 0, 0.15))",
+                  }}
+                />
+                <Image
+                  src="/nextjs-icon-dark-background.svg"
+                  alt="Next.js Logo"
+                  width={120}
+                  height={120}
+                  className="hidden dark:block"
+                  style={{
+                    filter: "drop-shadow(0 25px 50px rgba(0, 0, 0, 0.15))",
+                  }}
+                />
+              </div>
             </div>
           </div>
           <div className="flex-1 flex items-center justify-center px-6">
             <div className="text-center">
               <blockquote className="text-xl md:text-2xl font-medium text-zinc-700 dark:text-zinc-300 mb-4 italic">
-                "Building a better tomorrow for Tarlac, one system at a time."
+                "Convex + Next.js + Convex Auth - The modern stack for building scalable applications."
               </blockquote>
               <p className="text-sm md:text-base text-zinc-500 dark:text-zinc-400">
-                — Gov. Christian Yap
+                — Powered by Convex and Next.js
               </p>
             </div>
           </div>
         </div>
 
-        {/* Right Column - Login Form */}
+        {/* Right Column - Sign Up Form */}
         <div className="w-full md:w-1/2 flex items-center justify-center p-6 sm:p-8 md:p-12 lg:p-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm relative">
           {/* Theme Toggle - Top Right */}
           <div className="absolute top-4 right-4 md:top-6 md:right-6">
@@ -160,11 +185,16 @@ export default function SignUp() {
           <div className="w-full max-w-md">
             {/* Logo/Title */}
             <div className="text-center md:text-left mb-8 md:mb-12">
-              <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-                Sign In
-              </h1>
+              <div className="flex items-center gap-3 justify-center md:justify-start mb-2">
+                <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-zinc-100">
+                  Sign Up
+                </h1>
+                <span className="inline-flex items-center rounded-full border border-yellow-200 bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800 dark:border-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  temporary for staging
+                </span>
+              </div>
               <p className="text-zinc-600 dark:text-zinc-400">
-                Enter your credentials to continue
+                Create your account to get started
               </p>
             </div>
 
@@ -178,14 +208,14 @@ export default function SignUp() {
               </div>
             )}
 
-            {/* Login Form */}
+            {/* Sign Up Form */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
                 setLoading(true);
                 setError(null);
                 const formData = new FormData(e.target as HTMLFormElement);
-                formData.set("flow", "signIn");
+                formData.set("flow", "signUp");
                 void signIn("password", formData)
                   .then(() => {
                     router.push("/dashboard");
@@ -212,7 +242,7 @@ export default function SignUp() {
                   required
                   autoComplete="email"
                   disabled={loading}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#15803d] focus:border-[#15803d] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-700 focus:border-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="you@example.com"
                 />
               </div>
@@ -230,32 +260,25 @@ export default function SignUp() {
                   type="password"
                   name="password"
                   required
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   disabled={loading}
                   minLength={8}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#15803d] focus:border-[#15803d] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-slate-700 focus:border-slate-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="••••••••"
                 />
-              </div>
-
-              {/* Forgot Password Link */}
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
-                >
-                  Forgot password?
-                </button>
+                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  Password must be at least 8 characters
+                </p>
               </div>
 
               {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-xl bg-[#15803d] hover:bg-[#16a34a] text-white font-medium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
+                className="w-full py-3 rounded-xl bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500 text-white font-medium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden shadow-md hover:shadow-lg"
               >
                 <span className="relative z-10">
-                  {loading ? "Authenticating..." : "Sign In"}
+                  {loading ? "Creating Account..." : "Sign Up"}
                 </span>
               </button>
             </form>
@@ -263,12 +286,10 @@ export default function SignUp() {
             {/* Divider */}
             <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-700">
               <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
-                Don't have an account?{" "}
-                <Link href="/signup">
-                  <span className="text-zinc-400 dark:text-zinc-500">
-                    temporary signup here
-                  </span>
-                </Link>
+                Already have an account?{" "}
+                <span className="text-zinc-400 dark:text-zinc-500">
+                  Contact administrator
+                </span>
               </p>
             </div>
           </div>
