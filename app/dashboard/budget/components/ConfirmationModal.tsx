@@ -1,3 +1,5 @@
+// app/dashboard/budget/components/ConfirmationModal.tsx
+
 "use client";
 
 import { useAccentColor } from "../../contexts/AccentColorContext";

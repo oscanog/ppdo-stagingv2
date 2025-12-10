@@ -2,53 +2,128 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { BudgetTrackingTable } from "./components/BudgetTrackingTable";
-import { mockBudgetData } from "./data";
-import { BudgetItem } from "./types";
+import { Id } from "@/convex/_generated/dataModel";
+
+interface BudgetItemFromDB {
+  _id: Id<"budgetItems">;
+  _creationTime: number;
+  particulars: string;
+  totalBudgetAllocated: number;
+  totalBudgetUtilized: number;
+  utilizationRate: number;
+  projectCompleted: number;
+  projectDelayed: number;
+  projectsOnTrack: number;
+  notes?: string;
+  createdBy: Id<"users">;
+  createdAt: number;
+  updatedAt: number;
+  updatedBy?: Id<"users">;
+}
+
+interface BudgetItemForUI {
+  id: string;
+  particular: string;
+  totalBudgetAllocated: number;
+  totalBudgetUtilized: number;
+  utilizationRate: number;
+  projectCompleted: number;
+  projectDelayed: number;
+  projectsOnTrack: number;
+}
 
 export default function BudgetTrackingPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [budgetData, setBudgetData] = useState<BudgetItem[]>([]);
-  const router = useRouter();
+  const budgetItemsFromDB = useQuery(api.budgetItems.list);
+  const statistics = useQuery(api.budgetItems.getStatistics);
+  const createBudgetItem = useMutation(api.budgetItems.create);
+  const updateBudgetItem = useMutation(api.budgetItems.update);
+  const deleteBudgetItem = useMutation(api.budgetItems.remove);
 
-  useEffect(() => {
-    const auth = localStorage.getItem("authenticated");
-    if (auth === "true") {
-      setIsAuthenticated(true);
-      // In production, fetch from API
-      setBudgetData(mockBudgetData);
-    } else {
-      router.push("/");
+  // Transform database items to UI format
+  const budgetData: BudgetItemForUI[] =
+    budgetItemsFromDB?.map((item: BudgetItemFromDB) => ({
+      id: item._id,
+      particular: item.particulars,
+      totalBudgetAllocated: item.totalBudgetAllocated,
+      totalBudgetUtilized: item.totalBudgetUtilized,
+      utilizationRate: item.utilizationRate,
+      projectCompleted: item.projectCompleted,
+      projectDelayed: item.projectDelayed,
+      projectsOnTrack: item.projectsOnTrack,
+    })) ?? [];
+
+  const handleAdd = async (item: Omit<BudgetItemForUI, "id" | "utilizationRate">) => {
+    try {
+      await createBudgetItem({
+        particulars: item.particular,
+        totalBudgetAllocated: item.totalBudgetAllocated,
+        totalBudgetUtilized: item.totalBudgetUtilized,
+        projectCompleted: item.projectCompleted,
+        projectDelayed: item.projectDelayed,
+        projectsOnTrack: item.projectsOnTrack,
+      });
+    } catch (error) {
+      console.error("Error creating budget item:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to create budget item"
+      );
     }
-  }, [router]);
-
-  const handleAdd = (item: Omit<BudgetItem, "id">) => {
-    // In production, call API
-    const newItem: BudgetItem = {
-      ...item,
-      id: Date.now().toString(),
-    };
-    setBudgetData([...budgetData, newItem]);
   };
 
-  const handleEdit = (id: string, item: Omit<BudgetItem, "id">) => {
-    // In production, call API
-    setBudgetData(
-      budgetData.map((budgetItem) =>
-        budgetItem.id === id ? { ...item, id } : budgetItem
-      )
+  const handleEdit = async (
+    id: string,
+    item: Omit<BudgetItemForUI, "id" | "utilizationRate">
+  ) => {
+    try {
+      await updateBudgetItem({
+        id: id as Id<"budgetItems">,
+        totalBudgetAllocated: item.totalBudgetAllocated,
+        totalBudgetUtilized: item.totalBudgetUtilized,
+        projectCompleted: item.projectCompleted,
+        projectDelayed: item.projectDelayed,
+        projectsOnTrack: item.projectsOnTrack,
+      });
+    } catch (error) {
+      console.error("Error updating budget item:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to update budget item"
+      );
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteBudgetItem({
+        id: id as Id<"budgetItems">,
+      });
+    } catch (error) {
+      console.error("Error deleting budget item:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to delete budget item"
+      );
+    }
+  };
+
+  if (budgetItemsFromDB === undefined || statistics === undefined) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-zinc-200 dark:border-zinc-800 border-t-zinc-900 dark:border-t-zinc-100 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Loading budget data...
+          </p>
+        </div>
+      </div>
     );
-  };
-
-  const handleDelete = (id: string) => {
-    // In production, call API
-    setBudgetData(budgetData.filter((item) => item.id !== id));
-  };
-
-  if (!isAuthenticated) {
-    return null;
   }
 
   return (
@@ -78,12 +153,7 @@ export default function BudgetTrackingPage() {
               currency: "PHP",
               minimumFractionDigits: 0,
               maximumFractionDigits: 0,
-            }).format(
-              budgetData.reduce(
-                (sum, item) => sum + item.totalBudgetAllocated,
-                0
-              )
-            )}
+            }).format(statistics.totalAllocated)}
           </p>
         </div>
 
@@ -97,12 +167,7 @@ export default function BudgetTrackingPage() {
               currency: "PHP",
               minimumFractionDigits: 0,
               maximumFractionDigits: 0,
-            }).format(
-              budgetData.reduce(
-                (sum, item) => sum + item.totalBudgetUtilized,
-                0
-              )
-            )}
+            }).format(statistics.totalUtilized)}
           </p>
         </div>
 
@@ -111,15 +176,7 @@ export default function BudgetTrackingPage() {
             Average Utilization Rate
           </p>
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            {budgetData.length > 0
-              ? (
-                  budgetData.reduce(
-                    (sum, item) => sum + item.utilizationRate,
-                    0
-                  ) / budgetData.length
-                ).toFixed(1)
-              : 0}
-            %
+            {statistics.averageUtilizationRate.toFixed(1)}%
           </p>
         </div>
 
@@ -128,7 +185,7 @@ export default function BudgetTrackingPage() {
             Total Projects
           </p>
           <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            {budgetData.length}
+            {statistics.totalProjects}
           </p>
         </div>
       </div>

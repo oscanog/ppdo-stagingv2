@@ -1,3 +1,5 @@
+// app/dashboard/budget/components/Modal.tsx
+
 "use client";
 
 import { ReactNode } from "react";

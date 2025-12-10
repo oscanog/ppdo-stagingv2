@@ -1,3 +1,5 @@
+// app/dashboard/budget/types.ts
+
 export interface BudgetItem {
   id: string;
   particular: string;

@@ -220,6 +220,77 @@ export default defineSchema({
     .index("timestamp", ["timestamp"])
     .index("action", ["action"]),
 
+  /**
+   * Budget Items.
+   * Tracks budget allocation and utilization for different particulars/projects.
+   */
+  budgetItems: defineTable({
+    /**
+     * Name or description of the budget item (e.g., "GAD", "Infrastructure", etc.)
+     */
+    particulars: v.string(),
+    
+    /**
+     * Total budget allocated for this item (in currency).
+     */
+    totalBudgetAllocated: v.number(),
+    
+    /**
+     * Total budget utilized so far (in currency).
+     */
+    totalBudgetUtilized: v.number(),
+    
+    /**
+     * Utilization rate as a percentage (0-100).
+     * Calculated as: (totalBudgetUtilized / totalBudgetAllocated) * 100
+     */
+    utilizationRate: v.number(),
+    
+    /**
+     * Project completion percentage (0-100).
+     */
+    projectCompleted: v.number(),
+    
+    /**
+     * Project delayed percentage (0-100).
+     */
+    projectDelayed: v.number(),
+    
+    /**
+     * Projects on track percentage (0-100).
+     */
+    projectsOnTrack: v.number(),
+    
+    /**
+     * User who created this budget item.
+     */
+    createdBy: v.id("users"),
+    
+    /**
+     * Timestamp when the budget item was created (milliseconds since epoch).
+     */
+    createdAt: v.number(),
+    
+    /**
+     * Timestamp when the budget item was last updated (milliseconds since epoch).
+     */
+    updatedAt: v.number(),
+    
+    /**
+     * Optional: User who last updated this budget item.
+     */
+    updatedBy: v.optional(v.id("users")),
+    
+    /**
+     * Optional: Additional notes or remarks about this budget item.
+     */
+    notes: v.optional(v.string()),
+  })
+    .index("createdBy", ["createdBy"])
+    .index("createdAt", ["createdAt"])
+    .index("updatedAt", ["updatedAt"])
+    .index("particulars", ["particulars"]),
+
   numbers: defineTable({
     value: v.number(),
   }),

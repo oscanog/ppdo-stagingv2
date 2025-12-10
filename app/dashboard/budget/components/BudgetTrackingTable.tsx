@@ -12,8 +12,8 @@ import { BudgetItemForm } from "./BudgetItemForm";
 
 interface BudgetTrackingTableProps {
   budgetItems: BudgetItem[];
-  onAdd?: (item: Omit<BudgetItem, "id">) => void;
-  onEdit?: (id: string, item: Omit<BudgetItem, "id">) => void;
+  onAdd?: (item: Omit<BudgetItem, "id" | "utilizationRate">) => void;
+  onEdit?: (id: string, item: Omit<BudgetItem, "id" | "utilizationRate">) => void;
   onDelete?: (id: string) => void;
 }
 
@@ -126,7 +126,7 @@ export function BudgetTrackingTable({
     setOpenMenuId(null);
   };
 
-  const handleSave = (formData: Omit<BudgetItem, "id">) => {
+  const handleSave = (formData: Omit<BudgetItem, "id" | "utilizationRate">) => {
     if (selectedItem && onEdit) {
       onEdit(selectedItem.id, formData);
     } else if (onAdd) {
