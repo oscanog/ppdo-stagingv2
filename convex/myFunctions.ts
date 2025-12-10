@@ -1,6 +1,5 @@
 // convex/myFunctions.ts
 
-
 import { v } from "convex/values";
 import { query, mutation, action } from "./_generated/server";
 import { api } from "./_generated/api";
@@ -80,5 +79,68 @@ export const myAction = action({
     await ctx.runMutation(api.myFunctions.addNumber, {
       value: args.first,
     });
+  },
+});
+
+/**
+ * Update user's last login timestamp
+ * Called after successful authentication
+ */
+export const updateLastLogin = mutation({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    await ctx.db.patch(args.userId, {
+      lastLogin: now,
+      updatedAt: now,
+    });
+  },
+});
+
+/**
+ * Get current user with full details including role and status
+ */
+export const getCurrentUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      return null;
+    }
+    const user = await ctx.db.get(userId);
+    return user;
+  },
+});
+
+/**
+ * Check if user account is active and can sign in
+ */
+export const checkUserStatus = query({
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (!user) {
+      return { canSignIn: false, reason: "User not found" };
+    }
+    
+    if (user.status === "suspended") {
+      return {
+        canSignIn: false,
+        reason: user.suspensionReason || "Account suspended",
+      };
+    }
+    
+    if (user.status === "inactive") {
+      return {
+        canSignIn: false,
+        reason: "Account inactive",
+      };
+    }
+    
+    return { canSignIn: true };
   },
 });

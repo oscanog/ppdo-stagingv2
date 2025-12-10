@@ -3,14 +3,13 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
-// The schema is normally optional, but Convex Auth
-// requires indexes defined on `authTables`.
-// The schema provides more precise TypeScript types.
 export default defineSchema({
   /**
    * Users.
+   * Extended with role-based access control and account status tracking.
    */
   users: defineTable({
+    // Existing fields
     name: v.optional(v.string()),
     image: v.optional(v.string()),
     email: v.optional(v.string()),
@@ -18,9 +17,80 @@ export default defineSchema({
     phone: v.optional(v.string()),
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
+    
+    // New fields for user management
+    /**
+     * User role for access control.
+     * - administrator: Full system access, can manage all users and resources
+     * - user: Standard access, can manage own resources
+     * - viewer: Read-only access, cannot modify resources
+     * @default "user"
+     */
+    role: v.optional(
+      v.union(
+        v.literal("administrator"),
+        v.literal("user"),
+        v.literal("viewer")
+      )
+    ),
+    
+    /**
+     * Account status.
+     * - active: Normal account, can sign in and use the system
+     * - inactive: Account disabled, cannot sign in (e.g., user requested deactivation)
+     * - suspended: Account suspended by admin, cannot sign in (e.g., policy violation)
+     * @default "active"
+     */
+    status: v.optional(
+      v.union(
+        v.literal("active"),
+        v.literal("inactive"),
+        v.literal("suspended")
+      )
+    ),
+    
+    /**
+     * Last successful login timestamp (milliseconds since epoch).
+     * Updated on each successful authentication.
+     */
+    lastLogin: v.optional(v.number()),
+    
+    /**
+     * Timestamp when the user was created (milliseconds since epoch).
+     * Set once during user registration.
+     */
+    createdAt: v.optional(v.number()),
+    
+    /**
+     * Timestamp when the user record was last updated (milliseconds since epoch).
+     * Updated on any user data modification.
+     */
+    updatedAt: v.optional(v.number()),
+    
+    /**
+     * Optional: Reason for suspension (only relevant when status is "suspended").
+     */
+    suspensionReason: v.optional(v.string()),
+    
+    /**
+     * Optional: ID of the administrator who suspended the account.
+     */
+    suspendedBy: v.optional(v.id("users")),
+    
+    /**
+     * Optional: Timestamp when the suspension was applied.
+     */
+    suspendedAt: v.optional(v.number()),
   })
     .index("email", ["email"])
-    .index("phone", ["phone"]),
+    .index("phone", ["phone"])
+    // New indexes for efficient queries
+    .index("role", ["role"])
+    .index("status", ["status"])
+    .index("roleAndStatus", ["role", "status"])
+    .index("lastLogin", ["lastLogin"])
+    .index("createdAt", ["createdAt"]),
+
   /**
    * Sessions.
    * A single user can have multiple active sessions.
@@ -30,6 +100,7 @@ export default defineSchema({
     userId: v.id("users"),
     expirationTime: v.number(),
   }).index("userId", ["userId"]),
+
   /**
    * Accounts. An account corresponds to
    * a single authentication provider.
@@ -45,36 +116,24 @@ export default defineSchema({
   })
     .index("userIdAndProvider", ["userId", "provider"])
     .index("providerAndAccountId", ["provider", "providerAccountId"]),
+
   /**
    * Refresh tokens.
-   * Refresh tokens are generally meant to be used once, to be exchanged for another
-   * refresh token and a JWT access token, but with a few exceptions:
-   * - The "active refresh token" is the most recently created refresh token that has
-   *   not been used yet. The parent of the active refresh token can always be used to
-   *   obtain the active refresh token.
-   * - A refresh token can be used within a 10 second window ("reuse window") to
-   *   obtain a new refresh token.
-   * - On any invalid use of a refresh token, the token itself and all its descendants
-   *   are invalidated.
    */
   authRefreshTokens: defineTable({
     sessionId: v.id("authSessions"),
     expirationTime: v.number(),
     firstUsedTime: v.optional(v.number()),
-    // This is the ID of the refresh token that was exchanged to create this one.
     parentRefreshTokenId: v.optional(v.id("authRefreshTokens")),
   })
-    // Sort by creationTime
     .index("sessionId", ["sessionId"])
     .index("sessionIdAndParentRefreshTokenId", [
       "sessionId",
       "parentRefreshTokenId",
     ]),
+
   /**
-   * Verification codes:
-   * - OTP tokens
-   * - magic link tokens
-   * - OAuth codes
+   * Verification codes.
    */
   authVerificationCodes: defineTable({
     accountId: v.id("authAccounts"),
@@ -87,6 +146,7 @@ export default defineSchema({
   })
     .index("accountId", ["accountId"])
     .index("code", ["code"]),
+
   /**
    * PKCE verifiers for OAuth.
    */
@@ -94,6 +154,7 @@ export default defineSchema({
     sessionId: v.optional(v.id("authSessions")),
     signature: v.optional(v.string()),
   }).index("signature", ["signature"]),
+
   /**
    * Rate limits for OTP and password sign-in.
    */
@@ -102,6 +163,62 @@ export default defineSchema({
     lastAttemptTime: v.number(),
     attemptsLeft: v.number(),
   }).index("identifier", ["identifier"]),
+
+  /**
+   * Audit log for user management actions.
+   * Tracks administrative actions for compliance and debugging.
+   */
+  userAuditLog: defineTable({
+    /**
+     * The user who performed the action.
+     */
+    performedBy: v.id("users"),
+    
+    /**
+     * The user who was affected by the action.
+     */
+    targetUserId: v.id("users"),
+    
+    /**
+     * Type of action performed.
+     */
+    action: v.union(
+      v.literal("role_changed"),
+      v.literal("status_changed"),
+      v.literal("user_created"),
+      v.literal("user_updated"),
+      v.literal("user_deleted")
+    ),
+    
+    /**
+     * Previous values before the change (JSON string).
+     */
+    previousValues: v.optional(v.string()),
+    
+    /**
+     * New values after the change (JSON string).
+     */
+    newValues: v.optional(v.string()),
+    
+    /**
+     * Optional reason or notes for the action.
+     */
+    notes: v.optional(v.string()),
+    
+    /**
+     * Timestamp when the action was performed.
+     */
+    timestamp: v.number(),
+    
+    /**
+     * IP address from which the action was performed (if available).
+     */
+    ipAddress: v.optional(v.string()),
+  })
+    .index("targetUserId", ["targetUserId"])
+    .index("performedBy", ["performedBy"])
+    .index("timestamp", ["timestamp"])
+    .index("action", ["action"]),
 
   numbers: defineTable({
     value: v.number(),

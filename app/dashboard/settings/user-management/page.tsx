@@ -119,14 +119,14 @@ export default function UserManagementPage() {
   const router = useRouter();
   const { accentColorValue } = useAccentColor();
 
-  useEffect(() => {
-    const auth = localStorage.getItem("authenticated");
-    if (auth === "true") {
-      setIsAuthenticated(true);
-    } else {
-      router.push("/");
-    }
-  }, [router]);
+  // useEffect(() => {
+  //   const auth = localStorage.getItem("authenticated");
+  //   if (auth === "true") {
+  //     setIsAuthenticated(true);
+  //   } else {
+  //     router.push("/");
+  //   }
+  // }, [router]);
 
   const filteredUsers = useMemo(() => {
     let filtered = users;
@@ -187,9 +187,9 @@ export default function UserManagementPage() {
     }
   };
 
-  if (!isAuthenticated) {
-    return null;
-  }
+  // if (!isAuthenticated) {
+  //   return null;
+  // }
 
   return (
     <>

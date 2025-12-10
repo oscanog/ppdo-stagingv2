@@ -120,18 +120,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* PPDO Banner */}
-      <div className="mb-6">
-        <div className="relative w-full h-40 sm:h-48 lg:h-56 xl:h-64 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
-          <Image
-            src="https://c0.wallpaperflare.com/preview/934/635/785/blond-hair-cellphone-cheerful-device.jpg"
-            alt="PPDO Banner"
-            fill
-            priority
-            className="object-cover"
-          />
-        </div>
-      </div>
 
       {/* (moved) */}
 

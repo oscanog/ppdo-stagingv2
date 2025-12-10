@@ -1,4 +1,4 @@
-// app/login/page.tsx
+// app/signup/page.tsx
 
 "use client";
 
@@ -6,12 +6,15 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
-export default function Login() {
+export default function SignUp() {
   const { signIn } = useAuthActions();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const updateLastLogin = useMutation(api.myFunctions.updateLastLogin);
 
   return (
     <main
@@ -210,20 +213,28 @@ export default function Login() {
 
             {/* Sign Up Form */}
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 setLoading(true);
                 setError(null);
+
                 const formData = new FormData(e.target as HTMLFormElement);
-                formData.set("flow", "signUp");
-                void signIn("password", formData)
-                  .then(() => {
-                    router.push("/dashboard");
-                  })
-                  .catch((error) => {
-                    setError(error.message);
-                    setLoading(false);
-                  });
+                
+                try {
+                  // Sign up with Convex Auth
+                  formData.set("flow", "signUp");
+                  const result = await signIn("password", formData);
+                  
+                  // The afterUserCreatedOrUpdated callback in auth.ts will automatically
+                  // set role, status, createdAt, updatedAt, and lastLogin for new users
+                  
+                  // Redirect to dashboard
+                  router.push("/dashboard");
+                } catch (error: any) {
+                  console.error("Sign up error:", error);
+                  setError(error.message || "Failed to create account. Please try again.");
+                  setLoading(false);
+                }
               }}
               className="space-y-6"
             >

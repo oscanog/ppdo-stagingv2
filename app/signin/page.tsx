@@ -1,4 +1,4 @@
-// old project
+// app/signin/page.tsx
 
 "use client";
 
@@ -6,12 +6,15 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useQuery, useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 
 export default function SignUp() {
   const { signIn } = useAuthActions();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const updateLastLogin = useMutation(api.myFunctions.updateLastLogin);
 
   return (
     <main
@@ -180,20 +183,31 @@ export default function SignUp() {
 
             {/* Login Form */}
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 setLoading(true);
                 setError(null);
+                
                 const formData = new FormData(e.target as HTMLFormElement);
-                formData.set("flow", "signIn");
-                void signIn("password", formData)
-                  .then(() => {
-                    router.push("/dashboard");
-                  })
-                  .catch((error) => {
-                    setError(error.message);
-                    setLoading(false);
-                  });
+                const email = formData.get("email") as string;
+                
+                try {
+                  // Sign in with Convex Auth
+                  formData.set("flow", "signIn");
+                  const result = await signIn("password", formData);
+                  
+                  // Update last login timestamp after successful sign in
+                  if (result && typeof result === 'object' && '_id' in result) {
+                    await updateLastLogin({ userId: result._id as any });
+                  }
+                  
+                  // Redirect to dashboard
+                  router.push("/dashboard");
+                } catch (error: any) {
+                  console.error("Sign in error:", error);
+                  setError(error.message || "Failed to sign in. Please check your credentials.");
+                  setLoading(false);
+                }
               }}
               className="space-y-6"
             >
