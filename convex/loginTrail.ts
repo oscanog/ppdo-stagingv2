@@ -120,95 +120,142 @@ export const recordLoginAttempt = mutation({
 });
 
 /**
- * Get recent login attempts for display in dashboard
- * Admin/Super Admin can see all, regular users see their own
+ * Get recent login attempts with advanced filtering and pagination
  */
 export const getRecentLoginAttempts = query({
   args: {
-    limit: v.optional(v.number()),
+    page: v.optional(v.number()),
+    pageSize: v.optional(v.number()),
     userId: v.optional(v.id("users")),
     status: v.optional(
       v.union(
+        v.literal("all"),
         v.literal("success"),
         v.literal("failed"),
         v.literal("suspicious"),
         v.literal("blocked")
       )
     ),
+    searchTerm: v.optional(v.string()),
+    startDate: v.optional(v.number()),
+    endDate: v.optional(v.number()),
+    ipAddress: v.optional(v.string()),
+    location: v.optional(v.string()),
+    showPinnedOnly: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    console.log("=== GET RECENT LOGIN ATTEMPTS START ===");
-    console.log("Args:", args);
-
     const currentUserId = await getAuthUserId(ctx);
-    console.log("Current User ID:", currentUserId);
-
     if (!currentUserId) {
-      console.error("Not authenticated");
       throw new Error("Not authenticated");
     }
 
     const currentUser = await ctx.db.get(currentUserId);
-    console.log("Current User:", {
-      id: currentUser?._id,
-      email: currentUser?.email,
-      role: currentUser?.role,
-    });
-
     if (!currentUser) {
-      console.error("User not found");
       throw new Error("User not found");
     }
 
-    const limit = args.limit || 50;
-    console.log("Limit:", limit);
+    const page = args.page || 1;
+    const pageSize = args.pageSize || 20;
+    const isAdmin = currentUser.role === "super_admin" || currentUser.role === "admin";
 
+    // Get all attempts based on role
     let attempts;
-
-    // Super admin and admin can see all login attempts
-    if (currentUser.role === "super_admin" || currentUser.role === "admin") {
-      console.log("User is admin/super_admin, fetching all attempts");
-
+    if (isAdmin) {
       if (args.userId) {
-        console.log("Filtering by userId:", args.userId);
-        // Filter by specific user
         attempts = await ctx.db
           .query("loginAttempts")
           .withIndex("userId", (q) => q.eq("userId", args.userId))
           .order("desc")
-          .take(limit);
-      } else if (args.status) {
-        console.log("Filtering by status:", args.status);
-        // Filter by status
-        attempts = await ctx.db
-          .query("loginAttempts")
-          .withIndex("status", (q) => q.eq("status", args.status!))
-          .order("desc")
-          .take(limit);
+          .collect();
       } else {
-        console.log("Fetching all recent attempts");
-        // Get all recent attempts
         attempts = await ctx.db
           .query("loginAttempts")
           .withIndex("timestamp")
           .order("desc")
-          .take(limit);
+          .collect();
       }
     } else {
-      console.log("Regular user, fetching only their attempts");
-      // Regular users can only see their own attempts
+      // Regular users only see their own
       attempts = await ctx.db
         .query("loginAttempts")
         .withIndex("userId", (q) => q.eq("userId", currentUserId))
         .order("desc")
-        .take(limit);
+        .collect();
     }
 
-    console.log("Found", attempts.length, "login attempts");
+    // Apply filters
+    let filteredAttempts = attempts;
+
+    // Status filter
+    if (args.status && args.status !== "all") {
+      filteredAttempts = filteredAttempts.filter(a => a.status === args.status);
+    }
+
+    // Date range filter
+    if (args.startDate) {
+      filteredAttempts = filteredAttempts.filter(a => a.timestamp >= args.startDate!);
+    }
+    if (args.endDate) {
+      filteredAttempts = filteredAttempts.filter(a => a.timestamp <= args.endDate!);
+    }
+
+    // IP address filter
+    if (args.ipAddress) {
+      filteredAttempts = filteredAttempts.filter(a => 
+        a.ipAddress.toLowerCase().includes(args.ipAddress!.toLowerCase())
+      );
+    }
+
+    // Location filter
+    if (args.location) {
+      filteredAttempts = filteredAttempts.filter(a => {
+        if (!a.geoLocation) return false;
+        try {
+          const geo = JSON.parse(a.geoLocation);
+          const locationStr = `${geo.city || ''} ${geo.region || ''} ${geo.country || ''}`.toLowerCase();
+          return locationStr.includes(args.location!.toLowerCase());
+        } catch {
+          return false;
+        }
+      });
+    }
+
+    // Pinned filter
+    if (args.showPinnedOnly) {
+      filteredAttempts = filteredAttempts.filter(a => a.isPinned === true);
+    }
+
+    // Search term filter (searches email/username and user name)
+    if (args.searchTerm && args.searchTerm.trim() !== "") {
+      const searchLower = args.searchTerm.toLowerCase().trim();
+      const enrichedForSearch = await Promise.all(
+        filteredAttempts.map(async (attempt) => {
+          let userName = "";
+          if (attempt.userId) {
+            const user = await ctx.db.get(attempt.userId);
+            userName = user?.name || "";
+          }
+          return {
+            attempt,
+            searchableText: `${attempt.identifier} ${userName}`.toLowerCase(),
+          };
+        })
+      );
+      filteredAttempts = enrichedForSearch
+        .filter(item => item.searchableText.includes(searchLower))
+        .map(item => item.attempt);
+    }
+
+    // Calculate pagination
+    const totalCount = filteredAttempts.length;
+    const totalPages = Math.ceil(totalCount / pageSize);
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedAttempts = filteredAttempts.slice(startIndex, endIndex);
 
     // Enrich with user information
     const enrichedAttempts = await Promise.all(
-      attempts.map(async (attempt) => {
+      paginatedAttempts.map(async (attempt) => {
         let userName = "Unknown User";
         let userEmail = attempt.identifier;
 
@@ -226,15 +273,9 @@ export const getRecentLoginAttempts = query({
         let browserData = null;
 
         try {
-          if (attempt.geoLocation) {
-            geoData = JSON.parse(attempt.geoLocation);
-          }
-          if (attempt.deviceInfo) {
-            deviceData = JSON.parse(attempt.deviceInfo);
-          }
-          if (attempt.browserInfo) {
-            browserData = JSON.parse(attempt.browserInfo);
-          }
+          if (attempt.geoLocation) geoData = JSON.parse(attempt.geoLocation);
+          if (attempt.deviceInfo) deviceData = JSON.parse(attempt.deviceInfo);
+          if (attempt.browserInfo) browserData = JSON.parse(attempt.browserInfo);
         } catch (e) {
           // Ignore parse errors
         }
@@ -254,20 +295,146 @@ export const getRecentLoginAttempts = query({
             ? `${deviceData.type || "Unknown"} ${deviceData.os ? `(${deviceData.os})` : ""}`
             : "Unknown Device",
           browser: browserData
-            ? `${browserData.browser || "Unknown"} ${browserData.browserVersion || ""}`
+            ? `${browserData.browser || "Unknown"} ${browserData.version || ""}`
             : "Unknown",
           riskScore: attempt.riskScore,
           flaggedForReview: attempt.flaggedForReview,
           failureReason: attempt.failureReason,
+          isPinned: attempt.isPinned || false,
         };
       })
     );
 
-    console.log("Enriched attempts sample:", enrichedAttempts.length > 0 ? enrichedAttempts[0] : "No attempts");
-    console.log("=== GET RECENT LOGIN ATTEMPTS COMPLETE ===");
-    console.log("Returning", enrichedAttempts.length, "attempts");
+    return {
+      attempts: enrichedAttempts,
+      pagination: {
+        page,
+        pageSize,
+        totalCount,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  },
+});
 
-    return enrichedAttempts;
+/**
+ * Pin/Unpin login attempt (admin only)
+ */
+export const togglePinLoginAttempt = mutation({
+  args: {
+    attemptId: v.id("loginAttempts"),
+  },
+  handler: async (ctx, args) => {
+    const currentUserId = await getAuthUserId(ctx);
+    if (!currentUserId) {
+      throw new Error("Not authenticated");
+    }
+
+    const currentUser = await ctx.db.get(currentUserId);
+    if (!currentUser || (currentUser.role !== "super_admin" && currentUser.role !== "admin")) {
+      throw new Error("Not authorized - administrator access required");
+    }
+
+    const attempt = await ctx.db.get(args.attemptId);
+    if (!attempt) {
+      throw new Error("Login attempt not found");
+    }
+
+    await ctx.db.patch(args.attemptId, {
+      isPinned: !attempt.isPinned,
+    });
+
+    return { success: true, isPinned: !attempt.isPinned };
+  },
+});
+
+/**
+ * Block IP address (admin only)
+ */
+export const blockIPAddress = mutation({
+  args: {
+    ipAddress: v.string(),
+    reason: v.string(),
+    attemptId: v.optional(v.id("loginAttempts")),
+  },
+  handler: async (ctx, args) => {
+    const currentUserId = await getAuthUserId(ctx);
+    if (!currentUserId) {
+      throw new Error("Not authenticated");
+    }
+
+    const currentUser = await ctx.db.get(currentUserId);
+    if (!currentUser || (currentUser.role !== "super_admin" && currentUser.role !== "admin")) {
+      throw new Error("Not authorized - administrator access required");
+    }
+
+    // Check if IP is already blocked
+    const existing = await ctx.db
+      .query("blockedIPs")
+      .withIndex("ipAddress", (q) => q.eq("ipAddress", args.ipAddress))
+      .first();
+
+    if (existing) {
+      throw new Error("IP address is already blocked");
+    }
+
+    const now = Date.now();
+    await ctx.db.insert("blockedIPs", {
+      ipAddress: args.ipAddress,
+      reason: args.reason,
+      blockedBy: currentUserId,
+      blockedAt: now,
+      isActive: true,
+      attemptId: args.attemptId,
+    });
+
+    return { success: true };
+  },
+});
+
+/**
+ * Block email (admin only)
+ */
+export const blockEmail = mutation({
+  args: {
+    email: v.string(),
+    reason: v.string(),
+    attemptId: v.optional(v.id("loginAttempts")),
+  },
+  handler: async (ctx, args) => {
+    const currentUserId = await getAuthUserId(ctx);
+    if (!currentUserId) {
+      throw new Error("Not authenticated");
+    }
+
+    const currentUser = await ctx.db.get(currentUserId);
+    if (!currentUser || (currentUser.role !== "super_admin" && currentUser.role !== "admin")) {
+      throw new Error("Not authorized - administrator access required");
+    }
+
+    // Check if email is already blocked
+    const existing = await ctx.db
+      .query("blockedEmails")
+      .withIndex("email", (q) => q.eq("email", args.email))
+      .first();
+
+    if (existing) {
+      throw new Error("Email is already blocked");
+    }
+
+    const now = Date.now();
+    await ctx.db.insert("blockedEmails", {
+      email: args.email,
+      reason: args.reason,
+      blockedBy: currentUserId,
+      blockedAt: now,
+      isActive: true,
+      attemptId: args.attemptId,
+    });
+
+    return { success: true };
   },
 });
 

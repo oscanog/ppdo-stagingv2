@@ -532,6 +532,11 @@ export default defineSchema({
      * Review notes
      */
     reviewNotes: v.optional(v.string()),
+    
+    /**
+     * Whether this attempt is pinned by admin
+     */
+    isPinned: v.optional(v.boolean()),
   })
     .index("userId", ["userId"])
     .index("identifier", ["identifier"])
@@ -766,6 +771,128 @@ export default defineSchema({
     .index("assignedTo", ["assignedTo"])
     .index("userAndStatus", ["userId", "status"])
     .index("severityAndStatus", ["severity", "status"]),
+
+  /**
+   * Blocked IP Addresses.
+   * Track IP addresses that have been blocked from accessing the system.
+   */
+  blockedIPs: defineTable({
+    /**
+     * IP address that is blocked
+     */
+    ipAddress: v.string(),
+    
+    /**
+     * Reason for blocking
+     */
+    reason: v.string(),
+    
+    /**
+     * Admin who blocked this IP
+     */
+    blockedBy: v.id("users"),
+    
+    /**
+     * Timestamp when blocked
+     */
+    blockedAt: v.number(),
+    
+    /**
+     * Whether this block is currently active
+     */
+    isActive: v.boolean(),
+    
+    /**
+     * Related login attempt (if applicable)
+     */
+    attemptId: v.optional(v.id("loginAttempts")),
+    
+    /**
+     * Additional notes
+     */
+    notes: v.optional(v.string()),
+    
+    /**
+     * Optional expiration timestamp
+     */
+    expiresAt: v.optional(v.number()),
+    
+    /**
+     * Admin who unblocked (if unblocked)
+     */
+    unblockedBy: v.optional(v.id("users")),
+    
+    /**
+     * Timestamp when unblocked
+     */
+    unblockedAt: v.optional(v.number()),
+  })
+    .index("ipAddress", ["ipAddress"])
+    .index("isActive", ["isActive"])
+    .index("blockedBy", ["blockedBy"])
+    .index("blockedAt", ["blockedAt"])
+    .index("expiresAt", ["expiresAt"]),
+
+  /**
+   * Blocked Email Addresses.
+   * Track email addresses that have been blocked from accessing the system.
+   */
+  blockedEmails: defineTable({
+    /**
+     * Email address that is blocked
+     */
+    email: v.string(),
+    
+    /**
+     * Reason for blocking
+     */
+    reason: v.string(),
+    
+    /**
+     * Admin who blocked this email
+     */
+    blockedBy: v.id("users"),
+    
+    /**
+     * Timestamp when blocked
+     */
+    blockedAt: v.number(),
+    
+    /**
+     * Whether this block is currently active
+     */
+    isActive: v.boolean(),
+    
+    /**
+     * Related login attempt (if applicable)
+     */
+    attemptId: v.optional(v.id("loginAttempts")),
+    
+    /**
+     * Additional notes
+     */
+    notes: v.optional(v.string()),
+    
+    /**
+     * Optional expiration timestamp
+     */
+    expiresAt: v.optional(v.number()),
+    
+    /**
+     * Admin who unblocked (if unblocked)
+     */
+    unblockedBy: v.optional(v.id("users")),
+    
+    /**
+     * Timestamp when unblocked
+     */
+    unblockedAt: v.optional(v.number()),
+  })
+    .index("email", ["email"])
+    .index("isActive", ["isActive"])
+    .index("blockedBy", ["blockedBy"])
+    .index("blockedAt", ["blockedAt"])
+    .index("expiresAt", ["expiresAt"]),
 
   /**
    * Audit log for user management and permission changes.
