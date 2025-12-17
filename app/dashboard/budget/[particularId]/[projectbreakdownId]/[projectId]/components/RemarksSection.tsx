@@ -3,8 +3,8 @@
 "use client";
 
 import { useState } from "react";
-import { Remark } from "../../../types";
 import { getRemarksByProject, addRemark } from "../data";
+import { Remark } from "@/app/dashboard/budget/types";
 
 interface RemarksSectionProps {
   projectId: string;

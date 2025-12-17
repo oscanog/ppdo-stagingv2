@@ -1,6 +1,7 @@
 // app/dashboard/budget/[particularId]/[projectId]/utils.ts
 
-import { FinancialBreakdownItem } from "../../types";
+import { FinancialBreakdownItem } from "./components/types";
+
 
 // Helper function to recursively find and update an item in hierarchical structure
 export function updateItemInHierarchy(

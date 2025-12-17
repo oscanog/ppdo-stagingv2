@@ -3,8 +3,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FinancialBreakdownItem } from "../../../types";
-import { useAccentColor } from "../../../../contexts/AccentColorContext";
+import { FinancialBreakdownItem } from "./types";
+import { useAccentColor } from "@/app/dashboard/contexts/AccentColorContext";
 
 interface FinancialBreakdownItemFormProps {
   item?: FinancialBreakdownItem | null;

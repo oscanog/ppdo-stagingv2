@@ -1,11 +1,9 @@
 // app/dashboard/budget/[particularId]/[projectId]/data.ts
 
-import {
-  FinancialBreakdownItem,
-  Project,
-  Remark,
-} from "../../types";
-import { getProjectsByParticular } from "../data";
+
+import { Project, Remark } from "../../../types";
+import { getProjectsByParticular } from "../../data";
+import { FinancialBreakdownItem } from "./components/types";
 
 // Mock remarks data - in production, this would come from an API
 export function getRemarksByProject(projectId: string): Remark[] {

@@ -3,12 +3,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { FinancialBreakdownItem } from "../../../types";
-import { useAccentColor } from "../../../../contexts/AccentColorContext";
 import { flattenFinancialBreakdown } from "../data";
-import { Modal } from "../../../components/Modal";
-import { ConfirmationModal } from "../../../components/ConfirmationModal";
 import { FinancialBreakdownItemForm } from "./FinancialBreakdownItemForm";
+import { FinancialBreakdownItem } from "./types";
+import { useAccentColor } from "@/app/dashboard/contexts/AccentColorContext";
+import { Modal } from "@/app/dashboard/budget/components/Modal";
+import { ConfirmationModal } from "@/app/dashboard/budget/components/ConfirmationModal";
 
 interface FinancialBreakdownTableProps {
   items: FinancialBreakdownItem[];

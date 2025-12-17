@@ -21,7 +21,8 @@ import {
   Edit,
   Trash2,
   Filter,
-  X
+  X,
+  FileText
 } from "lucide-react";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
@@ -107,6 +108,20 @@ export function ProjectsTable({
     });
     return Array.from(statuses).sort();
   }, [projects]);
+
+  /**
+ * Creates a URL-friendly slug from text
+ * @param text - The text to convert to a slug
+ * @returns A lowercase slug with hyphens
+ */
+const createSlug = (text: string): string => {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-') // Replace non-alphanumeric with hyphens
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+};
+
 
   const uniqueOffices = useMemo(() => {
     const offices = new Set<string>();
@@ -237,14 +252,29 @@ export function ProjectsTable({
     return "text-zinc-600 dark:text-zinc-400";
   };
 
-  const handleRowClick = (project: Project, e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("button")) {
-      return;
-    }
-    router.push(
-      `/dashboard/budget/${encodeURIComponent(particularId)}/${encodeURIComponent(project.id)}`
-    );
-  };
+  /**
+ * Creates a combined slug with department name and project ID
+ * @param departmentName - The department/implementing office name
+ * @param projectId - The Convex project ID
+ * @returns A slug like "provincial-planning-development-office-kd7cr00b8yacfx9cv36dn64f317xesg5"
+ */
+const createProjectSlug = (departmentName: string, projectId: string): string => {
+  const departmentSlug = createSlug(departmentName);
+  return `${departmentSlug}-${projectId}`;
+};
+
+// Then update these two functions in your ProjectsTable component:
+
+const handleRowClick = (project: Project, e: React.MouseEvent) => {
+  if ((e.target as HTMLElement).closest("button")) {
+    return;
+  }
+  // Navigate to the project breakdown page with slug
+  const projectSlug = createProjectSlug(project.implementingOffice, project.id);
+  router.push(
+    `/dashboard/budget/${encodeURIComponent(particularId)}/${projectSlug}`
+  );
+};
 
   const handleContextMenu = (e: React.MouseEvent, project: Project) => {
     e.preventDefault();
@@ -264,6 +294,14 @@ export function ProjectsTable({
   const handleDelete = (project: Project) => {
     setSelectedProject(project);
     setShowDeleteModal(true);
+    setContextMenu(null);
+  };
+
+  const handleViewBreakdown = (project: Project) => {
+    const projectSlug = createProjectSlug(project.implementingOffice, project.id);
+    router.push(
+      `/dashboard/budget/${encodeURIComponent(particularId)}/${projectSlug}`
+    );
     setContextMenu(null);
   };
 
