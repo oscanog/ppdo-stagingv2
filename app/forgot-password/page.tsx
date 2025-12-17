@@ -1,12 +1,11 @@
-// app/signin/page.tsx
+// app/forgot-password/page.tsx
 
 "use client";
-import { useAuthActions } from "@convex-dev/auth/react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { toast } from "sonner";
 
 interface LocationData {
   city: string;
@@ -18,18 +17,19 @@ interface LocationData {
   };
 }
 
-export default function SignIn() {
-  const { signIn } = useAuthActions();
-  const [error, setError] = useState<string | null>(null);
+export default function ForgotPassword() {
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [clientIP, setClientIP] = useState<string>("Unknown");
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [locationLoading, setLocationLoading] = useState(true);
-  const router = useRouter();
   
-  // Mutations for login trail tracking
-  const recordSuccessfulLogin = useMutation(api.auth.recordSuccessfulLogin);
-  const recordFailedLogin = useMutation(api.auth.recordFailedLogin);
+  const submitResetRequest = useMutation(api.passwordReset.submitPasswordResetRequest);
+  const resetStatus = useQuery(
+    api.passwordReset.checkResetRequestStatus,
+    email ? { email } : "skip"
+  );
 
   // Fetch location data on mount
   useEffect(() => {
@@ -48,7 +48,6 @@ export default function SignIn() {
           setClientIP(ipAddress);
         }
       } catch (error) {
-        // Try fallback
         try {
           const ipResponse = await fetch('https://api.my-ip.io/ip', {
             signal: AbortSignal.timeout(3000),
@@ -67,12 +66,10 @@ export default function SignIn() {
       if ('geolocation' in navigator) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            // Got coordinates, now reverse geocode
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             
             try {
-              // Use a reverse geocoding service
               const geocodeResponse = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
                 {
@@ -100,29 +97,25 @@ export default function SignIn() {
               console.log('Reverse geocoding failed, falling back to IP location');
             }
             
-            // If reverse geocoding fails, fall back to IP-based location
             await fetchIPBasedLocation(ipAddress);
           },
           async (error) => {
-            // Geolocation denied or failed, use IP-based location
             console.log('Geolocation denied or failed, using IP-based location');
             await fetchIPBasedLocation(ipAddress);
           },
           {
             enableHighAccuracy: false,
             timeout: 5000,
-            maximumAge: 300000, // Cache for 5 minutes
+            maximumAge: 300000,
           }
         );
       } else {
-        // Browser doesn't support geolocation
         await fetchIPBasedLocation(ipAddress);
       }
     }
 
     async function fetchIPBasedLocation(ipAddress: string) {
       try {
-        // Use IP-based geolocation service
         const response = await fetch(`https://ipapi.co/${ipAddress}/json/`, {
           signal: AbortSignal.timeout(5000),
         });
@@ -139,7 +132,6 @@ export default function SignIn() {
             } : undefined
           });
         } else {
-          // Final fallback
           setLocationData({
             city: 'Unknown',
             region: 'Unknown',
@@ -147,7 +139,6 @@ export default function SignIn() {
           });
         }
       } catch (error) {
-        // Final fallback
         setLocationData({
           city: 'Unknown',
           region: 'Unknown',
@@ -161,12 +152,66 @@ export default function SignIn() {
     fetchLocationData();
   }, []);
 
-  // Helper function to get user agent
   const getUserAgent = () => {
     if (typeof window !== "undefined") {
       return window.navigator.userAgent;
     }
     return undefined;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email) {
+      toast.error("Please enter your email address");
+      return;
+    }
+
+    if (!resetStatus) {
+      toast.error("Loading status... Please try again in a moment.");
+      return;
+    }
+
+    if (!resetStatus.canSubmit) {
+      if (resetStatus.attemptsRemaining === 0) {
+        toast.error("You have reached the maximum number of password reset requests for today. Please try again tomorrow.");
+      } else if (resetStatus.remainingSeconds && resetStatus.remainingSeconds > 0) {
+        toast.error(`Please wait ${resetStatus.remainingSeconds} seconds before submitting another request.`);
+      }
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const userAgent = getUserAgent();
+      let locationString = "Unknown";
+      if (locationData) {
+        locationString = `${locationData.city}, ${locationData.region}, ${locationData.country}`;
+      }
+
+      const result = await submitResetRequest({
+        email: email.trim(),
+        message: message.trim() || undefined,
+        ipAddress: clientIP,
+        userAgent: userAgent,
+        geoLocation: locationData ? JSON.stringify({
+          city: locationData.city,
+          region: locationData.region,
+          country: locationData.country,
+          coordinates: locationData.coordinates
+        }) : undefined,
+      });
+
+      toast.success(result.message || "Password reset request submitted successfully!");
+      setEmail("");
+      setMessage("");
+    } catch (error: any) {
+      console.error("Password reset request error:", error);
+      toast.error(error.message || "Failed to submit password reset request. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -179,7 +224,7 @@ export default function SignIn() {
         backgroundRepeat: "no-repeat",
       }}
     >
-      {/* Dark overlay for better readability */}
+      {/* Dark overlay */}
       <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-black/60 to-black/50"></div>
 
       {/* Container */}
@@ -191,8 +236,9 @@ export default function SignIn() {
             <img src="/logo.png" alt="Logo" className="h-12 object-contain" />
             <img src="/y.png" alt="Y Logo" className="h-12 object-contain" />
           </div>
+          
           <div className="shrink-0 mb-1 w-full flex justify-center relative">
-            {/* Floating elements around the image */}
+            {/* Floating elements */}
             <div className="absolute inset-0 pointer-events-none">
               {/* Top Left - Document Icon */}
               <div className="absolute top-8 left-8 w-8 h-8 opacity-20 dark:opacity-10 animate-float-slow">
@@ -280,6 +326,7 @@ export default function SignIn() {
               />
             </div>
           </div>
+          
           <div className="flex-1 flex items-center justify-center px-6">
             <div className="text-center">
               <blockquote className="text-xl md:text-2xl font-medium text-zinc-700 dark:text-zinc-300 mb-4 italic">
@@ -292,7 +339,7 @@ export default function SignIn() {
           </div>
         </div>
 
-        {/* Right Column - Login Form */}
+        {/* Right Column - Form */}
         <div className="w-full md:w-1/2 flex items-center justify-center p-6 sm:p-8 md:p-12 lg:p-16 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-sm relative">
           {/* Theme Toggle - Top Right */}
           <div className="absolute top-4 right-4 md:top-6 md:right-6">
@@ -314,111 +361,54 @@ export default function SignIn() {
           </div>
 
           <div className="w-full max-w-md">
-            {/* Logo/Title */}
+            {/* Title */}
             <div className="text-center md:text-left mb-8 md:mb-12">
               <h1 className="text-3xl sm:text-4xl font-bold text-zinc-900 dark:text-zinc-100 mb-2">
-                Sign In
+                Forgot Password
               </h1>
               <p className="text-zinc-600 dark:text-zinc-400">
-                Enter your credentials to continue
+                Enter your email to request a password reset
               </p>
             </div>
 
-            {/* Error Message */}
-            {error && (
-              <div
-                role="alert"
-                className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
-              >
-                Error: {error}
+            {/* Status Info */}
+            {resetStatus && (
+              <div className="mb-6 p-4 rounded-xl bg-blue-50 border border-blue-200 dark:bg-blue-900/20 dark:border-blue-800">
+                <div className="flex items-start gap-3">
+                  <svg 
+                    className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
+                    />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      <span className="font-semibold">Attempts remaining today:</span> {resetStatus.attemptsRemaining} of 3
+                    </p>
+                    {resetStatus.remainingSeconds > 0 && (
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                        Next request available in: <span className="font-semibold">{resetStatus.remainingSeconds}s</span>
+                      </p>
+                    )}
+                    {resetStatus.attemptsRemaining === 0 && (
+                      <p className="text-sm text-red-700 dark:text-red-300 mt-1 font-semibold">
+                        Maximum requests reached. Try again tomorrow.
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
-            {/* Login Form */}
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                setLoading(true);
-                setError(null);
-                const formData = new FormData(e.target as HTMLFormElement);
-                const email = formData.get("email") as string;
-                const ipAddress = clientIP;
-                const userAgent = getUserAgent();
-                
-                // Prepare location string
-                let locationString = "Unknown";
-                if (locationData) {
-                  locationString = `${locationData.city}, ${locationData.region}, ${locationData.country}`;
-                }
-                
-                try {
-                  // Sign in with Convex Auth
-                  formData.set("flow", "signIn");
-                  
-                  await signIn("password", formData);
-                  
-                  // Record successful login attempt IMMEDIATELY before redirecting
-                  try {
-                    await recordSuccessfulLogin({
-                      email: email,
-                      ipAddress: ipAddress,
-                      userAgent: userAgent,
-                      location: locationString,
-                      geoLocation: locationData ? JSON.stringify({
-                        city: locationData.city,
-                        region: locationData.region,
-                        country: locationData.country,
-                        coordinates: locationData.coordinates
-                      }) : undefined
-                    });
-                  } catch (trackingError) {
-                    // Continue to dashboard anyway, don't block user entry for logging failure
-                  }
-                  
-                  // Redirect to dashboard
-                  router.push("/dashboard");
-                } catch (error: any) {
-                  // Capture the error message or default to a generic auth failure message
-                  let failureReasonForLog = error.message || "Authentication Failed (Invalid email or password)";
-
-                  // Record failed login attempt
-                  try {
-                    await recordFailedLogin({
-                      email,
-                      ipAddress,
-                      userAgent,
-                      failureReason: failureReasonForLog,
-                      location: locationString,
-                      geoLocation: locationData ? JSON.stringify({
-                        city: locationData.city,
-                        region: locationData.region,
-                        country: locationData.country,
-                        coordinates: locationData.coordinates
-                      }) : undefined
-                    });
-                  } catch (trackingError) {
-                    // Don't block error display if tracking fails
-                  }
-                  
-                  // Determine error message for the user
-                  let errorMessage = "Failed to sign in. Please check your credentials.";
-                  // Check for specific error types
-                  if (error.message?.includes("locked")) {
-                    errorMessage = "Your account has been locked due to multiple failed login attempts. Please contact support.";
-                  } else if (error.message?.includes("suspended")) {
-                    errorMessage = "Your account has been suspended. Please contact support.";
-                  } else if (error.message?.includes("inactive")) {
-                    errorMessage = "Your account is inactive. Please contact support.";
-                  } else if (error.message) {
-                    errorMessage = error.message;
-                  }
-                  
-                  setError(errorMessage);
-                  setLoading(false);
-                }
-              }}
-              className="space-y-6"
-            >
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email Field */}
               <div>
                 <label
@@ -430,54 +420,58 @@ export default function SignIn() {
                 <input
                   id="email"
                   type="email"
-                  name="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  disabled={loading}
+                  disabled={loading || locationLoading}
                   className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#15803d] focus:border-[#15803d] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="you@example.com"
                 />
               </div>
 
-              {/* Password Field */}
+              {/* Message Field */}
               <div>
                 <label
-                  htmlFor="password"
+                  htmlFor="message"
                   className="block text-sm font-medium text-zinc-900 dark:text-zinc-100 mb-2"
                 >
-                  Password
+                  Message (Optional)
                 </label>
-                <input
-                  id="password"
-                  type="password"
-                  name="password"
-                  required
-                  autoComplete="current-password"
-                  disabled={loading}
-                  minLength={8}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#15803d] focus:border-[#15803d] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  placeholder="••••••••"
+                <textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={4}
+                  disabled={loading || locationLoading}
+                  className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#15803d] focus:border-[#15803d] transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+                  placeholder="Tell us why you need to reset your password (optional)"
                 />
-              </div>
-
-              {/* Forgot Password Link */}
-              <div className="flex justify-end">
-                <Link
-                  href="/forgot-password"
-                  className="cursor-pointer text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
-                >
-                  Forgot password?
-                </Link>
+                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  This message will help administrators understand your request.
+                </p>
               </div>
 
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading || locationLoading}
+                disabled={
+                  loading || 
+                  locationLoading || 
+                  !resetStatus ||
+                  !resetStatus.canSubmit ||
+                  !email
+                }
                 className="w-full py-3 rounded-xl bg-[#15803d] hover:bg-[#16a34a] text-white font-medium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
               >
                 <span className="relative z-10">
-                  {loading ? "Authenticating..." : locationLoading ? "Detecting location..." : "Sign In"}
+                  {loading 
+                    ? "Submitting..." 
+                    : locationLoading 
+                    ? "Detecting location..." 
+                    : resetStatus && resetStatus.remainingSeconds > 0
+                    ? `Wait ${resetStatus.remainingSeconds}s`
+                    : "Request Password Reset"}
                 </span>
               </button>
             </form>
@@ -485,10 +479,10 @@ export default function SignIn() {
             {/* Divider */}
             <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-700">
               <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
-                Don't have an account?{" "}
-                <Link href="/signup">
-                  <span className="text-zinc-400 dark:text-zinc-500">
-                    temporary signup here
+                Remember your password?{" "}
+                <Link href="/signin">
+                  <span className="text-[#15803d] hover:text-[#16a34a] font-medium transition-colors">
+                    Sign In
                   </span>
                 </Link>
               </p>

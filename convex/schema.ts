@@ -14,6 +14,7 @@ import { securityTables } from "./schema/security";
 import { miscTables } from "./schema/misc";
 import { accessRequestTables } from "./schema/accessRequests";
 import { budgetSharedAccessTables } from "./schema/budgetSharedAccess";
+import { passwordResetTables } from "./schema/passwordReset";
 
 export default defineSchema({
   ...authTables,
@@ -28,5 +29,6 @@ export default defineSchema({
   ...securityTables,
   ...accessRequestTables,
   ...budgetSharedAccessTables,
+  ...passwordResetTables,
   ...miscTables,
 });
