@@ -57,7 +57,7 @@ export default function BudgetShareModal({
 }: BudgetShareModalProps) {
   const accessRequests = useQuery(api.accessRequests.list);
   const updateRequestStatus = useMutation(api.accessRequests.updateStatus);
-  const allUsers = useQuery(api.auth.listAllUsers, { limit: 100 });
+  const allUsers = useQuery(api.userManagement.listAllUsers, { limit: 100 });
   const usersWithAccess = useQuery(api.budgetSharedAccess.listUsersWithAccess);
   const grantAccess = useMutation(api.budgetSharedAccess.grantAccess);
   const revokeAccess = useMutation(api.budgetSharedAccess.revokeAccess);

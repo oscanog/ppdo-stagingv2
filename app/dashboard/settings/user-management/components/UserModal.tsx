@@ -21,9 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Id } from "../../../../../convex/_generated/dataModel";
-import { User, UserFormData } from "../../../../../types/user.types"; // <--- ADDED IMPORT
-
-// interface User { ... } <--- REMOVED
+import { User, UserFormData } from "../../../../../types/user.types";
 
 interface Department {
   _id: string;
@@ -34,8 +32,8 @@ interface Department {
 interface UserModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Partial<UserFormData>) => Promise<boolean>; // <--- CHANGED
-  user?: User | null; // <--- USES IMPORTED TYPE
+  onSubmit: (data: Partial<UserFormData>) => Promise<boolean>;
+  user?: User | null;
   departments?: Department[];
   isSubmitting?: boolean;
   currentUserRole?: "super_admin" | "admin" | "user";
@@ -50,8 +48,11 @@ export function UserModal({
   isSubmitting = false,
   currentUserRole,
 }: UserModalProps) {
-  const [formData, setFormData] = useState<Partial<UserFormData>>({ // <--- CHANGED
-    name: "",
+  const [formData, setFormData] = useState<Partial<UserFormData>>({
+    firstName: "",
+    lastName: "",
+    middleName: "",
+    nameExtension: "",
     email: "",
     role: "user",
     departmentId: undefined,
@@ -66,19 +67,24 @@ export function UserModal({
   useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name || "",
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        middleName: user.middleName || "",
+        nameExtension: user.nameExtension || "",
         email: user.email || "",
         role: user.role || "user",
         departmentId: user.departmentId,
         position: user.position || "",
         employeeId: user.employeeId || "",
         status: user.status || "active",
-        suspensionReason: user.suspensionReason || 
-"",
+        suspensionReason: user.suspensionReason || "",
       });
     } else {
       setFormData({
-        name: "",
+        firstName: "",
+        lastName: "",
+        middleName: "",
+        nameExtension: "",
         email: "",
         role: "user",
         departmentId: undefined,
@@ -87,8 +93,7 @@ export function UserModal({
         status: "active",
         suspensionReason: "",
       });
-    
-}
+    }
   }, [user, open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,12 +103,13 @@ export function UserModal({
       onClose();
     }
   };
+
   const updateField = <K extends keyof typeof formData>(
     key: K,
     value: (typeof formData)[K]
   ) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
-};
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -120,22 +126,61 @@ export function UserModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={(e) => updateField("name", e.target.value)}
-              placeholder="Juan Dela Cruz"
-              required
-              disabled={isSubmitting}
-            />
+          {/* First Name and Last Name */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="firstName">First Name *</Label>
+              <Input
+                id="firstName"
+                value={formData.firstName}
+                onChange={(e) => updateField("firstName", e.target.value)}
+                placeholder="Juan"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lastName">Last Name *</Label>
+              <Input
+                id="lastName"
+                value={formData.lastName}
+                onChange={(e) => updateField("lastName", e.target.value)}
+                placeholder="Dela Cruz"
+                required
+                disabled={isSubmitting}
+              />
+            </div>
+          </div>
+
+          {/* Middle Name and Name Extension */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="middleName">Middle Name</Label>
+              <Input
+                id="middleName"
+                value={formData.middleName}
+                onChange={(e) => updateField("middleName", e.target.value)}
+                placeholder="Santos"
+                disabled={isSubmitting}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="nameExtension">Extension</Label>
+              <Input
+                id="nameExtension"
+                value={formData.nameExtension}
+                onChange={(e) => updateField("nameExtension", e.target.value)}
+                placeholder="Jr., Sr., III"
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
 
           {/* Email */}
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">Email *</Label>
             <Input
               id="email"
               type="email"

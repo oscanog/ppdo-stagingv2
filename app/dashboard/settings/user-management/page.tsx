@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { UserFormData, useUserManagement } from "./hooks/useUserManagement";
+import { useUserManagement } from "./hooks/useUserManagement";
 import { useUserFilters } from "./hooks/useUserFilters";
 import { useDepartmentManagement } from "./hooks/useDepartmentManagement";
 import { UserModal } from "./components/UserModal";
@@ -22,7 +22,7 @@ import { UserFilters } from "./components/UserFilters";
 import { UserRoleBadge } from "./components/UserRoleBadge";
 import { UserActions } from "./components/UserActions";
 import { UserStatusBadge } from "./components/UserStatusBadge";
-import { User } from "@/types/user.types";
+import { User, UserFormData } from "@/types/user.types";
 
 export default function UserManagementPage() {
   const router = useRouter();

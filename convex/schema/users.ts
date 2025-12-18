@@ -2,14 +2,52 @@
 
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+
 export const userTables = {
   /**
    * Users.
-* Enhanced with RBAC, department relationship, and account status tracking.
-*/
+   * Enhanced with RBAC, department relationship, and account status tracking.
+   */
   users: defineTable({
-    // Basic user information
+    // ============================================================================
+    // NAME FIELDS (Best Practice: Separated Components)
+    // ============================================================================
+    
+    /**
+     * First Name (Given Name)
+     * REQUIRED for proper user identification
+     */
+    firstName: v.optional(v.string()),
+    
+    /**
+     * Middle Name (Optional)
+     * Some users may not have a middle name
+     */
+    middleName: v.optional(v.string()),
+    
+    /**
+     * Last Name (Family Name/Surname)
+     * REQUIRED for proper user identification
+     */
+    lastName: v.optional(v.string()),
+    
+    /**
+     * Name Extension (Optional)
+     * Examples: Jr., Sr., III, IV, etc.
+     */
+    nameExtension: v.optional(v.string()),
+    
+    /**
+     * DEPRECATED: Full name field (kept for backward compatibility)
+     * This will be auto-generated from firstName, middleName, lastName, nameExtension
+     * Will be removed in a future version
+     * @deprecated Use firstName, middleName, lastName, nameExtension instead
+     */
     name: v.optional(v.string()),
+    
+    // ============================================================================
+    // BASIC USER INFORMATION
+    // ============================================================================
     
     /**
      * Username for login or display (optional, separate from full name)
@@ -18,7 +56,10 @@ export const userTables = {
     user_name: v.optional(v.string()),
     
     image: v.optional(v.string()),
-    // Store the storage ID for the avatar to easily retrieve/update later
+    
+    /**
+     * Store the storage ID for the avatar to easily retrieve/update later
+     */
     imageStorageId: v.optional(v.string()),
 
     email: v.optional(v.string()),
@@ -27,8 +68,11 @@ export const userTables = {
     phoneVerificationTime: v.optional(v.number()),
     isAnonymous: v.optional(v.boolean()),
     
- 
-   /**
+    // ============================================================================
+    // ROLE-BASED ACCESS CONTROL (RBAC)
+    // ============================================================================
+    
+    /**
      * User role for RBAC.
      * - super_admin: Full system access, manage all users, departments, and system settings
      * - admin: Department-level admin, can manage users and resources within their department
@@ -39,10 +83,13 @@ export const userTables = {
       v.union(
         v.literal("super_admin"),
         v.literal("admin"),
- 
-       v.literal("user")
+        v.literal("user")
       )
     ),
+    
+    // ============================================================================
+    // ORGANIZATIONAL INFORMATION
+    // ============================================================================
     
     /**
      * Department this user belongs to
@@ -57,12 +104,15 @@ export const userTables = {
     /**
      * Employee ID or staff number
      */
-    employeeId: 
-v.optional(v.string()),
+    employeeId: v.optional(v.string()),
+    
+    // ============================================================================
+    // ACCOUNT STATUS
+    // ============================================================================
     
     /**
      * Account status.
-* - active: Normal account, can sign in and use the system
+     * - active: Normal account, can sign in and use the system
      * - inactive: Account disabled, cannot sign in (e.g., user requested deactivation)
      * - suspended: Account suspended by admin, cannot sign in (e.g., policy violation)
      * @default "active"
@@ -73,9 +123,27 @@ v.optional(v.string()),
         v.literal("inactive"),
         v.literal("suspended")
       )
-   
- ),
+    ),
 
+    /**
+     * Reason for suspension (only relevant when status is "suspended")
+     */
+    suspensionReason: v.optional(v.string()),
+    
+    /**
+     * ID of the administrator who suspended the account
+     */
+    suspendedBy: v.optional(v.id("users")),
+    
+    /**
+     * Timestamp when the suspension was applied
+     */
+    suspendedAt: v.optional(v.number()),
+    
+    // ============================================================================
+    // ONBOARDING & ACTIVITY TRACKING
+    // ============================================================================
+    
     /**
      * Track completed onboarding steps/flows.
      * Example: ["initial_profile", "feature_walkthrough_v1"]
@@ -97,40 +165,30 @@ v.optional(v.string()),
      */
     updatedAt: v.optional(v.number()),
     
-    /**
-    
- * Reason for suspension (only relevant when status is "suspended")
-     */
-    suspensionReason: v.optional(v.string()),
-    
-    /**
-     * ID of the administrator who suspended the account
-     */
-    suspendedBy: v.optional(v.id("users")),
-    
-    /**
-     * Timestamp when the suspension was applied
-     */
-    suspendedAt: v.optional(v.number()),
+    // ============================================================================
+    // USER PREFERENCES
+    // ============================================================================
     
     /**
      * User preferences (stored as JSON string)
- 
-    * Can include theme, language, notification settings, etc.
+     * Can include theme, language, notification settings, etc.
      */
     preferences: v.optional(v.string()),
     
     /**
      * Security preferences (JSON string)
      * { 
-     * twoFactorEnabled, 
-     * loginNotifications, 
-     * trustedDevicesOnly,
-     * requireLocationVerification 
+     *   twoFactorEnabled, 
+     *   loginNotifications, 
+     *   trustedDevicesOnly,
+     *   requireLocationVerification 
      * }
      */
     securityPreferences: v.optional(v.string()),
     
+    // ============================================================================
+    // SECURITY & ACCOUNT LOCKING
+    // ============================================================================
 
     /**
      * Account locked due to security reasons
@@ -149,8 +207,7 @@ v.optional(v.string()),
     
     /**
      * Failed login attempt count (reset on success)
-     
-*/
+     */
     failedLoginAttempts: v.optional(v.number()),
     
     /**
@@ -169,5 +226,9 @@ v.optional(v.string()),
     .index("departmentAndRole", ["departmentId", "role"])
     .index("lastLogin", ["lastLogin"])
     .index("createdAt", ["createdAt"])
-    .index("isLocked", ["isLocked"]),
+    .index("isLocked", ["isLocked"])
+    // New indexes for name fields
+    .index("firstName", ["firstName"])
+    .index("lastName", ["lastName"])
+    .index("fullName", ["lastName", "firstName"]), // For alphabetical sorting by last name
 };

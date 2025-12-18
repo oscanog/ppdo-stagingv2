@@ -23,6 +23,7 @@ import type * as inspections from "../inspections.js";
 import type * as lib_aggregationUtils from "../lib/aggregationUtils.js";
 import type * as lib_checkBudgetAccess from "../lib/checkBudgetAccess.js";
 import type * as lib_govtProjectActivityLogger from "../lib/govtProjectActivityLogger.js";
+import type * as lib_nameUtils from "../lib/nameUtils.js";
 import type * as lib_rbac from "../lib/rbac.js";
 import type * as loginTrail from "../loginTrail.js";
 import type * as media from "../media.js";
@@ -52,6 +53,7 @@ import type * as schema_security from "../schema/security.js";
 import type * as schema_tableSettings from "../schema/tableSettings.js";
 import type * as schema_users from "../schema/users.js";
 import type * as tableSettings from "../tableSettings.js";
+import type * as userManagement from "../userManagement.js";
 import type * as users from "../users.js";
 
 import type {
@@ -76,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   "lib/aggregationUtils": typeof lib_aggregationUtils;
   "lib/checkBudgetAccess": typeof lib_checkBudgetAccess;
   "lib/govtProjectActivityLogger": typeof lib_govtProjectActivityLogger;
+  "lib/nameUtils": typeof lib_nameUtils;
   "lib/rbac": typeof lib_rbac;
   loginTrail: typeof loginTrail;
   media: typeof media;
@@ -105,6 +108,7 @@ declare const fullApi: ApiFromModules<{
   "schema/tableSettings": typeof schema_tableSettings;
   "schema/users": typeof schema_users;
   tableSettings: typeof tableSettings;
+  userManagement: typeof userManagement;
   users: typeof users;
 }>;
 

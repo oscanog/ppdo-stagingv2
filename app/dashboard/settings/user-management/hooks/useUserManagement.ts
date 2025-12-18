@@ -5,32 +5,22 @@ import { api } from "../../../../../convex/_generated/api";
 import { Id } from "../../../../../convex/_generated/dataModel";
 import { toast } from "sonner";
 import { useState } from "react";
-
-export interface UserFormData {
-  name: string;
-  email: string;
-  role: "super_admin" | "admin" | "user";
-  departmentId?: Id<"departments">;
-  position?: string;
-  employeeId?: string;
-  status: "active" | "inactive" | "suspended";
-  suspensionReason?: string;
-}
+import { UserFormData } from "../../../../../types/user.types";
 
 export function useUserManagement() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Queries
-  const users = useQuery(api.auth.listAllUsers, {});
+  const users = useQuery(api.userManagement.listAllUsers, {});
   const departments = useQuery(api.departments.list, {});
 
   // Mutations
-  const createUserMutation = useMutation(api.auth.createUser);
-  const updateUserRole = useMutation(api.auth.updateUserRole);
-  const updateUserStatus = useMutation(api.auth.updateUserStatus);
-  const updateUserDepartment = useMutation(api.auth.updateUserDepartment);
-  const updateUserProfile = useMutation(api.auth.updateUserProfile);
-  const deleteUserMutation = useMutation(api.auth.deleteUser);
+  const createUserMutation = useMutation(api.userManagement.createUser);
+  const updateUserRole = useMutation(api.userManagement.updateUserRole);
+  const updateUserStatus = useMutation(api.userManagement.updateUserStatus);
+  const updateUserDepartment = useMutation(api.userManagement.updateUserDepartment);
+  const updateUserProfile = useMutation(api.userManagement.updateUserProfile);
+  const deleteUserMutation = useMutation(api.userManagement.deleteUser);
 
   // Create user
   const handleCreateUser = async (data: UserFormData) => {
@@ -38,7 +28,10 @@ export function useUserManagement() {
       setIsSubmitting(true);
       
       await createUserMutation({
-        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        middleName: data.middleName,
+        nameExtension: data.nameExtension,
         email: data.email,
         role: data.role,
         departmentId: data.departmentId,
@@ -126,11 +119,14 @@ export function useUserManagement() {
     try {
       setIsSubmitting(true);
       
-      // Update profile fields (name, position, employeeId)
-      if (data.name || data.position || data.employeeId) {
+      // Update profile fields (name components, position, employeeId)
+      if (data.firstName || data.lastName || data.middleName !== undefined || data.nameExtension !== undefined || data.position || data.employeeId) {
         await updateUserProfile({
           userId,
-          name: data.name,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          middleName: data.middleName,
+          nameExtension: data.nameExtension,
           position: data.position,
           employeeId: data.employeeId,
         });

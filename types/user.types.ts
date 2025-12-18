@@ -4,6 +4,12 @@ import { Id } from "@/convex/_generated/dataModel";
 
 export interface User {
   _id: string;
+  // NEW: Individual name components
+  firstName?: string;
+  lastName?: string;
+  middleName?: string;
+  nameExtension?: string;
+  // DEPRECATED: Full name (auto-generated)
   name?: string;
   email?: string;
   role?: "super_admin" | "admin" | "user";
@@ -20,15 +26,20 @@ export interface User {
 }
 
 export interface UserFormData {
-  name: string;
+  // NEW: Individual name components (REQUIRED for create, optional for update)
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  nameExtension?: string;
+  
   email: string;
   role: "super_admin" | "admin" | "user";
   departmentId?: Id<"departments">;
-  departmentName?: string; // <--- ADDED
+  departmentName?: string;
   position?: string;
   employeeId?: string;
-  status?: "active" | "inactive" | "suspended"; // <--- ADDED
-  suspensionReason?: string; // <--- ADDED
+  status?: "active" | "inactive" | "suspended";
+  suspensionReason?: string;
 }
 
 export interface UserFilters {
