@@ -17,23 +17,23 @@ export const list = query({
       throw new Error("Not authenticated");
     }
 
+    let projects;
+
+    // ✅ Handle the two cases separately to maintain proper types
     if (args.budgetItemId) {
-      // Get projects for specific budget item
-      const projects = await ctx.db
+      projects = await ctx.db
         .query("projects")
-        .withIndex("budgetItemId", (q) => q.eq("budgetItemId", args.budgetItemId))
+        .withIndex("budgetItemId", (q) =>
+          q.eq("budgetItemId", args.budgetItemId)
+        )
         .order("desc")
         .collect();
-
-      return projects;
+    } else {
+      projects = await ctx.db
+        .query("projects")
+        .order("desc")
+        .collect();
     }
-
-    // Get all projects for user
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("createdBy", (q) => q.eq("createdBy", userId))
-      .order("desc")
-      .collect();
 
     return projects;
   },

@@ -18,9 +18,9 @@ export const list = query({
       throw new Error("Not authenticated");
     }
 
+    // ✅ Return ALL budget items, not filtered by user
     const budgetItems = await ctx.db
       .query("budgetItems")
-      .withIndex("createdBy", (q) => q.eq("createdBy", userId))
       .order("desc")
       .collect();
 
@@ -64,10 +64,10 @@ export const getByParticulars = query({
       throw new Error("Not authenticated");
     }
 
+    // ✅ Return budget item by particulars for ANY user
     const budgetItem = await ctx.db
       .query("budgetItems")
       .withIndex("particulars", (q) => q.eq("particulars", args.particulars))
-      .filter((q) => q.eq(q.field("createdBy"), userId))
       .first();
 
     if (!budgetItem) {
@@ -89,9 +89,9 @@ export const getStatistics = query({
       throw new Error("Not authenticated");
     }
 
+    // ✅ Calculate statistics from ALL budget items
     const budgetItems = await ctx.db
       .query("budgetItems")
-      .withIndex("createdBy", (q) => q.eq("createdBy", userId))
       .collect();
 
     if (budgetItems.length === 0) {
