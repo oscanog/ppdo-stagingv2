@@ -23,7 +23,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, RefreshCw } from "lucide-react";
 
 // Define the Breakdown type based on your Convex schema
 interface Breakdown {
@@ -98,35 +98,27 @@ export default function ProjectBreakdownPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedBreakdown, setSelectedBreakdown] = useState<Breakdown | null>(null);
-  
-  // Header visibility state - default hidden, load from localStorage
   const [showHeader, setShowHeader] = useState(false);
-
-  // Load visibility preference from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved !== null) {
-      setShowHeader(saved === "true");
-    }
-  }, []);
-
-  // Toggle visibility and save to localStorage
-  const toggleHeaderVisibility = () => {
-    const newValue = !showHeader;
-    setShowHeader(newValue);
-    localStorage.setItem(STORAGE_KEY, String(newValue));
-  };
-
+  
+  // 🆕 Recalculation state
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  
   // Get the project details
   const project = useQuery(
     api.projects.get,
     projectId ? { id: projectId as Id<"projects"> } : "skip"
   );
   
+  // 🆕 Get parent budget item
+  const parentBudgetItem = useQuery(
+    api.budgetItems.get,
+    project?.budgetItemId ? { id: project.budgetItemId } : "skip"
+  );
+  
   // Use 'particulars' instead of 'projectName'
   const breakdownHistory = useQuery(
     api.govtProjects.getProjectBreakdowns,
-    project ? { projectName: project.particulars } : "skip"
+    project ? { projectId: projectId as Id<"projects"> } : "skip"
   );
   
   // Fetch departments for the form
@@ -134,7 +126,7 @@ export default function ProjectBreakdownPage() {
 
   const particularFullName = getParticularFullName(particularId);
   
-  // Set custom breadcrumbs when project data is loaded
+  // Set custom breadcrumbs
   useEffect(() => {
     if (project) {
       setCustomBreadcrumbs([
@@ -150,12 +142,34 @@ export default function ProjectBreakdownPage() {
     };
   }, [project, particularFullName, particularId, setCustomBreadcrumbs]);
   
-  // Mutations - using new backend functions
+  // Mutations
   const createBreakdown = useMutation(api.govtProjects.createProjectBreakdown);
   const updateBreakdown = useMutation(api.govtProjects.updateProjectBreakdown);
   const deleteBreakdown = useMutation(api.govtProjects.deleteProjectBreakdown);
+  const recalculateProject = useMutation(api.govtProjects.recalculateProject); // 🆕 NEW
   
-  // Calculate statistics from breakdown history
+  // 🆕 Handle manual recalculation
+  const handleRecalculate = async () => {
+    if (!project) return;
+    
+    setIsRecalculating(true);
+    try {
+      const result = await recalculateProject({
+        projectId: projectId as Id<"projects">,
+      });
+      
+      toast.success("Status recalculated successfully!", {
+        description: `Project status: ${result.status}, Breakdowns: ${result.breakdownsCount}`,
+      });
+    } catch (error) {
+      console.error("Recalculation error:", error);
+      toast.error("Failed to recalculate status");
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+  
+  // Calculate statistics
   const stats = breakdownHistory
     ? {
         totalReports: breakdownHistory.length,
@@ -174,6 +188,15 @@ export default function ProjectBreakdownPage() {
             (sum, record) => sum + (record.projectAccomplishment || 0),
             0
           ) / (breakdownHistory.length || 1),
+        statusCounts: breakdownHistory.reduce(
+          (acc, record) => {
+            if (record.status === "completed") acc.completed++;
+            else if (record.status === "delayed") acc.delayed++;
+            else if (record.status === "ongoing") acc.ongoing++;
+            return acc;
+          },
+          { completed: 0, delayed: 0, ongoing: 0 }
+        ),
         locations: new Set(
           breakdownHistory
             .map((record) => record.municipality)
@@ -217,6 +240,7 @@ export default function ProjectBreakdownPage() {
       await createBreakdown({
         projectName: breakdownData.projectName,
         implementingOffice: breakdownData.implementingOffice,
+        projectId: projectId as Id<"projects">, // 🆕 Always link to current project
         projectTitle: breakdownData.projectTitle,
         allocatedBudget: breakdownData.allocatedBudget,
         obligatedBudget: breakdownData.obligatedBudget,
@@ -237,7 +261,10 @@ export default function ProjectBreakdownPage() {
         fundSource: breakdownData.fundSource,
         reason: "Created via dashboard form",
       });
-      toast.success("Breakdown record created successfully!");
+      
+      toast.success("Breakdown record created successfully!", {
+        description: "Project and parent budget status will update automatically.",
+      });
       setShowAddModal(false);
     } catch (error) {
       console.error("Error creating breakdown:", error);
@@ -263,6 +290,7 @@ export default function ProjectBreakdownPage() {
         breakdownId: selectedBreakdown._id as Id<"govtProjectBreakdowns">,
         projectName: breakdownData.projectName,
         implementingOffice: breakdownData.implementingOffice,
+        projectId: projectId as Id<"projects">, // 🆕 Ensure project link
         projectTitle: breakdownData.projectTitle,
         allocatedBudget: breakdownData.allocatedBudget,
         obligatedBudget: breakdownData.obligatedBudget,
@@ -280,7 +308,10 @@ export default function ProjectBreakdownPage() {
         barangay: breakdownData.barangay,
         reason: "Updated via dashboard edit form",
       });
-      toast.success("Breakdown record updated successfully!");
+      
+      toast.success("Breakdown record updated successfully!", {
+        description: "Project and parent budget status will update automatically.",
+      });
       setShowEditModal(false);
       setSelectedBreakdown(null);
     } catch (error) {
@@ -310,7 +341,10 @@ export default function ProjectBreakdownPage() {
         breakdownId: selectedBreakdown._id as Id<"govtProjectBreakdowns">,
         reason: "Deleted via dashboard confirmation",
       });
-      toast.success("Breakdown record deleted successfully!");
+      
+      toast.success("Breakdown record deleted successfully!", {
+        description: "Project and parent budget status will update automatically.",
+      });
       setShowDeleteModal(false);
       setSelectedBreakdown(null);
     } catch (error) {
@@ -347,6 +381,7 @@ export default function ProjectBreakdownPage() {
         fundSource: item.fundSource,
       }))
     : [];
+
 
   return (
     <>
@@ -393,7 +428,7 @@ export default function ProjectBreakdownPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={toggleHeaderVisibility}
+            onClick={() => setShowHeader(!showHeader)}
             className="gap-2 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
           >
             {showHeader ? (
@@ -408,6 +443,21 @@ export default function ProjectBreakdownPage() {
               </>
             )}
           </Button>
+          
+          {/* 🆕 Recalculate Button */}
+          {project && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRecalculate}
+              disabled={isRecalculating}
+              className="gap-2 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            >
+              <RefreshCw className={`w-4 h-4 ${isRecalculating ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">Recalculate Status</span>
+            </Button>
+          )}
+          
           {project && (
             <ActivityLogSheet 
               projectName={project.particulars}
@@ -415,6 +465,81 @@ export default function ProjectBreakdownPage() {
           )}
         </div>
       </div>
+
+      {/* 🆕 Status Chain Visualization */}
+      {showHeader && project && parentBudgetItem && (
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl border border-blue-200 dark:border-blue-800 p-6 no-print">
+          <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+            Status Chain
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Breakdown Items
+              </div>
+              <div className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                {breakdownHistory?.length || 0}
+              </div>
+              {stats && (
+                <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                  {stats.statusCounts.ongoing} ongoing • {stats.statusCounts.delayed} delayed • {stats.statusCounts.completed} completed
+                </div>
+              )}
+            </div>
+            
+            <div className="text-center border-l border-r border-blue-200 dark:border-blue-800 px-6">
+              <div className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Project Status
+              </div>
+              <div className={`text-2xl font-bold ${getStatusColor(project.status)}`}>
+                {project.status?.toUpperCase() || "ONGOING"}
+              </div>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                Auto-calculated from {breakdownHistory?.length || 0} breakdowns
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+                Budget Status
+              </div>
+              <div className={`text-2xl font-bold ${getStatusColor(parentBudgetItem.status)}`}>
+                {parentBudgetItem.status?.toUpperCase() || "ONGOING"}
+              </div>
+              <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-2">
+                Auto-calculated from project
+              </div>
+            </div>
+          </div>
+          
+          {/* 🆕 Status Rules */}
+          <div className="mt-6 pt-6 border-t border-blue-200 dark:border-blue-800">
+            <h4 className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-3">
+              Status Calculation Rules
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-3 border border-zinc-200 dark:border-zinc-800">
+                <div className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">1. Ongoing Priority</div>
+                <div className="text-zinc-600 dark:text-zinc-400">
+                  Any ongoing item sets parent to ongoing
+                </div>
+              </div>
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-3 border border-zinc-200 dark:border-zinc-800">
+                <div className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">2. Delayed Priority</div>
+                <div className="text-zinc-600 dark:text-zinc-400">
+                  If no ongoing, any delayed sets parent to delayed
+                </div>
+              </div>
+              <div className="bg-white dark:bg-zinc-900 rounded-lg p-3 border border-zinc-200 dark:border-zinc-800">
+                <div className="font-medium text-zinc-900 dark:text-zinc-100 mb-1">3. Completed</div>
+                <div className="text-zinc-600 dark:text-zinc-400">
+                  Only if all items are completed
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Project Overview Cards - Conditionally Rendered */}
       {showHeader && project && (
@@ -439,19 +564,19 @@ export default function ProjectBreakdownPage() {
 
           <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
             <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-1">
-              Current Completion
+              Breakdown Counts
             </p>
             <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              {project.projectCompleted.toFixed(1)}%
+              {project.projectCompleted}C • {project.projectDelayed}D • {project.projectsOnTrack}O
             </p>
           </div>
 
           <div className="bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-4">
             <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-1">
-              Status
+              Project Status
             </p>
-            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 capitalize">
-              {project.status?.replace("_", " ") || "N/A"}
+            <p className={`text-sm font-semibold ${getStatusColor(project.status)}`}>
+              {project.status?.toUpperCase() || "ONGOING"}
             </p>
           </div>
 
@@ -471,7 +596,7 @@ export default function ProjectBreakdownPage() {
               <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-1">
                 Remarks
               </p>
-              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                 {project.remarks}
               </p>
             </div>
@@ -528,6 +653,50 @@ export default function ProjectBreakdownPage() {
                   </div>
                 </div>
 
+                {/* 🆕 Status Distribution */}
+                {stats.statusCounts && (
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border border-green-200 dark:border-green-800 p-6 mb-4">
+                    <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+                      Status Distribution
+                    </h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-green-600 dark:text-green-400 mb-1">
+                          Completed
+                        </div>
+                        <div className="text-3xl font-bold text-green-700 dark:text-green-300">
+                          {stats.statusCounts.completed}
+                        </div>
+                        <div className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">
+                          {stats.totalReports > 0 ? Math.round((stats.statusCounts.completed / stats.totalReports) * 100) : 0}%
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-1">
+                          Ongoing
+                        </div>
+                        <div className="text-3xl font-bold text-blue-700 dark:text-blue-300">
+                          {stats.statusCounts.ongoing}
+                        </div>
+                        <div className="text-xs text-blue-600/70 dark:text-blue-400/70 mt-1">
+                          {stats.totalReports > 0 ? Math.round((stats.statusCounts.ongoing / stats.totalReports) * 100) : 0}%
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-sm font-medium text-red-600 dark:text-red-400 mb-1">
+                          Delayed
+                        </div>
+                        <div className="text-3xl font-bold text-red-700 dark:text-red-300">
+                          {stats.statusCounts.delayed}
+                        </div>
+                        <div className="text-xs text-red-600/70 dark:text-red-400/70 mt-1">
+                          {stats.totalReports > 0 ? Math.round((stats.statusCounts.delayed / stats.totalReports) * 100) : 0}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Latest Report Highlight */}
                 {stats.latestReport && (
                   <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl border border-blue-200 dark:border-blue-800 p-6">
@@ -553,8 +722,8 @@ export default function ProjectBreakdownPage() {
                       </div>
                       <div>
                         <p className="text-sm text-zinc-600 dark:text-zinc-400">Status</p>
-                        <p className="text-base font-medium text-zinc-900 dark:text-zinc-100 capitalize">
-                          {stats.latestReport.status || "N/A"}
+                        <p className={`text-base font-medium ${getStatusColor(stats.latestReport.status)}`}>
+                          {stats.latestReport.status?.toUpperCase() || "N/A"}
                         </p>
                       </div>
                       <div>
@@ -650,4 +819,15 @@ export default function ProjectBreakdownPage() {
       )}
     </>
   );
+}
+
+// 🆕 Helper function for status colors
+function getStatusColor(status?: "completed" | "ongoing" | "delayed"): string {
+  if (!status) return "text-zinc-600 dark:text-zinc-400";
+  switch (status) {
+    case "completed": return "text-green-600 dark:text-green-400";
+    case "ongoing": return "text-blue-600 dark:text-blue-400";
+    case "delayed": return "text-red-600 dark:text-red-400";
+    default: return "text-zinc-600 dark:text-zinc-400";
+  }
 }

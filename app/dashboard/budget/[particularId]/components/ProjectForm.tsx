@@ -49,8 +49,7 @@ const projectSchema = z
     totalBudgetUtilized: z.number().min(0, { message: "Must be 0 or greater." }),
     remarks: z.string().optional(),
     year: z.number().int().min(2000).max(2100).optional(),
-    // STRICT 3 OPTIONS
-    status: z.enum(["completed", "ongoing", "delayed"]).optional(),
+    // ❌ REMOVED: status field - now auto-calculated
   })
   .refine((data) => data.totalBudgetUtilized <= data.totalBudgetAllocated, {
     message: "Budget utilized cannot exceed allocated budget.",
@@ -68,7 +67,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 
 interface ProjectFormProps {
   project?: Project | null;
-  onSave: (project: Omit<Project, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOngoing">) => void;
+  onSave: (project: Omit<Project, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOngoing" | "status">) => void;
   onCancel: () => void;
 }
 
@@ -91,7 +90,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
   };
 
   const savedDraft = getSavedDraft();
-  // Define the form - removed project count fields
+  // Define the form - removed project count fields AND status
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: savedDraft || {
@@ -102,7 +101,7 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
       totalBudgetUtilized: project?.totalBudgetUtilized || 0,
       remarks: project?.remarks || "",
       year: project?.year || undefined,
-      status: project?.status || undefined,
+      // ❌ REMOVED: status - now auto-calculated
     },
   });
 
@@ -235,64 +234,34 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
           )}
         />
 
-        {/* Optional Fields Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Year (Optional) */}
-          <FormField
-            name="year"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-zinc-700 dark:text-zinc-300">
-                  Year <span className="text-xs text-zinc-500">(Optional)</span>
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="e.g. 2024"
-                    min="2000"
-                    max="2100"
-                    className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
-                    {...field}
-                    value={field.value || ""}
-                    onChange={(e) => {
-                      const value = e.target.value.trim();
-                      field.onChange(value ? parseInt(value) : undefined);
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Status (Optional) */}
-          <FormField
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-zinc-700 dark:text-zinc-300">
-                  Status <span className="text-xs text-zinc-500">(Optional)</span>
-                </FormLabel>
-                <Select
-                  onValueChange={field.onChange}
+        {/* Year (Optional) */}
+        <FormField
+          name="year"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-zinc-700 dark:text-zinc-300">
+                Year <span className="text-xs text-zinc-500">(Optional)</span>
+              </FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="e.g. 2024"
+                  min="2000"
+                  max="2100"
+                  className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
+                  {...field}
                   value={field.value || ""}
-                >
-                  <FormControl>
-                    <SelectTrigger className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100">
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {/* STRICT 3 OPTIONS */}
-                    <SelectItem value="ongoing">Ongoing</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="delayed">Delayed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    field.onChange(value ? parseInt(value) : undefined);
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* ❌ REMOVED: Status Field Section */}
 
         {/* Budget Fields Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -463,9 +432,12 @@ export function ProjectForm({ project, onSave, onCancel }: ProjectFormProps) {
         <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg">
           <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-blue-700 dark:text-blue-300">
-            <p className="font-medium">Automatic Project Metrics</p>
+            <p className="font-medium">Automatic Project Metrics & Status</p>
             <p className="mt-1 opacity-90">
-              Project counts (completed, delayed, ongoing) are automatically calculated from breakdown records you add in the Project Breakdown page.
+              Project counts (completed, delayed, ongoing) and status are automatically calculated from breakdown records you add in the Project Breakdown page.
+            </p>
+            <p className="mt-2 text-xs opacity-75">
+              Status calculation priority: Ongoing → Delayed → Completed
             </p>
           </div>
         </div>

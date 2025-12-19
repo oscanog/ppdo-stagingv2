@@ -27,6 +27,7 @@ import type * as lib_govtProjectActivityLogger from "../lib/govtProjectActivityL
 import type * as lib_nameUtils from "../lib/nameUtils.js";
 import type * as lib_projectAggregation from "../lib/projectAggregation.js";
 import type * as lib_rbac from "../lib/rbac.js";
+import type * as lib_statusValidation from "../lib/statusValidation.js";
 import type * as loginTrail from "../loginTrail.js";
 import type * as media from "../media.js";
 import type * as myFunctions from "../myFunctions.js";
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   "lib/nameUtils": typeof lib_nameUtils;
   "lib/projectAggregation": typeof lib_projectAggregation;
   "lib/rbac": typeof lib_rbac;
+  "lib/statusValidation": typeof lib_statusValidation;
   loginTrail: typeof loginTrail;
   media: typeof media;
   myFunctions: typeof myFunctions;

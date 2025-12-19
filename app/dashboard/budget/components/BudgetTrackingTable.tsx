@@ -1,5 +1,4 @@
 // app/dashboard/budget/components/BudgetTrackingTable.tsx
-
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
@@ -32,9 +31,9 @@ import { toast } from "sonner";
 
 interface BudgetTrackingTableProps {
   budgetItems: BudgetItem[];
-  // UPDATE THESE TWO LINES:
-  onAdd?: (item: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack">) => void;
-  onEdit?: (id: string, item: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack">) => void;
+  // UPDATE THESE TWO LINES: Remove status from form data
+  onAdd?: (item: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack" | "status">) => void;
+  onEdit?: (id: string, item: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack" | "status">) => void;
   onDelete?: (id: string) => void;
   expandButton?: React.ReactNode;
 }
@@ -259,7 +258,7 @@ export function BudgetTrackingTable({
     setContextMenu(null);
   };
 
-  const handleSave = (formData: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack">) => {
+  const handleSave = (formData: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack" | "status">) => {
     if (selectedItem && onEdit) {
       onEdit(selectedItem.id, formData);
     } else if (onAdd) {
@@ -752,62 +751,56 @@ export function BudgetTrackingTable({
                         </span>
                       </td>
                       <td className="px-4 sm:px-6 py-4 text-right">
-  <span className={`text-sm font-medium ${getProjectStatusColor(item.projectCompleted)}`}>
-    {Math.round(item.projectCompleted)} {/* Changed: removed .toFixed(1) and % */}
-  </span>
-</td>
-<td className="px-4 sm:px-6 py-4 text-right">
-  <span className={`text-sm font-medium ${getProjectStatusColor(item.projectDelayed)}`}>
-    {Math.round(item.projectDelayed)} {/* Changed: removed .toFixed(1) and % */}
-  </span>
-</td>
-<td className="px-4 sm:px-6 py-4 text-right">
-  <span className={`text-sm font-medium ${getProjectStatusColor(item.projectsOnTrack)}`}>
-    {Math.round(item.projectsOnTrack)} {/* Changed: removed .toFixed(1) and % */}
-  </span>
-</td>
-
+                        <span className={`text-sm font-medium ${getProjectStatusColor(item.projectCompleted)}`}>
+                          {Math.round(item.projectCompleted)}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-right">
+                        <span className={`text-sm font-medium ${getProjectStatusColor(item.projectDelayed)}`}>
+                          {Math.round(item.projectDelayed)}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-right">
+                        <span className={`text-sm font-medium ${getProjectStatusColor(item.projectsOnTrack)}`}>
+                          {Math.round(item.projectsOnTrack)}
+                        </span>
+                      </td>
                     </tr>
                   ))}
-                <tr className="border-t-2 border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 font-semibold">
-  <td className="px-4 sm:px-6 py-4 text-sm text-zinc-900 dark:text-zinc-100">
-    TOTAL
-  </td>
-
-  <td className="px-4 sm:px-6 py-4"></td>
-  <td className="px-4 sm:px-6 py-4"></td>
-
-  <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
-    ₱{totals.totalBudgetAllocated.toLocaleString()}
-  </td>
-
-  <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
-    ₱{totals.obligatedBudget.toLocaleString()}
-  </td>
-
-  <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
-    ₱{totals.totalBudgetUtilized.toLocaleString()}
-  </td>
-
-  <td className="px-4 sm:px-6 py-4 text-right">
-    <span
-      className={`text-sm font-semibold ${getUtilizationColor(
-        totalUtilizationRate
-      )}`}
-    >
-      {totalUtilizationRate.toFixed(1)}%
-    </span>
-  </td>
-<td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
-  {Math.round(totals.projectCompleted)}
-</td>
-<td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
-  {Math.round(totals.projectDelayed)}
-</td>
-<td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
-  {Math.round(totals.projectsOnTrack)}
-</td>
-</tr>
+                  <tr className="border-t-2 border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 font-semibold">
+                    <td className="px-4 sm:px-6 py-4 text-sm text-zinc-900 dark:text-zinc-100">
+                      TOTAL
+                    </td>
+                    <td className="px-4 sm:px-6 py-4"></td>
+                    <td className="px-4 sm:px-6 py-4"></td>
+                    <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
+                      ₱{totals.totalBudgetAllocated.toLocaleString()}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
+                      ₱{totals.obligatedBudget.toLocaleString()}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
+                      ₱{totals.totalBudgetUtilized.toLocaleString()}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right">
+                      <span
+                        className={`text-sm font-semibold ${getUtilizationColor(
+                          totalUtilizationRate
+                        )}`}
+                      >
+                        {totalUtilizationRate.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
+                      {Math.round(totals.projectCompleted)}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
+                      {Math.round(totals.projectDelayed)}
+                    </td>
+                    <td className="px-4 sm:px-6 py-4 text-right text-sm text-zinc-900 dark:text-zinc-100">
+                      {Math.round(totals.projectsOnTrack)}
+                    </td>
+                  </tr>
                 </>
               )}
             </tbody>

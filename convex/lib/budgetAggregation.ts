@@ -1,3 +1,4 @@
+// convex/lib/budgetAggregation.ts
 import { GenericMutationCtx } from "convex/server";
 import { DataModel, Id } from "../_generated/dataModel";
 
@@ -5,11 +6,7 @@ type MutationCtx = GenericMutationCtx<DataModel>;
 
 /**
  * Calculate and update budgetItem metrics based on child project STATUSES
- * This is the SINGLE SOURCE OF TRUTH for budgetItem project counts
- * * MAPPING (UPDATED FOR STRICT 3 STATUS):
- * - "completed" status → projectCompleted
- * - "delayed" status → projectDelayed
- * - "ongoing" status → projectsOnTrack
+ * ✅ FIXED: Now uses the auto-calculated status from projects
  */
 export async function recalculateBudgetItemMetrics(
   ctx: MutationCtx,
@@ -23,11 +20,12 @@ export async function recalculateBudgetItemMetrics(
     .collect();
 
   if (projects.length === 0) {
-    // No projects - set all counts to 0
+    // No projects - set all counts to 0 and default status to "ongoing"
     await ctx.db.patch(budgetItemId, {
       projectCompleted: 0,
       projectDelayed: 0,
       projectsOnTrack: 0,
+      status: "ongoing",
       updatedAt: Date.now(),
       updatedBy: userId,
     });
@@ -37,10 +35,11 @@ export async function recalculateBudgetItemMetrics(
       completed: 0,
       delayed: 0,
       onTrack: 0,
+      status: "ongoing",
     };
   }
 
-  // Count projects based on their STATUS field
+  // Count projects based on their AUTO-CALCULATED STATUS field
   const aggregated = projects.reduce(
     (acc, project) => {
       const status = project.status;
@@ -58,11 +57,25 @@ export async function recalculateBudgetItemMetrics(
     { completed: 0, delayed: 0, onTrack: 0 }
   );
 
-  // Update budget item with aggregated totals
+  // 🆕 AUTO-CALCULATE BUDGET ITEM STATUS based on project statuses
+  let status: "completed" | "delayed" | "ongoing";
+  
+  if (aggregated.onTrack > 0) {
+    status = "ongoing"; // 🎯 Priority 1: Any ongoing project
+  } else if (aggregated.delayed > 0) {
+    status = "delayed"; // 🎯 Priority 2: Any delayed project (no ongoing)
+  } else if (aggregated.completed > 0) {
+    status = "completed"; // 🎯 Priority 3: Only completed projects
+  } else {
+    status = "ongoing"; // 🎯 Default fallback
+  }
+
+  // Update budget item with aggregated totals and auto-calculated status
   await ctx.db.patch(budgetItemId, {
     projectCompleted: aggregated.completed,
     projectDelayed: aggregated.delayed,
     projectsOnTrack: aggregated.onTrack,
+    status: status,
     updatedAt: Date.now(),
     updatedBy: userId,
   });
@@ -70,12 +83,12 @@ export async function recalculateBudgetItemMetrics(
   return {
     projectsCount: projects.length,
     ...aggregated,
+    status,
   };
 }
 
 /**
  * Recalculate metrics for multiple budget items
- * Useful for bulk operations or system-wide recalculation
  */
 export async function recalculateMultipleBudgetItems(
   ctx: MutationCtx,
@@ -96,7 +109,6 @@ export async function recalculateMultipleBudgetItems(
 
 /**
  * Recalculate ALL budget items (system-wide)
- * Use with caution - potentially expensive operation
  */
 export async function recalculateAllBudgetItems(
   ctx: MutationCtx,

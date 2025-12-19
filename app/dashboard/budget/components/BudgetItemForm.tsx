@@ -1,5 +1,4 @@
 // app/dashboard/budget/components/BudgetItemForm.tsx
-
 "use client";
 
 import { useEffect } from "react";
@@ -45,7 +44,7 @@ interface BudgetItem {
   projectDelayed: number;
   projectsOnTrack: number;
   year?: number;
-  status?: "completed" | "ongoing" | "delayed";
+  status?: "completed" | "ongoing" | "delayed"; // 🆕 Auto-calculated, not in form
 }
 
 const BUDGET_PARTICULARS = [
@@ -80,7 +79,7 @@ const noWhitespaceString = z
   });
 
 // Define the form schema with Zod
-// ❌ REMOVED manual project counts from schema
+// ❌ REMOVED manual project counts AND status from schema
 const budgetItemSchema = z
   .object({
     particular: noWhitespaceString,
@@ -94,7 +93,7 @@ const budgetItemSchema = z
       message: "Must be 0 or greater.",
     }),
     year: z.number().int().min(2000).max(2100).optional().or(z.literal(0)),
-    status: z.enum(["completed", "ongoing", "delayed"]).optional(),
+    // ❌ REMOVED: status field - now auto-calculated
   })
   .refine(
     (data) => data.totalBudgetUtilized <= data.totalBudgetAllocated,
@@ -115,8 +114,8 @@ type BudgetItemFormValues = z.infer<typeof budgetItemSchema>;
 
 interface BudgetItemFormProps {
   item?: BudgetItem | null;
-  // UPDATE THIS LINE to omit the project metric fields
-  onSave: (item: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack">) => void;
+  // UPDATE THIS LINE to omit the project metric fields AND status
+  onSave: (item: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack" | "status">) => void;
   onCancel: () => void;
 }
 
@@ -152,7 +151,7 @@ export function BudgetItemForm({
       obligatedBudget: item?.obligatedBudget || undefined,
       totalBudgetUtilized: item?.totalBudgetUtilized || 0,
       year: item?.year || undefined,
-      status: item?.status || undefined,
+      // ❌ REMOVED: status - now auto-calculated
     },
   });
 
@@ -268,64 +267,32 @@ export function BudgetItemForm({
           )}
         />
 
-        {/* Optional Fields Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Year (Optional) */}
-          <FormField
-            name="year"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-zinc-700 dark:text-zinc-300">
-                  Year <span className="text-xs text-zinc-500">(Optional)</span>
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="e.g. 2024"
-                    min="2000"
-                    max="2100"
-                    className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
-                    {...field}
-                    value={field.value || ""}
-                    onChange={(e) => {
-                      const value = e.target.value.trim();
-                      field.onChange(value ? parseInt(value) : undefined);
-                    }}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          {/* Status (Optional) */}
-          <FormField
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-zinc-700 dark:text-zinc-300">
-                  Status <span className="text-xs text-zinc-500">(Optional)</span>
-                </FormLabel>
-                <Select
-                  onValueChange={field.onChange}
+        {/* Year (Optional) - Only field now since status is auto-calculated */}
+        <FormField
+          name="year"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-zinc-700 dark:text-zinc-300">
+                Year <span className="text-xs text-zinc-500">(Optional)</span>
+              </FormLabel>
+              <FormControl>
+                <Input
+                  placeholder="e.g. 2024"
+                  min="2000"
+                  max="2100"
+                  className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
+                  {...field}
                   value={field.value || ""}
-                >
-                  <FormControl>
-                    <SelectTrigger className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100">
-                      <SelectValue placeholder="Select Status" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {/* STRICT 3 OPTIONS */}
-                    <SelectItem value="ongoing">Ongoing</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="delayed">Delayed</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    field.onChange(value ? parseInt(value) : undefined);
+                  }}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Budget Fields Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -499,9 +466,12 @@ export function BudgetItemForm({
         <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg">
           <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-blue-700 dark:text-blue-300">
-            <p className="font-medium">Automatic Project Metrics</p>
+            <p className="font-medium">Automatic Project Metrics & Status</p>
             <p className="mt-1 opacity-90">
-              Project counts (completed, delayed, ongoing) are now automatically calculated from the individual projects you add to this budget item.
+              Project counts (completed, delayed, ongoing) and status are now automatically calculated from the individual projects you add to this budget item.
+            </p>
+            <p className="mt-2 text-xs opacity-75">
+              Status calculation priority: Ongoing → Delayed → Completed
             </p>
           </div>
         </div>

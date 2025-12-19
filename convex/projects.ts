@@ -65,7 +65,7 @@ export const get = query({
 
 /**
  * Create a new project
- * ⚠️ UPDATED: Removed projectCompleted, projectDelayed, projectsOnTrack
+ * ⚠️ UPDATED: Removed projectCompleted, projectDelayed, projectsOnTrack, and status
  * These are now auto-calculated from govtProjectBreakdowns
  */
 export const create = mutation({
@@ -78,14 +78,6 @@ export const create = mutation({
     totalBudgetUtilized: v.number(),
     remarks: v.optional(v.string()),
     year: v.optional(v.number()),
-    // STRICT 3 STATUS
-    status: v.optional(
-      v.union(
-        v.literal("completed"),
-        v.literal("delayed"),
-        v.literal("ongoing")
-      )
-    ),
     targetDateCompletion: v.optional(v.number()),
     projectManagerId: v.optional(v.id("users")),
   },
@@ -101,9 +93,6 @@ export const create = mutation({
       if (!budgetItem) {
         throw new Error("Budget item not found");
       }
-      if (budgetItem.createdBy !== userId) {
-        throw new Error("Not authorized to add projects to this budget item");
-      }
     }
 
     const now = Date.now();
@@ -114,8 +103,7 @@ export const create = mutation({
         ? (args.totalBudgetUtilized / args.totalBudgetAllocated) * 100
         : 0;
 
-    // ⚠️ CHANGED: Initialize project counts to 0
-    // They will be calculated when govtProjectBreakdowns are added
+    // Create project with initialized metrics
     const projectId = await ctx.db.insert("projects", {
       particulars: args.particulars,
       budgetItemId: args.budgetItemId,
@@ -124,12 +112,12 @@ export const create = mutation({
       obligatedBudget: args.obligatedBudget,
       totalBudgetUtilized: args.totalBudgetUtilized,
       utilizationRate,
-      projectCompleted: 0, // ⚠️ Auto-calculated
-      projectDelayed: 0, // ⚠️ Auto-calculated
-      projectsOnTrack: 0, // ⚠️ Auto-calculated
+      projectCompleted: 0,
+      projectDelayed: 0,
+      projectsOnTrack: 0,
+      status: "ongoing", // Initial default status
       remarks: args.remarks,
       year: args.year,
-      status: args.status,
       targetDateCompletion: args.targetDateCompletion,
       projectManagerId: args.projectManagerId,
       createdBy: userId,
@@ -148,7 +136,7 @@ export const create = mutation({
 
 /**
  * Update an existing project
- * ⚠️ UPDATED: Removed projectCompleted, projectDelayed, projectsOnTrack
+ * ⚠️ UPDATED: Removed projectCompleted, projectDelayed, projectsOnTrack, and status
  */
 export const update = mutation({
   args: {
@@ -161,14 +149,6 @@ export const update = mutation({
     totalBudgetUtilized: v.number(),
     remarks: v.optional(v.string()),
     year: v.optional(v.number()),
-    // STRICT 3 STATUS
-    status: v.optional(
-      v.union(
-        v.literal("completed"),
-        v.literal("delayed"),
-        v.literal("ongoing")
-      )
-    ),
     targetDateCompletion: v.optional(v.number()),
     projectManagerId: v.optional(v.id("users")),
   },
@@ -183,18 +163,11 @@ export const update = mutation({
       throw new Error("Project not found");
     }
 
-    if (existing.createdBy !== userId) {
-      throw new Error("Not authorized");
-    }
-
     // Verify new budgetItem exists if provided
     if (args.budgetItemId) {
       const budgetItem = await ctx.db.get(args.budgetItemId);
       if (!budgetItem) {
         throw new Error("Budget item not found");
-      }
-      if (budgetItem.createdBy !== userId) {
-        throw new Error("Not authorized to link to this budget item");
       }
     }
 
@@ -209,7 +182,7 @@ export const update = mutation({
     // Store old budgetItemId to recalculate if it changed
     const oldBudgetItemId = existing.budgetItemId;
 
-    // ⚠️ CHANGED: Don't update project counts - they're auto-calculated
+    // Update project (do NOT update project counts - they're auto-calculated)
     await ctx.db.patch(args.id, {
       particulars: args.particulars,
       budgetItemId: args.budgetItemId,
@@ -218,10 +191,8 @@ export const update = mutation({
       obligatedBudget: args.obligatedBudget,
       totalBudgetUtilized: args.totalBudgetUtilized,
       utilizationRate,
-      // ⚠️ PROJECT COUNTS NOT UPDATED - Maintained by govtProjectBreakdowns
       remarks: args.remarks,
       year: args.year,
-      status: args.status,
       targetDateCompletion: args.targetDateCompletion,
       projectManagerId: args.projectManagerId,
       updatedAt: now,
@@ -267,22 +238,18 @@ export const remove = mutation({
       throw new Error("Project not found");
     }
 
-    if (existing.createdBy !== userId) {
-      throw new Error("Not authorized");
-    }
-
     // Store budgetItemId before deletion
     const budgetItemId = existing.budgetItemId;
 
-    // Check for related obligations
-    const obligations = await ctx.db
-      .query("obligations")
+    // Check for related breakdowns
+    const breakdowns = await ctx.db
+      .query("govtProjectBreakdowns")
       .withIndex("projectId", (q) => q.eq("projectId", args.id))
       .collect();
 
-    if (obligations.length > 0) {
+    if (breakdowns.length > 0) {
       throw new Error(
-        `Cannot delete project with ${obligations.length} obligation(s). Delete the obligations first.`
+        `Cannot delete project with ${breakdowns.length} breakdown(s). Delete the breakdowns first.`
       );
     }
 

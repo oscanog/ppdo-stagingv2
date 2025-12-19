@@ -1,15 +1,15 @@
 // convex/govtProjects.ts
 // Government Project Breakdowns CRUD Operations with Complete Activity Logging
-// 🆕 NOW WITH AUTO-AGGREGATION TO PARENT PROJECTS
+// ✅ FIXED: Now properly triggers the complete aggregation chain
 
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { logGovtProjectActivity, logBulkGovtProjectActivity } from "./lib/govtProjectActivityLogger";
-import { recalculateProjectMetrics } from "./lib/projectAggregation"; // 🆕 IMPORT
+import { recalculateProjectMetrics } from "./lib/projectAggregation";
 import { Id } from "./_generated/dataModel";
 
-// Reusable status validator to ensure consistency across all mutations
+// Reusable status validator
 const statusValidator = v.union(
   v.literal("completed"),
   v.literal("delayed"),
@@ -18,13 +18,13 @@ const statusValidator = v.union(
 
 /**
  * CREATE: Single project breakdown row
- * WITH ACTIVITY LOGGING + AUTO-AGGREGATION
+ * ✅ FIXED: Now triggers project recalculation which triggers budget recalculation
  */
 export const createProjectBreakdown = mutation({
   args: {
     projectName: v.string(),
     implementingOffice: v.string(),
-    projectId: v.optional(v.id("projects")), // 🆕 LINK TO PARENT PROJECT
+    projectId: v.optional(v.id("projects")),
     municipality: v.optional(v.string()),
     barangay: v.optional(v.string()),
     district: v.optional(v.string()),
@@ -52,7 +52,7 @@ export const createProjectBreakdown = mutation({
     const now = Date.now();
     const { reason, ...breakdownData } = args;
 
-    // 🆕 Verify project exists if provided
+    // Verify project exists if provided
     if (args.projectId) {
       const project = await ctx.db.get(args.projectId);
       if (!project) {
@@ -82,7 +82,8 @@ export const createProjectBreakdown = mutation({
       reason: reason,
     });
 
-    // 🎯 TRIGGER: Recalculate parent project metrics if linked
+    // 🎯 CRITICAL FIX: Recalculate parent project metrics if linked
+    // This will automatically trigger budget item recalculation
     if (args.projectId) {
       await recalculateProjectMetrics(ctx, args.projectId, userId);
     }
@@ -93,14 +94,14 @@ export const createProjectBreakdown = mutation({
 
 /**
  * UPDATE: Single project breakdown row
- * WITH ACTIVITY LOGGING + AUTO-AGGREGATION
+ * ✅ FIXED: Now triggers complete aggregation chain
  */
 export const updateProjectBreakdown = mutation({
   args: {
     breakdownId: v.id("govtProjectBreakdowns"),
     projectName: v.optional(v.string()),
     implementingOffice: v.optional(v.string()),
-    projectId: v.optional(v.id("projects")), // 🆕 CAN CHANGE PARENT
+    projectId: v.optional(v.id("projects")),
     municipality: v.optional(v.string()),
     barangay: v.optional(v.string()),
     district: v.optional(v.string()),
@@ -132,7 +133,7 @@ export const updateProjectBreakdown = mutation({
       throw new Error("Breakdown not found");
     }
 
-    // 🆕 Verify new project exists if provided
+    // Verify new project exists if provided
     if (args.projectId) {
       const project = await ctx.db.get(args.projectId);
       if (!project) {
@@ -164,7 +165,8 @@ export const updateProjectBreakdown = mutation({
       reason: reason,
     });
 
-    // 🎯 TRIGGER: Recalculate metrics for affected projects
+    // 🎯 CRITICAL FIX: Recalculate metrics for affected projects
+    // This will automatically trigger budget item recalculation
     const projectsToRecalculate = new Set<Id<"projects">>();
 
     // Add old parent if it exists and is different from new parent
@@ -177,7 +179,7 @@ export const updateProjectBreakdown = mutation({
       projectsToRecalculate.add(args.projectId);
     }
 
-    // Recalculate all affected projects
+    // Recalculate all affected projects (triggers budget items automatically)
     for (const projectId of projectsToRecalculate) {
       await recalculateProjectMetrics(ctx, projectId, userId);
     }
@@ -188,7 +190,7 @@ export const updateProjectBreakdown = mutation({
 
 /**
  * DELETE: Single project breakdown row
- * WITH ACTIVITY LOGGING + AUTO-AGGREGATION
+ * ✅ FIXED: Now triggers complete aggregation chain
  */
 export const deleteProjectBreakdown = mutation({
   args: {
@@ -220,7 +222,8 @@ export const deleteProjectBreakdown = mutation({
       reason: args.reason,
     });
 
-    // 🎯 TRIGGER: Recalculate parent project metrics if it was linked
+    // 🎯 CRITICAL FIX: Recalculate parent project metrics if it was linked
+    // This will automatically trigger budget item recalculation
     if (projectId) {
       await recalculateProjectMetrics(ctx, projectId, userId);
     }
@@ -230,15 +233,15 @@ export const deleteProjectBreakdown = mutation({
 });
 
 /**
- * BULK CREATE: Multiple project breakdowns (Excel import)
- * WITH ACTIVITY LOGGING + AUTO-AGGREGATION
+ * BULK CREATE: Multiple project breakdowns
+ * ✅ FIXED: Now triggers complete aggregation chain
  */
 export const bulkCreateBreakdowns = mutation({
   args: {
     breakdowns: v.array(v.object({
       projectName: v.string(),
       implementingOffice: v.string(),
-      projectId: v.optional(v.id("projects")), // 🆕 BULK LINK
+      projectId: v.optional(v.id("projects")),
       municipality: v.optional(v.string()),
       barangay: v.optional(v.string()),
       district: v.optional(v.string()),
@@ -270,7 +273,7 @@ export const bulkCreateBreakdowns = mutation({
       breakdown: any 
     }> = [];
 
-    // 🆕 Track affected projects for recalculation
+    // Track affected projects for recalculation
     const affectedProjects = new Set<Id<"projects">>();
 
     // Insert all breakdowns
@@ -311,7 +314,8 @@ export const bulkCreateBreakdowns = mutation({
       }
     );
 
-    // 🎯 TRIGGER: Recalculate all affected projects
+    // 🎯 CRITICAL FIX: Recalculate all affected projects
+    // This will automatically trigger budget item recalculation
     for (const projectId of affectedProjects) {
       await recalculateProjectMetrics(ctx, projectId, userId);
     }
@@ -320,7 +324,65 @@ export const bulkCreateBreakdowns = mutation({
       count: insertedRecords.length, 
       ids: insertedRecords.map(r => r.breakdownId),
       batchId,
-      affectedProjects: affectedProjects.size, // 🆕 REPORT
+      affectedProjects: affectedProjects.size,
+    };
+  },
+});
+
+export const getBreakdownStats = query({
+  args: {
+    budgetItemId: v.optional(v.id("budgetItems")),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    let allBreakdowns = [];
+    
+    if (args.budgetItemId) {
+      // Get all projects for this budget item
+      const projects = await ctx.db
+        .query("projects")
+        .withIndex("budgetItemId", (q) => q.eq("budgetItemId", args.budgetItemId))
+        .collect();
+      
+      // Get breakdowns for all projects
+      const breakdownPromises = projects.map(project =>
+        ctx.db
+          .query("govtProjectBreakdowns")
+          .withIndex("projectId", (q) => q.eq("projectId", project._id))
+          .collect()
+      );
+      
+      const allBreakdownArrays = await Promise.all(breakdownPromises);
+      allBreakdowns = allBreakdownArrays.flat();
+    } else {
+      allBreakdowns = await ctx.db
+        .query("govtProjectBreakdowns")
+        .collect();
+    }
+
+    // Calculate statistics
+    const totalBreakdowns = allBreakdowns.length;
+    const totalAllocated = allBreakdowns.reduce((sum, b) => sum + (b.allocatedBudget || 0), 0);
+    const totalUtilized = allBreakdowns.reduce((sum, b) => sum + (b.budgetUtilized || 0), 0);
+    
+    const statusCounts = allBreakdowns.reduce(
+      (acc, b) => {
+        if (b.status === "completed") acc.completed++;
+        else if (b.status === "delayed") acc.delayed++;
+        else if (b.status === "ongoing") acc.ongoing++;
+        return acc;
+      },
+      { completed: 0, delayed: 0, ongoing: 0 }
+    );
+
+    return {
+      totalBreakdowns,
+      totalAllocated,
+      totalUtilized,
+      statusCounts,
+      utilizationRate: totalAllocated > 0 ? (totalUtilized / totalAllocated) * 100 : 0,
     };
   },
 });

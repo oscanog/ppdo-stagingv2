@@ -269,6 +269,33 @@ export function getStatusColorClass(status: ProjectStatus): string {
   return mapping[status];
 }
 
+/**
+ * 🆕 Calculate aggregate status from items
+ * Used to show users how status propagation works
+ */
+export function calculateAggregateStatus<T extends { status?: ProjectStatus }>(
+  items: T[]
+): ProjectStatus {
+  if (items.length === 0) return "ongoing";
+  
+  let hasOngoing = false;
+  let hasDelayed = false;
+  let hasCompleted = false;
+  
+  for (const item of items) {
+    const status = item.status;
+    if (status === "ongoing") hasOngoing = true;
+    else if (status === "delayed") hasDelayed = true;
+    else if (status === "completed") hasCompleted = true;
+  }
+  
+  if (hasOngoing) return "ongoing";
+  if (hasDelayed) return "delayed";
+  if (hasCompleted) return "completed";
+  
+  return "ongoing";
+}
+
 // ===== FINANCIAL BREAKDOWN =====
 
 export interface FinancialBreakdownItem {

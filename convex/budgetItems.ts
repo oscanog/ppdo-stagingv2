@@ -135,14 +135,6 @@ export const create = mutation({
     obligatedBudget: v.optional(v.number()),
     totalBudgetUtilized: v.number(),
     year: v.optional(v.number()),
-    // STRICT 3 STATUS
-    status: v.optional(
-      v.union(
-        v.literal("completed"),
-        v.literal("delayed"),
-        v.literal("ongoing")
-      )
-    ),
     notes: v.optional(v.string()),
     departmentId: v.optional(v.id("departments")),
     fiscalYear: v.optional(v.number()),
@@ -162,18 +154,18 @@ export const create = mutation({
         : 0;
 
     // Create budget item with project counts initialized to 0
+    // Status will be auto-calculated when projects are added
     const budgetItemId = await ctx.db.insert("budgetItems", {
       particulars: args.particulars,
       totalBudgetAllocated: args.totalBudgetAllocated,
       obligatedBudget: args.obligatedBudget,
       totalBudgetUtilized: args.totalBudgetUtilized,
       utilizationRate,
-      // Initialize project counts to 0 - will be calculated when projects are added
       projectCompleted: 0,
       projectDelayed: 0,
       projectsOnTrack: 0,
+      status: "ongoing", // Default initial status
       year: args.year,
-      status: args.status,
       notes: args.notes,
       departmentId: args.departmentId,
       fiscalYear: args.fiscalYear,
@@ -188,7 +180,7 @@ export const create = mutation({
 
 /**
  * Update an existing budget item
- * NOTE: Project counts are NOT updated here - they are calculated from child projects
+ * ✅ FIXED: Do not update status - it's auto-calculated
  */
 export const update = mutation({
   args: {
@@ -198,14 +190,6 @@ export const update = mutation({
     obligatedBudget: v.optional(v.number()),
     totalBudgetUtilized: v.number(),
     year: v.optional(v.number()),
-    // STRICT 3 STATUS
-    status: v.optional(
-      v.union(
-        v.literal("completed"),
-        v.literal("delayed"),
-        v.literal("ongoing")
-      )
-    ),
     notes: v.optional(v.string()),
     departmentId: v.optional(v.id("departments")),
     fiscalYear: v.optional(v.number()),
@@ -221,10 +205,6 @@ export const update = mutation({
       throw new Error("Budget item not found");
     }
 
-    if (existing.createdBy !== userId) {
-      throw new Error("Not authorized");
-    }
-
     const now = Date.now();
     
     // Calculate utilization rate
@@ -233,7 +213,7 @@ export const update = mutation({
         ? (args.totalBudgetUtilized / args.totalBudgetAllocated) * 100
         : 0;
 
-    // Update budget item - do NOT touch project counts
+    // Update budget item - do NOT update project counts or status
     await ctx.db.patch(args.id, {
       particulars: args.particulars,
       totalBudgetAllocated: args.totalBudgetAllocated,
@@ -241,7 +221,6 @@ export const update = mutation({
       totalBudgetUtilized: args.totalBudgetUtilized,
       utilizationRate,
       year: args.year,
-      status: args.status,
       notes: args.notes,
       departmentId: args.departmentId,
       fiscalYear: args.fiscalYear,
@@ -289,6 +268,7 @@ export const remove = mutation({
     return args.id;
   },
 });
+
 
 /**
  * Toggle pin status for a budget item
@@ -341,6 +321,27 @@ export const recalculateMetrics = internalMutation({
       ctx,
       args.budgetItemId,
       args.userId
+    );
+  },
+});
+
+/**
+ * 🆕 PUBLIC: Recalculate metrics for a specific budget item (frontend callable)
+ */
+export const recalculateSingleBudgetItem = mutation({
+  args: {
+    budgetItemId: v.id("budgetItems"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("Not authenticated");
+    }
+
+    return await recalculateBudgetItemMetrics(
+      ctx,
+      args.budgetItemId,
+      userId
     );
   },
 });

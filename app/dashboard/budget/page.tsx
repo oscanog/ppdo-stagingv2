@@ -9,9 +9,9 @@ import { Expand, X } from "lucide-react";
 import { useState } from "react";
 import MainSheet from "./components/MainSheet";
 import AccessDeniedPage from "@/components/AccessDeniedPage";
-import { ProjectStatus } from "./types"; // Import the shared status type
+import { ProjectStatus } from "./types";
 
-// ✅ FIXED: Use correct status type that matches backend
+// ✅ FIXED: Updated interface to reflect backend changes
 interface BudgetItemFromDB {
   _id: Id<"budgetItems">;
   _creationTime: number;
@@ -26,7 +26,7 @@ interface BudgetItemFromDB {
   projectsOnTrack: number;
   notes?: string;
   year?: number;
-  status?: ProjectStatus; // ✅ FIXED: Now uses strict 3-status
+  status?: ProjectStatus; // ✅ Now auto-calculated by backend
   isPinned?: boolean;
   pinnedAt?: number;
   pinnedBy?: Id<"users">;
@@ -50,7 +50,7 @@ interface BudgetItemForUI {
   projectDelayed: number;
   projectsOnTrack: number;
   year?: number;
-  status?: ProjectStatus; // ✅ FIXED: Now uses strict 3-status
+  status?: ProjectStatus; // ✅ Auto-calculated by backend
   isPinned?: boolean;
   pinnedAt?: number;
   pinnedBy?: string;
@@ -106,7 +106,7 @@ export default function BudgetTrackingPage() {
       projectDelayed: item.projectDelayed,
       projectsOnTrack: item.projectsOnTrack,
       year: item.year,
-      status: item.status,
+      status: item.status, // ✅ Now comes from backend auto-calculation
       isPinned: item.isPinned,
       pinnedAt: item.pinnedAt,
       pinnedBy: item.pinnedBy,
@@ -115,19 +115,20 @@ export default function BudgetTrackingPage() {
   const handleAdd = async (
     item: Omit<
       BudgetItemForUI,
-      "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack"
+      "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack" | "status" // 🆕 Remove status from form data
     >
   ) => {
     try {
+      // 🆕 REMOVED: status field - it's now auto-calculated
       await createBudgetItem({
         particulars: item.particular,
         totalBudgetAllocated: item.totalBudgetAllocated,
         obligatedBudget: item.obligatedBudget,
         totalBudgetUtilized: item.totalBudgetUtilized,
         // 🎯 PROJECT COUNTS REMOVED - Backend initializes them to 0
-        // They will be calculated when projects are added
+        // 🎯 STATUS REMOVED - Backend auto-calculates it
         year: item.year,
-        status: item.status,
+        // ❌ status: item.status, // REMOVED
       });
     } catch (error) {
       console.error("Error creating budget item:", error);
@@ -143,10 +144,11 @@ export default function BudgetTrackingPage() {
     id: string,
     item: Omit<
       BudgetItemForUI,
-      "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack"
+      "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack" | "status" // 🆕 Remove status from form data
     >
   ) => {
     try {
+      // 🆕 REMOVED: status field - it's now auto-calculated
       await updateBudgetItem({
         id: id as Id<"budgetItems">,
         particulars: item.particular,
@@ -154,8 +156,9 @@ export default function BudgetTrackingPage() {
         obligatedBudget: item.obligatedBudget,
         totalBudgetUtilized: item.totalBudgetUtilized,
         // 🎯 PROJECT COUNTS REMOVED - Backend handles them automatically
+        // 🎯 STATUS REMOVED - Backend auto-calculates it
         year: item.year,
-        status: item.status,
+        // ❌ status: item.status, // REMOVED
       });
     } catch (error) {
       console.error("Error updating budget item:", error);
