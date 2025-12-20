@@ -57,6 +57,7 @@ interface Props {
   onAdd?: () => void;
   onEdit?: (breakdown: Breakdown) => void;
   onDelete?: (id: string) => void;
+  onOpenTrash?: () => void;
 }
 
 /* =======================
@@ -102,6 +103,7 @@ export function BreakdownHistoryTable({
   onAdd,
   onEdit,
   onDelete,
+  onOpenTrash,
 }: Props) {
   const { accentColorValue } = useAccentColor();
 
@@ -332,6 +334,17 @@ export function BreakdownHistoryTable({
           />
         </div>
         <div className="flex gap-2">
+              {/* NEW TRASH BUTTON */}
+              <button
+                onClick={onOpenTrash}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-lg hover:scale-105 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800"
+                title="View Recycle Bin"
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  Recycle Bin
+                </div>
+              </button>
               <button
                 onClick={onPrint}
                 className="cursor-pointer px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-md bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-300 dark:hover:bg-zinc-600"
@@ -473,14 +486,14 @@ export function BreakdownHistoryTable({
                   {onEdit && onDelete && <ContextMenuSeparator />}
                   
                   {onDelete && (
-                    <ContextMenuItem
-                      onClick={() => onDelete(r._id)}
-                      className="flex items-center gap-2 cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Delete Breakdown</span>
-                    </ContextMenuItem>
-                  )}
+                      <ContextMenuItem
+                        onClick={() => onDelete(r._id)}
+                        className="flex items-center gap-2 cursor-pointer text-red-600 dark:text-red-400 focus:text-red-600 dark:focus:text-red-400"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Move to Trash</span>
+                      </ContextMenuItem>
+                    )}
                 </ContextMenuContent>
               </ContextMenu>
             );

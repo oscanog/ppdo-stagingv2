@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, RefreshCw } from "lucide-react";
+import { TrashBinModal } from "@/app/dashboard/components/TrashBinModal";
 
 // Define the Breakdown type based on your Convex schema
 interface Breakdown {
@@ -92,6 +93,8 @@ export default function ProjectBreakdownPage() {
   const particularId = decodeURIComponent(params.particularId as string);
   const slugWithId = params.projectbreakdownId as string;
   const projectId = extractProjectId(slugWithId);
+
+  const [showTrashModal, setShowTrashModal] = useState(false);
   
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -145,7 +148,7 @@ export default function ProjectBreakdownPage() {
   // Mutations
   const createBreakdown = useMutation(api.govtProjects.createProjectBreakdown);
   const updateBreakdown = useMutation(api.govtProjects.updateProjectBreakdown);
-  const deleteBreakdown = useMutation(api.govtProjects.deleteProjectBreakdown);
+  const deleteBreakdown = useMutation(api.govtProjects.moveToTrash); // Changed from deleteProjectBreakdown to moveToTrash
   const recalculateProject = useMutation(api.govtProjects.recalculateProject); // 🆕 NEW
   
   // 🆕 Handle manual recalculation
@@ -339,19 +342,17 @@ export default function ProjectBreakdownPage() {
 
       await deleteBreakdown({
         breakdownId: selectedBreakdown._id as Id<"govtProjectBreakdowns">,
-        reason: "Deleted via dashboard confirmation",
+        reason: "Moved to trash via dashboard confirmation",
       });
       
-      toast.success("Breakdown record deleted successfully!", {
+      toast.success("Breakdown record moved to trash!", {
         description: "Project and parent budget status will update automatically.",
       });
       setShowDeleteModal(false);
       setSelectedBreakdown(null);
     } catch (error) {
-      console.error("Error deleting breakdown:", error);
-      toast.error("Failed to delete breakdown record", {
-        description: error instanceof Error ? error.message : "Please try again.",
-      });
+      console.error("Error moving breakdown to trash:", error);
+      toast.error("Failed to move breakdown record to trash");
     }
   };
 
@@ -761,6 +762,7 @@ export default function ProjectBreakdownPage() {
             onAdd={() => setShowAddModal(true)}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onOpenTrash={() => setShowTrashModal(true)} // Pass handler
           />
         )}
       </div>
@@ -808,17 +810,21 @@ export default function ProjectBreakdownPage() {
       {showDeleteModal && selectedBreakdown && (
         <ConfirmationModal
           isOpen={showDeleteModal}
-          onClose={() => {
-            setShowDeleteModal(false);
-            setSelectedBreakdown(null);
-          }}
+          onClose={() => { setShowDeleteModal(false); setSelectedBreakdown(null); }}
           onConfirm={handleConfirmDelete}
-          title="Delete Breakdown Record"
-          message={`Are you sure you want to delete this breakdown record for ${selectedBreakdown.implementingOffice}? This action cannot be undone.`}
-          confirmText="Delete"
+          title="Move to Trash"
+          message={`Are you sure you want to move this breakdown record for ${selectedBreakdown.implementingOffice} to trash?`}
+          confirmText="Move to Trash"
           variant="danger"
         />
       )}
+
+      {/* NEW: Trash Modal for Breakdowns */}
+      <TrashBinModal 
+        isOpen={showTrashModal} 
+        onClose={() => setShowTrashModal(false)} 
+        type="breakdown" 
+      />
     </>
   );
 }

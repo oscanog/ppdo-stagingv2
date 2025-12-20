@@ -11,6 +11,8 @@ import MainSheet from "./components/MainSheet";
 import AccessDeniedPage from "@/components/AccessDeniedPage";
 import { ProjectStatus } from "./types";
 import { ActivityLogSheet } from "../components/ActivityLogSheet";
+import { TrashBinModal } from "../components/TrashBinModal";
+import { toast } from "sonner";
 
 // ✅ FIXED: Updated interface to reflect backend changes
 interface BudgetItemFromDB {
@@ -65,8 +67,10 @@ export default function BudgetTrackingPage() {
   const createBudgetItem = useMutation(api.budgetItems.create);
   const updateBudgetItem = useMutation(api.budgetItems.update);
   const deleteBudgetItem = useMutation(api.budgetItems.remove);
+  const moveToTrash = useMutation(api.budgetItems.moveToTrash); // Use correct mutation
+  
   const [isExpandModalOpen, setIsExpandModalOpen] = useState(false);
-
+  const [showTrashModal, setShowTrashModal] = useState(false); // State for trash modal
   // Loading state
   if (accessCheck === undefined) {
     return (
@@ -173,16 +177,15 @@ export default function BudgetTrackingPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteBudgetItem({
+      // Changed from remove (hard delete) to moveToTrash (soft delete)
+      await moveToTrash({
         id: id as Id<"budgetItems">,
+        reason: "Moved to trash via dashboard",
       });
+      toast.success("Item moved to trash");
     } catch (error) {
       console.error("Error deleting budget item:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Failed to delete budget item"
-      );
+      toast.error("Failed to move item to trash");
     }
   };
 
@@ -275,6 +278,7 @@ export default function BudgetTrackingPage() {
           onAdd={handleAdd}
           onEdit={handleEdit}
           onDelete={handleDelete}
+          onOpenTrash={() => setShowTrashModal(true)}
           expandButton={
             <button
               onClick={handleExpand}
@@ -285,6 +289,13 @@ export default function BudgetTrackingPage() {
           }
         />
       </div>
+
+      {/* NEW: Trash Modal */}
+      <TrashBinModal
+        isOpen={showTrashModal} 
+        onClose={() => setShowTrashModal(false)} 
+        type="budget" 
+      />
 
       {/* Full Screen Modal with Overlay */}
       {isExpandModalOpen && (

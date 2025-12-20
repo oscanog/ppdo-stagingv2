@@ -35,6 +35,7 @@ interface ProjectsTableProps {
   onAdd?: (project: Omit<Project, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOngoing">) => void;
   onEdit?: (id: string, project: Omit<Project, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOngoing">) => void;
   onDelete?: (id: string) => void;
+  onOpenTrash?: () => void
 }
 
 type SortDirection = "asc" | "desc" | null;
@@ -47,6 +48,7 @@ export function ProjectsTable({
   onAdd,
   onEdit,
   onDelete,
+  onOpenTrash,
 }: ProjectsTableProps) {
   const { accentColorValue } = useAccentColor();
   const router = useRouter();
@@ -357,6 +359,17 @@ export function ProjectsTable({
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Projects</h3>
             <div className="flex items-center gap-2">
+              {/* NEW TRASH BUTTON */}
+              <button
+                onClick={onOpenTrash}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-lg hover:scale-105 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800"
+                title="View Recycle Bin"
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  Recycle Bin
+                </div>
+              </button>
               <button onClick={() => setIsSearchVisible(!isSearchVisible)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${isSearchVisible ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-2 border-blue-500' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100'}`}><div className="flex items-center gap-2"><Search className="w-4 h-4" />Search</div></button>
               <button onClick={() => window.print()} className="px-4 py-2 rounded-lg text-sm font-medium bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"><div className="flex items-center gap-2"><FileText className="w-4 h-4" />Print</div></button>
               {onAdd && <button onClick={() => setShowAddModal(true)} className="px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: accentColorValue }}>Add New Project</button>}
@@ -475,7 +488,15 @@ export function ProjectsTable({
           </button>
 
           {onEdit && <button onClick={() => handleEdit(contextMenu.project)} className="w-full px-4 py-2 text-left text-sm hover:bg-zinc-100 flex items-center gap-3"><Edit className="w-4 h-4" />Edit</button>}
-          {onDelete && <button onClick={() => handleDelete(contextMenu.project)} className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-3"><Trash2 className="w-4 h-4" />Delete</button>}
+          {onDelete && (
+            <button 
+              onClick={() => handleDelete(contextMenu.project)} 
+              className="w-full px-4 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 flex items-center gap-3 text-red-600 dark:text-red-400 whitespace-nowrap"
+            >
+              <Trash2 className="w-4 h-4" /> 
+              Move to Trash
+            </button>
+          )}
         </div>
       )}
 
@@ -530,14 +551,11 @@ export function ProjectsTable({
       {showDeleteModal && selectedProject && (
         <ConfirmationModal 
           isOpen={showDeleteModal} 
-          onClose={() => { 
-            setShowDeleteModal(false); 
-            setSelectedProject(null); 
-          }} 
+          onClose={() => { setShowDeleteModal(false); setSelectedProject(null); }} 
           onConfirm={handleConfirmDelete} 
-          title="Delete Project" 
-          message={`Are you sure you want to delete "${selectedProject.particulars}"?`} 
-          confirmText="Delete" 
+          title="Move to Trash" 
+          message={`Are you sure you want to move "${selectedProject.particulars}" to trash? Associated breakdowns will also be moved to trash.`} 
+          confirmText="Move to Trash" 
           variant="danger" 
         />
       )}

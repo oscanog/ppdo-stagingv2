@@ -1,7 +1,7 @@
 // app/dashboard/budget/[particularId]/page.tsx
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "convex/react";
@@ -14,6 +14,7 @@ import { getStatusDisplayText } from "../types";
 import { ActivityLogSheet } from "../../components/ActivityLogSheet";
 import { Button } from "@/components/ui/button";
 import { History } from "lucide-react";
+import { TrashBinModal } from "../../components/TrashBinModal";
 
 // Helper function to get full name from particular ID
 const getParticularFullName = (particular: string): string => {
@@ -72,7 +73,9 @@ export default function ParticularProjectsPage() {
   // Mutations
   const createProject = useMutation(api.projects.create);
   const updateProject = useMutation(api.projects.update);
-  const deleteProject = useMutation(api.projects.remove);
+  const deleteProject = useMutation(api.projects.moveToTrash); // Changed from remove to moveToTrash
+  const [showTrashModal, setShowTrashModal] = useState(false);
+
   const recalculateBudgetItem = useMutation(api.budgetItems.recalculateSingleBudgetItem);
 
   const particularFullName = getParticularFullName(particular);
@@ -187,16 +190,14 @@ export default function ParticularProjectsPage() {
 
   const handleDeleteProject = async (id: string) => {
     try {
-      await deleteProject({ id: id as Id<"projects"> });
-      toast.success("Project deleted successfully!", {
-        description: "Parent budget item metrics updated automatically.",
+      await deleteProject({ 
+        id: id as Id<"projects">,
+        reason: "Moved to trash via project dashboard" 
       });
+      toast.success("Project moved to trash successfully!");
     } catch (error) {
       console.error("Error deleting project:", error);
-      toast.error("Failed to delete project", {
-        description:
-          error instanceof Error ? error.message : "Please try again.",
-      });
+      toast.error("Failed to move project to trash");
     }
   };
 
@@ -434,13 +435,21 @@ export default function ParticularProjectsPage() {
           <ProjectsTable
             projects={transformedProjects}
             particularId={particular}
-            budgetItemId={budgetItem._id} // 🔧 CRITICAL FIX: Pass budgetItemId here!
+            budgetItemId={budgetItem._id}
             onAdd={handleAddProject}
             onEdit={handleEditProject}
             onDelete={handleDeleteProject}
+            onOpenTrash={() => setShowTrashModal(true)} // Pass handler
           />
         )}
       </div>
+
+      {/* NEW: Trash Modal for Projects */}
+      <TrashBinModal 
+        isOpen={showTrashModal} 
+        onClose={() => setShowTrashModal(false)} 
+        type="project" 
+      />
     </>
   );
 }

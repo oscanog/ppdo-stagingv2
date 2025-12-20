@@ -36,6 +36,7 @@ interface BudgetTrackingTableProps {
   onEdit?: (id: string, item: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack" | "status">) => void;
   onDelete?: (id: string) => void;
   expandButton?: React.ReactNode;
+  onOpenTrash?: () => void;
 }
 
 export function BudgetTrackingTable({
@@ -44,6 +45,7 @@ export function BudgetTrackingTable({
   onEdit,
   onDelete,
   expandButton,
+  onOpenTrash,
 }: BudgetTrackingTableProps) {
   const { accentColorValue } = useAccentColor();
   const router = useRouter();
@@ -366,6 +368,17 @@ export function BudgetTrackingTable({
               Budget Items
             </h3>
             <div className="flex items-center gap-2">
+              {/* NEW TRASH BUTTON */}
+              <button
+                onClick={onOpenTrash}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-all hover:shadow-lg hover:scale-105 bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800"
+                title="View Recycle Bin"
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  Recycle Bin
+                </div>
+              </button>
               {isAdmin && (
                 <button
                   onClick={() => setShowShareModal(true)}
@@ -842,7 +855,7 @@ export function BudgetTrackingTable({
               className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center gap-3"
             >
               <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
-              <span className="text-red-700 dark:text-red-300">Delete</span>
+              <span className="text-red-700 dark:text-red-300">Move to Trash</span>
             </button>
           )}
         </div>
@@ -897,9 +910,9 @@ export function BudgetTrackingTable({
             setSelectedItem(null);
           }}
           onConfirm={handleConfirmDelete}
-          title="Delete Budget Item"
-          message={`Are you sure you want to delete "${selectedItem.particular}"? This action cannot be undone.`}
-          confirmText="Delete"
+          title="Move to Trash"
+          message={`Are you sure you want to move "${selectedItem.particular}" to trash? Associated projects will also be moved to trash.`}
+          confirmText="Move to Trash"
           cancelText="Cancel"
           variant="danger"
         />
