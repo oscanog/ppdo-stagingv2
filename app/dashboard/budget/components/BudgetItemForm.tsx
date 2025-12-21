@@ -18,19 +18,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Calculator, AlertCircle, Info } from "lucide-react";
+import { BudgetParticularCombobox } from "./BudgetParticularCombobox";
 
 interface BudgetItem {
   id: string;
@@ -44,27 +38,12 @@ interface BudgetItem {
   projectDelayed: number;
   projectsOnTrack: number;
   year?: number;
-  status?: "completed" | "ongoing" | "delayed"; // 🆕 Auto-calculated, not in form
+  status?: "completed" | "ongoing" | "delayed";
 }
-
-const BUDGET_PARTICULARS = [
-  "GAD",
-  "LDRRMP",
-  "LCCAP",
-  "LCPC",
-  "SCPD",
-  "POPS",
-  "CAIDS",
-  "LNP",
-  "PID",
-  "ACDP",
-  "LYDP",
-  "20%_DF",
-] as const;
 
 const FORM_STORAGE_KEY = "budget_item_form_draft";
 
-// Custom validation for no whitespace
+// Custom validation for no whitespace (for particular code)
 const noWhitespaceString = z
   .string()
   .min(1, { message: "This field is required." })
@@ -79,7 +58,6 @@ const noWhitespaceString = z
   });
 
 // Define the form schema with Zod
-// ❌ REMOVED manual project counts AND status from schema
 const budgetItemSchema = z
   .object({
     particular: noWhitespaceString,
@@ -93,7 +71,6 @@ const budgetItemSchema = z
       message: "Must be 0 or greater.",
     }),
     year: z.number().int().min(2000).max(2100).optional().or(z.literal(0)),
-    // ❌ REMOVED: status field - now auto-calculated
   })
   .refine(
     (data) => data.totalBudgetUtilized <= data.totalBudgetAllocated,
@@ -114,7 +91,6 @@ type BudgetItemFormValues = z.infer<typeof budgetItemSchema>;
 
 interface BudgetItemFormProps {
   item?: BudgetItem | null;
-  // UPDATE THIS LINE to omit the project metric fields AND status
   onSave: (item: Omit<BudgetItem, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOnTrack" | "status">) => void;
   onCancel: () => void;
 }
@@ -151,7 +127,6 @@ export function BudgetItemForm({
       obligatedBudget: item?.obligatedBudget || undefined,
       totalBudgetUtilized: item?.totalBudgetUtilized || 0,
       year: item?.year || undefined,
-      // ❌ REMOVED: status - now auto-calculated
     },
   });
 
@@ -231,7 +206,7 @@ export function BudgetItemForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        {/* Particular Field */}
+        {/* Particular Field - NOW WITH COMBOBOX */}
         <FormField
           name="particular"
           render={({ field }) => (
@@ -239,24 +214,14 @@ export function BudgetItemForm({
               <FormLabel className="text-zinc-700 dark:text-zinc-300">
                 Particular
               </FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                defaultValue={field.value}
-                disabled={!!item}
-              >
-                <FormControl>
-                  <SelectTrigger className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100">
-                    <SelectValue placeholder="Select Particular" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {BUDGET_PARTICULARS.map((part) => (
-                    <SelectItem key={part} value={part}>
-                      {part}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <BudgetParticularCombobox
+                  value={field.value}
+                  onChange={field.onChange}
+                  disabled={!!item} // Disable if editing existing item
+                  error={form.formState.errors.particular?.message}
+                />
+              </FormControl>
               {item && (
                 <FormDescription className="text-zinc-500 dark:text-zinc-400">
                   Particular cannot be changed after creation
@@ -267,7 +232,7 @@ export function BudgetItemForm({
           )}
         />
 
-        {/* Year (Optional) - Only field now since status is auto-calculated */}
+        {/* Year (Optional) */}
         <FormField
           name="year"
           render={({ field }) => (
@@ -461,8 +426,7 @@ export function BudgetItemForm({
           </div>
         )}
 
-        {/* ❌ REMOVED PROJECT STATUS FIELDS SECTION */}
-        {/* Added info box explaining auto-calculation */}
+        {/* Info box explaining auto-calculation */}
         <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/50 rounded-lg">
           <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
           <div className="text-sm text-blue-700 dark:text-blue-300">

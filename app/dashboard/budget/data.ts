@@ -1,3 +1,5 @@
+// app/dashboard/budget/data.ts
+
 import { BudgetItem } from "./types";
 
 // Mock data - in production, this would come from an API
