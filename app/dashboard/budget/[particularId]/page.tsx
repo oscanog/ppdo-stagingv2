@@ -1,3 +1,5 @@
+// app/dashboard/budget/[particularId]/page.tsx
+
 "use client";
 
 import { useEffect, useState } from "react";

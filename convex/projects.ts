@@ -185,7 +185,7 @@ export const restoreFromTrash = mutation({
 });
 
 /**
- * Get a single project by ID
+ * Get a single project by ID (with ownership check)
  */
 export const get = query({
     args: { id: v.id("projects") },
@@ -197,6 +197,34 @@ export const get = query({
         if (project.createdBy !== userId) throw new Error("Not authorized");
         return project;
     },
+});
+
+/**
+ * ✅ NEW: Get a project by ID for validation purposes (no ownership check)
+ * Used by breakdown forms to validate against parent project budget
+ */
+export const getForValidation = query({
+  args: { id: v.id("projects") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not authenticated");
+    
+    const project = await ctx.db.get(args.id);
+    if (!project || project.isDeleted) {
+      throw new Error("Project not found");
+    }
+    
+    // Return only the fields needed for validation
+    return {
+      _id: project._id,
+      particulars: project.particulars,
+      implementingOffice: project.implementingOffice,
+      totalBudgetAllocated: project.totalBudgetAllocated,
+      totalBudgetUtilized: project.totalBudgetUtilized,
+      budgetItemId: project.budgetItemId,
+      status: project.status,
+    };
+  },
 });
 
 /**

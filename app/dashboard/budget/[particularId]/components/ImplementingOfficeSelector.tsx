@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronsUpDown, Plus, Loader2, AlertCircle, Building2, Users } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, Loader2, AlertCircle, Building2, Handshake } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -267,7 +267,7 @@ export function ImplementingOfficeSelector({
                 {selectedItem?.sourceType === "department" ? (
                   <Building2 className="h-4 w-4 text-blue-500" />
                 ) : (
-                  <Users className="h-4 w-4 text-green-500" />
+                  <Handshake className="h-4 w-4 text-green-500" />
                 )}
                 <span className="font-mono text-xs bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">
                   {value}
@@ -294,7 +294,7 @@ export function ImplementingOfficeSelector({
                 className="w-full justify-start gap-3 h-auto py-3"
                 onClick={() => setSelectionMode("agency")}
               >
-                <Users className="h-5 w-5 text-green-500" />
+                <Handshake className="h-5 w-5 text-green-500" />
                 <div className="text-left">
                   <div className="font-medium">Implementing Agency/Office</div>
                   <div className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -335,7 +335,7 @@ export function ImplementingOfficeSelector({
                   {selectionMode === "department" ? (
                     <Building2 className="h-4 w-4 text-blue-500" />
                   ) : (
-                    <Users className="h-4 w-4 text-green-500" />
+                    <Handshake className="h-4 w-4 text-green-500" />
                   )}
                   <span className="text-sm font-medium">
                     {selectionMode === "department" ? "Departments" : "Agencies"}
@@ -385,7 +385,7 @@ export function ImplementingOfficeSelector({
                             {selectionMode === "department" ? (
                               <Building2 className="h-4 w-4 text-blue-500 shrink-0" />
                             ) : (
-                              <Users className="h-4 w-4 text-green-500 shrink-0" />
+                              <Handshake className="h-4 w-4 text-green-500 shrink-0" />
                             )}
                             <span className="font-mono text-xs bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded shrink-0">
                               {item.code}
