@@ -49,15 +49,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ProjectParticularCombobox } from "./ProjectParticularCombobox";
 
 const FORM_STORAGE_KEY = "project_form_draft";
 
+// Custom validation for no whitespace (for particular code)
+const noWhitespaceString = z
+  .string()
+  .min(1, { message: "This field is required." })
+  .refine((val) => val.trim().length > 0, {
+    message: "Whitespace only is not allowed.",
+  })
+  .refine((val) => val === val.trim(), {
+    message: "Leading or trailing whitespace is not allowed.",
+  })
+  .refine((val) => !/\s/.test(val), {
+    message: "Whitespace is not allowed.",
+  });
+
 const projectSchema = z
   .object({
-    particulars: z
-      .string()
-      .min(1, { message: "Particulars is required." })
-      .max(200, { message: "Particulars is too long." }),
+    particulars: noWhitespaceString,
     implementingOffice: z.string().min(1, { message: "Implementing office is required." }),
     totalBudgetAllocated: z.number().min(0, { message: "Must be 0 or greater." }),
     obligatedBudget: z.number().min(0, { message: "Must be 0 or greater." }).optional(),
@@ -89,136 +101,23 @@ interface ProjectFormProps {
 export function ProjectForm({ project, budgetItemId, onSave, onCancel }: ProjectFormProps) {
   const { accentColorValue } = useAccentColor();
   
-  // 🔧 FIX 1: Add initial debug log to see what budgetItemId we receive
-  useEffect(() => {
-    console.log("🎯 [ProjectForm] Initial Props:", {
-      hasBudgetItemId: !!budgetItemId,
-      budgetItemIdValue: budgetItemId,
-      budgetItemIdType: typeof budgetItemId,
-      hasProject: !!project,
-      projectId: project?.id,
-    });
-  }, [budgetItemId, project]);
-  
-  // 🔧 FIX 2: Improved query condition - ensure we have a valid ID
   const shouldFetchParent = budgetItemId !== undefined && budgetItemId !== null && budgetItemId !== "";
   
-  // Fetch parent budget item
   const parentBudgetItem = useQuery(
     api.budgetItems.get,
     shouldFetchParent ? { id: budgetItemId as any } : "skip"
   );
   
-  // 🔧 FIX 3: Add debug for query state
-  useEffect(() => {
-    console.log("🔍 [Query State] Parent Budget Item Query:", {
-      shouldFetchParent,
-      budgetItemId,
-      queryResult: parentBudgetItem,
-      isUndefined: parentBudgetItem === undefined,
-      isNull: parentBudgetItem === null,
-    });
-  }, [shouldFetchParent, budgetItemId, parentBudgetItem]);
-  
-  // Fetch all sibling projects (projects under same budget item)
   const siblingProjects = useQuery(
     api.projects.list,
     shouldFetchParent ? { budgetItemId: budgetItemId as any } : "skip"
   );
   
-  // 🔧 FIX 4: Add debug for sibling projects query state
-  useEffect(() => {
-    console.log("🔍 [Query State] Sibling Projects Query:", {
-      shouldFetchParent,
-      budgetItemId,
-      queryResult: siblingProjects,
-      isUndefined: siblingProjects === undefined,
-      isNull: siblingProjects === null,
-      isArray: Array.isArray(siblingProjects),
-      count: siblingProjects?.length,
-    });
-  }, [shouldFetchParent, budgetItemId, siblingProjects]);
-  
-  // Fetch departments from backend
   const departments = useQuery(api.departments.list, { includeInactive: false });
   
-  // 🔧 FIX 5: Enhanced debug logging with conditional execution
-  useEffect(() => {
-    if (parentBudgetItem !== undefined && parentBudgetItem !== null) {
-      console.log("✅ [ProjectForm Debug] Parent Budget Item LOADED:", {
-        id: parentBudgetItem._id,
-        particulars: parentBudgetItem.particulars,
-        totalBudgetAllocated: parentBudgetItem.totalBudgetAllocated,
-        formattedAmount: formatCurrency(parentBudgetItem.totalBudgetAllocated),
-        status: parentBudgetItem.status,
-        projectCompleted: parentBudgetItem.projectCompleted,
-        projectDelayed: parentBudgetItem.projectDelayed,
-        projectsOnTrack: parentBudgetItem.projectsOnTrack,
-        fullData: parentBudgetItem,
-      });
-    } else if (shouldFetchParent) {
-      console.log("⏳ [ProjectForm Debug] Parent Budget Item LOADING...", {
-        shouldFetchParent,
-        budgetItemId,
-        parentBudgetItemState: parentBudgetItem,
-      });
-    } else {
-      console.log("⚠️ [ProjectForm Debug] Parent Budget Item NOT FETCHING:", {
-        shouldFetchParent,
-        budgetItemId,
-        reason: !budgetItemId ? "No budgetItemId provided" : "Query skipped",
-      });
-    }
-  }, [parentBudgetItem, shouldFetchParent, budgetItemId]);
-  
-  // 🔧 FIX 6: Enhanced sibling projects debug with better filtering logic
-  useEffect(() => {
-    if (siblingProjects !== undefined && siblingProjects !== null) {
-      // Filter out current project if editing (using correct _id field from Convex)
-      const filteredSiblings = project 
-        ? siblingProjects.filter(p => p._id !== project.id)
-        : siblingProjects;
-      
-      const siblingTotal = filteredSiblings.reduce((sum, p) => sum + p.totalBudgetAllocated, 0);
-      
-      console.log("✅ [ProjectForm Debug] Sibling Projects LOADED:", {
-        totalCount: siblingProjects.length,
-        filteredCount: filteredSiblings.length,
-        isEditing: !!project,
-        currentProjectId: project?.id,
-        siblingTotal,
-        formattedTotal: formatCurrency(siblingTotal),
-        projects: siblingProjects.map(p => ({
-          id: p._id,
-          particulars: p.particulars,
-          allocated: p.totalBudgetAllocated,
-          isCurrentProject: project ? p._id === project.id : false,
-        })),
-        filteredProjects: filteredSiblings.map(p => ({
-          id: p._id,
-          particulars: p.particulars,
-          allocated: p.totalBudgetAllocated,
-        })),
-      });
-    } else if (shouldFetchParent) {
-      console.log("⏳ [ProjectForm Debug] Sibling Projects LOADING...", {
-        shouldFetchParent,
-        budgetItemId,
-        siblingProjectsState: siblingProjects,
-      });
-    } else {
-      console.log("⚠️ [ProjectForm Debug] Sibling Projects NOT FETCHING:", {
-        shouldFetchParent,
-        budgetItemId,
-      });
-    }
-  }, [siblingProjects, project, shouldFetchParent, budgetItemId]);
-  
-  // State for budget warning modal
   const [showBudgetWarningModal, setShowBudgetWarningModal] = useState(false);
   const [pendingFormData, setPendingFormData] = useState<ProjectFormValues | null>(null);
   
-  // Load saved draft from localStorage (only for new projects)
   const getSavedDraft = () => {
     if (project) return null;
     try {
@@ -234,7 +133,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
 
   const savedDraft = getSavedDraft();
   
-  // Define the form
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: savedDraft || {
@@ -248,10 +146,8 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     },
   });
 
-  // Watch all form values for auto-save
   const formValues = form.watch();
   
-  // Auto-save draft to localStorage (only for new projects)
   useEffect(() => {
     if (!project) {
       const timer = setTimeout(() => {
@@ -266,26 +162,20 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     }
   }, [formValues, project]);
 
-  // Watch values for utilization rate calculation
   const totalBudgetAllocated = form.watch("totalBudgetAllocated");
   const obligatedBudget = form.watch("obligatedBudget");
   const totalBudgetUtilized = form.watch("totalBudgetUtilized");
 
-  // Calculate utilization rate for preview
   const utilizationRate =
     totalBudgetAllocated > 0
       ? (totalBudgetUtilized / totalBudgetAllocated) * 100
       : 0;
 
-  // Check if budget is exceeded
   const isBudgetExceeded = totalBudgetUtilized > totalBudgetAllocated;
   const isObligatedExceeded = obligatedBudget && obligatedBudget > totalBudgetAllocated;
   
-  // 🔧 FIX 7: Enhanced budget availability calculation with detailed debugging
   const budgetAvailability = (() => {
-    // Check if queries are still loading
     if (!shouldFetchParent) {
-      console.log("💡 [Budget Calc] Skipping - no budgetItemId");
       return {
         isLoading: false,
         parentTotal: 0,
@@ -299,10 +189,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     }
     
     if (parentBudgetItem === undefined || siblingProjects === undefined) {
-      console.log("⏳ [Budget Calc] Still loading...", {
-        parentBudgetItem: parentBudgetItem === undefined ? "loading" : "loaded",
-        siblingProjects: siblingProjects === undefined ? "loading" : "loaded",
-      });
       return {
         isLoading: true,
         parentTotal: 0,
@@ -316,10 +202,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     }
     
     if (!parentBudgetItem) {
-      console.error("❌ [Budget Calc] Parent budget item not found!", {
-        budgetItemId,
-        shouldFetchParent,
-      });
       return {
         isLoading: false,
         parentTotal: 0,
@@ -333,10 +215,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     }
     
     if (!siblingProjects) {
-      console.error("❌ [Budget Calc] Sibling projects not found!", {
-        budgetItemId,
-        shouldFetchParent,
-      });
       return {
         isLoading: false,
         parentTotal: parentBudgetItem.totalBudgetAllocated,
@@ -350,53 +228,15 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     }
     
     const parentTotal = parentBudgetItem.totalBudgetAllocated;
-    
-    // 🔧 FIX 8: Correct filtering - exclude current project when editing
     const filteredSiblings = project 
       ? siblingProjects.filter(p => p._id !== project.id)
       : siblingProjects;
     
     const siblingTotal = filteredSiblings.reduce((sum, p) => sum + p.totalBudgetAllocated, 0);
-    
     const available = parentTotal - siblingTotal;
     const isOverBudget = totalBudgetAllocated > available;
     const overBudgetAmount = isOverBudget ? totalBudgetAllocated - available : 0;
     const percentage = available > 0 ? (totalBudgetAllocated / available) * 100 : 0;
-    
-    // 🔧 FIX 9: Comprehensive debug logging for budget calculations
-    console.log("🧮 [Budget Availability Calculation]:", {
-      timestamp: new Date().toISOString(),
-      parentBudgetItem: {
-        id: parentBudgetItem._id,
-        particulars: parentBudgetItem.particulars,
-        totalAllocated: parentTotal,
-      },
-      siblings: {
-        total: siblingProjects.length,
-        filtered: filteredSiblings.length,
-        isEditing: !!project,
-        currentProjectId: project?.id,
-        allocations: filteredSiblings.map(p => ({
-          id: p._id,
-          particulars: p.particulars,
-          allocated: p.totalBudgetAllocated,
-        })),
-      },
-      calculation: {
-        parentTotal: `₱${parentTotal.toLocaleString()}`,
-        siblingTotal: `₱${siblingTotal.toLocaleString()}`,
-        available: `₱${available.toLocaleString()}`,
-        currentAllocation: `₱${totalBudgetAllocated.toLocaleString()}`,
-        isOverBudget,
-        overBudgetAmount: `₱${overBudgetAmount.toLocaleString()}`,
-        percentage: `${percentage.toFixed(2)}%`,
-      },
-      formula: {
-        available: `${parentTotal} - ${siblingTotal} = ${available}`,
-        isOverBudget: `${totalBudgetAllocated} > ${available} = ${isOverBudget}`,
-        percentage: available > 0 ? `(${totalBudgetAllocated} / ${available}) * 100 = ${percentage.toFixed(2)}%` : "N/A",
-      },
-    });
     
     return {
       isLoading: false,
@@ -409,13 +249,7 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
       debugInfo: "Calculation complete",
     };
   })();
-  
-  // 🔧 FIX 10: Add debug effect for budget availability changes
-  useEffect(() => {
-    console.log("📊 [Budget Availability State Change]:", budgetAvailability);
-  }, [budgetAvailability]);
 
-  // Get color based on utilization rate
   const getUtilizationColor = () => {
     if (utilizationRate > 100) return "text-red-600 dark:text-red-400 font-bold";
     if (utilizationRate >= 80) return "text-red-600 dark:text-red-400";
@@ -423,7 +257,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     return "text-green-600 dark:text-green-400";
   };
   
-  // Get budget warning color
   const getBudgetWarningColor = () => {
     if (budgetAvailability.isOverBudget) return "text-red-600 dark:text-red-400";
     if (budgetAvailability.percentage >= 90) return "text-orange-600 dark:text-orange-400";
@@ -431,7 +264,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     return "text-green-600 dark:text-green-400";
   };
   
-  // Format currency
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat("en-PH", {
       style: "currency",
@@ -441,34 +273,22 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     }).format(amount);
   };
   
-  // Handle form submission (first step)
   function onSubmit(values: ProjectFormValues) {
-    console.log("📝 [Form Submit]:", {
-      values,
-      budgetAvailability,
-      isOverBudget: budgetAvailability.isOverBudget,
-      isEditing: !!project,
-    });
-    
-    // If over budget, show confirmation modal
     if (budgetAvailability.isOverBudget && !project) {
       setPendingFormData(values);
       setShowBudgetWarningModal(true);
       return;
     }
     
-    // Otherwise proceed directly
     proceedWithSave(values);
   }
   
-  // Proceed with save (after confirmation or if no warning needed)
   const proceedWithSave = (values: ProjectFormValues) => {
     const projectData = {
       ...values,
       remarks: values.remarks || "",
     };
 
-    // Clear draft on successful submit
     if (!project) {
       try {
         localStorage.removeItem(FORM_STORAGE_KEY);
@@ -480,7 +300,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     onSave(projectData);
   };
   
-  // Handle confirmation modal - proceed anyway
   const handleConfirmOverBudget = () => {
     if (pendingFormData) {
       proceedWithSave(pendingFormData);
@@ -489,13 +308,11 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     setPendingFormData(null);
   };
   
-  // Handle confirmation modal - cancel
   const handleCancelOverBudget = () => {
     setShowBudgetWarningModal(false);
     setPendingFormData(null);
   };
 
-  // Handle cancel
   const handleCancel = () => {
     if (!project) {
       try {
@@ -511,7 +328,7 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     <>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          {/* Particulars */}
+          {/* Particulars - NOW WITH COMBOBOX */}
           <FormField
             name="particulars"
             render={({ field }) => (
@@ -520,12 +337,18 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
                   Particulars
                 </FormLabel>
                 <FormControl>
-                  <Input
-                    placeholder="Enter particulars"
-                    className="bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100"
-                    {...field}
+                  <ProjectParticularCombobox
+                    value={field.value}
+                    onChange={field.onChange}
+                    disabled={!!project}
+                    error={form.formState.errors.particulars?.message}
                   />
                 </FormControl>
+                {project && (
+                  <FormDescription className="text-zinc-500 dark:text-zinc-400">
+                    Particular cannot be changed after creation
+                  </FormDescription>
+                )}
                 <FormMessage />
               </FormItem>
             )}
@@ -945,7 +768,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
       {/* Budget Over-allocation Confirmation Modal */}
       <Dialog open={showBudgetWarningModal} onOpenChange={setShowBudgetWarningModal}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] flex flex-col p-0">
-          {/* Header - Fixed at top */}
           <DialogHeader className="flex-shrink-0 px-6 pt-6 pb-4">
             <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
               <AlertTriangle className="w-5 h-5" />
@@ -956,9 +778,7 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
             </DialogDescription>
           </DialogHeader>
           
-          {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto px-6 space-y-4">
-            {/* Summary of the situation */}
             <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-zinc-600 dark:text-zinc-400">Parent Budget Item:</span>
@@ -1003,7 +823,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
               </div>
             </div>
             
-            {/* Consequences */}
             <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-4 border border-red-200 dark:border-red-900/50">
               <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-2">
                 ⚠️ What happens if you proceed:
@@ -1028,7 +847,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
               </ul>
             </div>
             
-            {/* Recommendations */}
             <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200 dark:border-blue-900/50">
               <p className="text-sm font-semibold text-blue-700 dark:text-blue-400 mb-2">
                 💡 Recommendations:
@@ -1053,7 +871,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
               </ul>
             </div>
             
-            {/* Confirmation question */}
             <div className="bg-yellow-50 dark:bg-yellow-950/20 rounded-lg p-4 border-2 border-yellow-300 dark:border-yellow-900 mb-4">
               <p className="text-sm font-bold text-yellow-800 dark:text-yellow-300 text-center">
                 Are you sure you want to proceed with this over-allocation?
@@ -1061,7 +878,6 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
             </div>
           </div>
           
-          {/* Footer - Fixed at bottom */}
           <DialogFooter className="gap-2 flex-shrink-0 border-t border-zinc-200 dark:border-zinc-800 px-6 py-4">
             <Button
               type="button"

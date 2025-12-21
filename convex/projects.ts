@@ -94,10 +94,9 @@ export const moveToTrash = mutation({
       });
     }
 
-    // 🆕 Update usage count for the particular
-    await ctx.runMutation(internal.budgetParticulars.updateUsageCount, {
+    // 🆕 Update usage count for the project particular
+    await ctx.runMutation(internal.projectParticulars.updateUsageCount, {
       code: existing.particulars,
-      type: "project" as const,
       delta: -1,
     });
 
@@ -155,10 +154,9 @@ export const restoreFromTrash = mutation({
       }
     }
 
-    // 🆕 Update usage count for the particular
-    await ctx.runMutation(internal.budgetParticulars.updateUsageCount, {
+    // 🆕 Update usage count for the project particular
+    await ctx.runMutation(internal.projectParticulars.updateUsageCount, {
       code: existing.particulars,
-      type: "project" as const,
       delta: 1,
     });
 
@@ -188,7 +186,7 @@ export const get = query({
 
 /**
  * Create a new project
- * 🆕 UPDATED: Now validates particular exists and updates usage count
+ * 🆕 UPDATED: Now validates project particular exists and updates usage count
  */
 export const create = mutation({
     args: {
@@ -207,21 +205,21 @@ export const create = mutation({
         const userId = await getAuthUserId(ctx);
         if (userId === null) throw new Error("Not authenticated");
         
-        // 🆕 Validate particular exists and is active
+        // 🆕 Validate project particular exists and is active
         const particular = await ctx.db
-          .query("budgetParticulars")
+          .query("projectParticulars")
           .withIndex("code", (q) => q.eq("code", args.particulars))
           .first();
 
         if (!particular) {
           throw new Error(
-            `Budget particular "${args.particulars}" does not exist. Please add it in Budget Particulars management first.`
+            `Project particular "${args.particulars}" does not exist. Please add it in Project Particulars management first.`
           );
         }
 
         if (!particular.isActive) {
           throw new Error(
-            `Budget particular "${args.particulars}" is inactive and cannot be used. Please activate it first.`
+            `Project particular "${args.particulars}" is inactive and cannot be used. Please activate it first.`
           );
         }
 
@@ -257,10 +255,9 @@ export const create = mutation({
             isDeleted: false,
         });
 
-        // 🆕 Update usage count for the particular
-        await ctx.runMutation(internal.budgetParticulars.updateUsageCount, {
+        // 🆕 Update usage count for the project particular
+        await ctx.runMutation(internal.projectParticulars.updateUsageCount, {
           code: args.particulars,
-          type: "project" as const,
           delta: 1,
         });
 
@@ -281,7 +278,7 @@ export const create = mutation({
 
 /**
  * Update an existing project
- * 🆕 UPDATED: Now validates particular exists if changed
+ * 🆕 UPDATED: Now validates project particular exists if changed
  */
 export const update = mutation({
     args: {
@@ -308,34 +305,32 @@ export const update = mutation({
         // 🆕 If particular is changing, validate new particular
         if (args.particulars !== existing.particulars) {
           const particular = await ctx.db
-            .query("budgetParticulars")
+            .query("projectParticulars")
             .withIndex("code", (q) => q.eq("code", args.particulars))
             .first();
 
           if (!particular) {
             throw new Error(
-              `Budget particular "${args.particulars}" does not exist. Please add it in Budget Particulars management first.`
+              `Project particular "${args.particulars}" does not exist. Please add it in Project Particulars management first.`
             );
           }
 
           if (!particular.isActive) {
             throw new Error(
-              `Budget particular "${args.particulars}" is inactive and cannot be used. Please activate it first.`
+              `Project particular "${args.particulars}" is inactive and cannot be used. Please activate it first.`
             );
           }
 
           // Update usage counts
           // Decrease old particular
-          await ctx.runMutation(internal.budgetParticulars.updateUsageCount, {
+          await ctx.runMutation(internal.projectParticulars.updateUsageCount, {
             code: existing.particulars,
-            type: "project" as const,
             delta: -1,
           });
 
           // Increase new particular
-          await ctx.runMutation(internal.budgetParticulars.updateUsageCount, {
+          await ctx.runMutation(internal.projectParticulars.updateUsageCount, {
             code: args.particulars,
-            type: "project" as const,
             delta: 1,
           });
         }
@@ -434,10 +429,9 @@ export const remove = mutation({
     // 4. Permanent Delete Project
     await ctx.db.delete(args.id);
 
-    // 🆕 Update usage count for the particular
-    await ctx.runMutation(internal.budgetParticulars.updateUsageCount, {
+    // 🆕 Update usage count for the project particular
+    await ctx.runMutation(internal.projectParticulars.updateUsageCount, {
       code: existing.particulars,
-      type: "project" as const,
       delta: -1,
     });
 
