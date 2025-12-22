@@ -1,3 +1,5 @@
+// app/dashboard/components/ActivityLogSheet.tsx
+
 "use client";
 
 import { useState } from "react";
@@ -49,6 +51,7 @@ interface ActivityLogSheetProps {
   
   // Identifiers
   entityId?: string; // If provided, filters by specific ID. If missing, fetches ALL (Global mode).
+  budgetItemId?: string; // NEW: For filtering projects by budget item
   
   // Legacy identifiers for breakdown (which uses names)
   projectName?: string;
@@ -64,6 +67,7 @@ interface ActivityLogSheetProps {
 export function ActivityLogSheet({
   type,
   entityId,
+  budgetItemId,
   projectName,
   implementingOffice,
   trigger,
@@ -83,11 +87,19 @@ export function ActivityLogSheet({
       : "skip"
   );
 
-  // 2. Fetch Project Logs (ID-based)
+  // 2. Fetch Project Logs (ID-based - Single Project)
   const projectLogs = useQuery(
     api.projectActivities.getByProject,
     type === "project" && entityId
       ? { projectId: entityId as Id<"projects">, limit: 50 }
+      : "skip"
+  );
+
+  // 2b. Fetch Project Logs by Budget Item (NEW - All projects under a budget)
+  const projectLogsByBudget = useQuery(
+    api.projectActivities.getByBudgetItem,
+    type === "project" && budgetItemId && !entityId
+      ? { budgetItemId: budgetItemId as Id<"budgetItems">, limit: 50 }
       : "skip"
   );
 
@@ -115,8 +127,9 @@ export function ActivityLogSheet({
     activities = (breakdownLogs?.activities || []) as UnifiedActivityLog[];
     isLoading = breakdownLogs === undefined;
   } else if (type === "project") {
-    activities = (projectLogs || []) as UnifiedActivityLog[];
-    isLoading = projectLogs === undefined;
+    // Use whichever query returned data
+    activities = (projectLogs || projectLogsByBudget || []) as UnifiedActivityLog[];
+    isLoading = projectLogs === undefined && projectLogsByBudget === undefined;
   } else if (type === "budget") {
     if (entityId) {
       activities = (singleBudgetLogs || []) as UnifiedActivityLog[];

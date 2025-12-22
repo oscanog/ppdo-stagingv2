@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { getStatusDisplayText } from "../types";
 import { ActivityLogSheet } from "../../components/ActivityLogSheet";
 import { Button } from "@/components/ui/button";
-import { History } from "lucide-react";
+import { History, RefreshCw, Eye, EyeOff } from "lucide-react";
 import { TrashBinModal } from "../../components/TrashBinModal";
 
 // Helper function to get full name from particular ID
@@ -41,6 +41,22 @@ export default function ParticularProjectsPage() {
   const params = useParams();
   const { accentColorValue } = useAccentColor();
   const particular = decodeURIComponent(params.particularId as string);
+
+  // State for showing/hiding details - Load from localStorage
+  const [showDetails, setShowDetails] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("showBudgetDetails");
+      return saved ? JSON.parse(saved) : false; // Default is hidden (false)
+    }
+    return false;
+  });
+
+  // Save to localStorage whenever showDetails changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("showBudgetDetails", JSON.stringify(showDetails));
+    }
+  }, [showDetails]);
 
   // Get budget item by particular name to get its ID
   const budgetItem = useQuery(api.budgetItems.getByParticulars, {
@@ -250,24 +266,60 @@ export default function ParticularProjectsPage() {
             {particularFullName}
           </h1>
 
-          {/* RIGHT: ACTIVITY LOG BUTTON */}
-          {budgetItem && (
-            <ActivityLogSheet
-              type="budget"
-              entityId={budgetItem._id}
-              title={`Log: ${budgetItem.particulars}`}
-              trigger={
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                >
-                  <History className="w-4 h-4" />
-                  <span className="hidden sm:inline">Budget Log</span>
-                </Button>
-              }
-            />
-          )}
+          {/* RIGHT: ACTION BUTTONS */}
+          <div className="flex items-center gap-2">
+            {/* Show/Hide Details Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDetails(!showDetails)}
+              className="gap-2 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+            >
+              {showDetails ? (
+                <>
+                  <EyeOff className="w-4 h-4" />
+                  <span className="hidden sm:inline">Hide Details</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4" />
+                  <span className="hidden sm:inline">Show Details</span>
+                </>
+              )}
+            </Button>
+
+            {/* Recalculate Button */}
+            {budgetItem && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRecalculateBudgetItem}
+                className="gap-2 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Recalculate</span>
+              </Button>
+            )}
+
+            {/* Activity Log Button */}
+            {budgetItem && (
+              <ActivityLogSheet
+                type="project"
+                budgetItemId={budgetItem._id}
+                title={`Project Activities: ${budgetItem.particulars}`}
+                trigger={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <History className="w-4 h-4" />
+                    <span className="hidden sm:inline">Project Log</span>
+                  </Button>
+                }
+              />
+            )}
+          </div>
         </div>
 
         <p className="text-zinc-600 dark:text-zinc-400">
@@ -280,19 +332,13 @@ export default function ParticularProjectsPage() {
         </p>
       </div>
 
-      {/* Status Information Card */}
-      {budgetItem && (
+      {/* Status Information Card - Conditionally Rendered */}
+      {showDetails && budgetItem && (
         <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20 rounded-xl border border-blue-200 dark:border-blue-800 p-6 no-print">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
               Status Information
             </h3>
-            <button
-              onClick={handleRecalculateBudgetItem}
-              className="px-3 py-1 text-sm bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-700"
-            >
-              Recalculate
-            </button>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -348,54 +394,56 @@ export default function ParticularProjectsPage() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 no-print">
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-            Total Allocated Budget
-          </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            {new Intl.NumberFormat("en-PH", {
-              style: "currency",
-              currency: "PHP",
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 0,
-            }).format(totalAllocatedBudget)}
-          </p>
-        </div>
+      {/* Summary Cards - Conditionally Rendered */}
+      {showDetails && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 no-print">
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+              Total Allocated Budget
+            </p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {new Intl.NumberFormat("en-PH", {
+                style: "currency",
+                currency: "PHP",
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(totalAllocatedBudget)}
+            </p>
+          </div>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-            Total Utilized Budget
-          </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            {new Intl.NumberFormat("en-PH", {
-              style: "currency",
-              currency: "PHP",
-              minimumFractionDigits: 0,
-              maximumFractionDigits: 0,
-            }).format(totalUtilizedBudget)}
-          </p>
-        </div>
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+              Total Utilized Budget
+            </p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {new Intl.NumberFormat("en-PH", {
+                style: "currency",
+                currency: "PHP",
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              }).format(totalUtilizedBudget)}
+            </p>
+          </div>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-            Average Utilization Rate
-          </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            {avgUtilizationRate.toFixed(1)}%
-          </p>
-        </div>
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+              Average Utilization Rate
+            </p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {avgUtilizationRate.toFixed(1)}%
+            </p>
+          </div>
 
-        <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-            Total Projects
-          </p>
-          <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-            {transformedProjects.length}
-          </p>
+          <div className="bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 p-6">
+            <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400 mb-2">
+              Total Projects
+            </p>
+            <p className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+              {transformedProjects.length}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Projects Table */}
       <div className="mb-6">

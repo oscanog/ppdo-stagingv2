@@ -38,3 +38,22 @@ export const getAll = query({
       .take(limit);
   },
 });
+
+export const getByBudgetItem = query({
+  args: {
+    budgetItemId: v.id("budgetItems"),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const limit = args.limit || 50;
+    
+    return await ctx.db
+      .query("projectActivities")
+      .filter((q) => q.eq(q.field("budgetItemId"), args.budgetItemId))
+      .order("desc")
+      .take(limit);
+  },
+});
