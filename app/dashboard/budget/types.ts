@@ -93,6 +93,7 @@ export interface Project {
   id: string;
   particulars: string;
   budgetItemId?: string;
+  categoryId?: string; // 🆕 Project category for organization
   implementingOffice: string;
   totalBudgetAllocated: number;
   obligatedBudget?: number;
@@ -124,6 +125,7 @@ export interface Project {
 export interface ProjectFormData {
   particulars: string;
   budgetItemId?: string;
+  categoryId?: string; // 🆕 Project category for organization
   implementingOffice: string;
   totalBudgetAllocated: number;
   obligatedBudget?: number;
@@ -143,6 +145,7 @@ export interface ProjectFromDB {
   _creationTime: number;
   particulars: string;
   budgetItemId?: string;
+  categoryId?: string; // 🆕 Project category for organization
   implementingOffice: string;
   totalBudgetAllocated: number;
   obligatedBudget?: number;

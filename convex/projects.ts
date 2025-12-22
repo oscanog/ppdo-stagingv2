@@ -9,10 +9,12 @@ import { internal } from "./_generated/api";
 
 /**
  * Get ACTIVE projects (Hidden Trash)
+ * 🆕 ENHANCED: Added category filtering
  */
 export const list = query({
   args: {
     budgetItemId: v.optional(v.id("budgetItems")),
+    categoryId: v.optional(v.id("projectCategories")),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -20,10 +22,22 @@ export const list = query({
 
     let projects;
 
+    // Apply filters with proper index usage
     if (args.budgetItemId) {
       projects = await ctx.db
         .query("projects")
-        .withIndex("budgetItemId", (q) => q.eq("budgetItemId", args.budgetItemId))
+        .withIndex("budgetItemId", (q) => 
+          q.eq("budgetItemId", args.budgetItemId)
+        )
+        .filter((q) => q.neq(q.field("isDeleted"), true))
+        .order("desc")
+        .collect();
+    } else if (args.categoryId) {
+      projects = await ctx.db
+        .query("projects")
+        .withIndex("categoryId", (q) => 
+          q.eq("categoryId", args.categoryId)
+        )
         .filter((q) => q.neq(q.field("isDeleted"), true))
         .order("desc")
         .collect();
@@ -59,6 +73,7 @@ export const getTrash = query({
 /**
  * Soft Delete: Move Project to Trash
  * Cascades to children (Breakdowns) and updates parent Budget Item.
+ * 🆕 ENHANCED: Updates category usage count
  */
 export const moveToTrash = mutation({
   args: { 
@@ -109,6 +124,14 @@ export const moveToTrash = mutation({
       delta: -1,
     });
 
+    // 🆕 Update category usage count
+    if (existing.categoryId) {
+      await ctx.runMutation(internal.projectCategories.updateUsageCount, {
+        categoryId: existing.categoryId,
+        delta: -1,
+      });
+    }
+
     // 3. Recalculate Parent Budget to remove this project from totals
     if (existing.budgetItemId) {
       await recalculateBudgetItemMetrics(ctx, existing.budgetItemId, userId);
@@ -130,6 +153,7 @@ export const moveToTrash = mutation({
 /**
  * Restore Project from Trash
  * Cascades restore to children and recalculates Parent Budget.
+ * 🆕 ENHANCED: Updates category usage count
  */
 export const restoreFromTrash = mutation({
   args: { id: v.id("projects") },
@@ -179,6 +203,14 @@ export const restoreFromTrash = mutation({
       delta: 1,
     });
 
+    // 🆕 Update category usage count
+    if (existing.categoryId) {
+      await ctx.runMutation(internal.projectCategories.updateUsageCount, {
+        categoryId: existing.categoryId,
+        delta: 1,
+      });
+    }
+
     // 3. Recalculate Parent Budget to add this project back to totals
     if (existing.budgetItemId) {
       await recalculateBudgetItemMetrics(ctx, existing.budgetItemId, userId);
@@ -201,8 +233,6 @@ export const get = query({
         if (userId === null) throw new Error("Not authenticated");
         const project = await ctx.db.get(args.id);
         if (!project || project.isDeleted) throw new Error("Project not found");
-        // Removed strict ownership check for read access as per common dashboard patterns
-        // if (project.createdBy !== userId) throw new Error("Not authorized");
         return project;
     },
 });
@@ -230,6 +260,7 @@ export const getForValidation = query({
       totalBudgetAllocated: project.totalBudgetAllocated,
       totalBudgetUtilized: project.totalBudgetUtilized,
       budgetItemId: project.budgetItemId,
+      categoryId: project.categoryId,
       status: project.status,
     };
   },
@@ -237,12 +268,13 @@ export const getForValidation = query({
 
 /**
  * Create a new project
- * 🆕 ENHANCED: Validates agency, links department, updates usage, logs, and updates parent budget.
+ * 🆕 ENHANCED: Validates category, updates category usage count
  */
 export const create = mutation({
     args: {
         particulars: v.string(),
         budgetItemId: v.optional(v.id("budgetItems")),
+        categoryId: v.optional(v.id("projectCategories")),
         implementingOffice: v.string(),
         totalBudgetAllocated: v.number(),
         obligatedBudget: v.optional(v.number()),
@@ -292,6 +324,17 @@ export const create = mutation({
           );
         }
 
+        // 🆕 Validate category if provided
+        if (args.categoryId) {
+          const category = await ctx.db.get(args.categoryId);
+          if (!category) {
+            throw new Error("Project category not found");
+          }
+          if (!category.isActive) {
+            throw new Error("Project category is inactive and cannot be used");
+          }
+        }
+
         if (args.budgetItemId) {
             const budgetItem = await ctx.db.get(args.budgetItemId);
             if (!budgetItem) throw new Error("Budget item not found");
@@ -309,6 +352,7 @@ export const create = mutation({
         const projectId = await ctx.db.insert("projects", {
             particulars: args.particulars,
             budgetItemId: args.budgetItemId,
+            categoryId: args.categoryId,
             implementingOffice: args.implementingOffice,
             departmentId: departmentId, 
             totalBudgetAllocated: args.totalBudgetAllocated,
@@ -342,6 +386,14 @@ export const create = mutation({
           delta: 1,
         });
 
+        // 🆕 Update category usage count
+        if (args.categoryId) {
+          await ctx.runMutation(internal.projectCategories.updateUsageCount, {
+            categoryId: args.categoryId,
+            delta: 1,
+          });
+        }
+
         const newProject = await ctx.db.get(projectId);
         await logProjectActivity(ctx, userId, {
             action: "created",
@@ -361,13 +413,14 @@ export const create = mutation({
 
 /**
  * Update an existing project
- * 🆕 ENHANCED: Validates changes (particular, agency), updates usage counts, and recalculates parent budgets.
+ * 🆕 ENHANCED: Validates category changes, updates category usage counts
  */
 export const update = mutation({
     args: {
         id: v.id("projects"),
         particulars: v.string(),
         budgetItemId: v.optional(v.id("budgetItems")),
+        categoryId: v.optional(v.id("projectCategories")),
         implementingOffice: v.string(),
         totalBudgetAllocated: v.number(),
         obligatedBudget: v.optional(v.number()),
@@ -452,6 +505,34 @@ export const update = mutation({
           });
         }
 
+        // 🆕 Handle category changes
+        if (args.categoryId !== existing.categoryId) {
+          // Validate new category if provided
+          if (args.categoryId) {
+            const category = await ctx.db.get(args.categoryId);
+            if (!category) {
+              throw new Error("Project category not found");
+            }
+            if (!category.isActive) {
+              throw new Error("Project category is inactive and cannot be used");
+            }
+          }
+
+          // Update usage counts
+          if (existing.categoryId) {
+            await ctx.runMutation(internal.projectCategories.updateUsageCount, {
+              categoryId: existing.categoryId,
+              delta: -1,
+            });
+          }
+          if (args.categoryId) {
+            await ctx.runMutation(internal.projectCategories.updateUsageCount, {
+              categoryId: args.categoryId,
+              delta: 1,
+            });
+          }
+        }
+
         if (args.budgetItemId) {
             const budgetItem = await ctx.db.get(args.budgetItemId);
             if (!budgetItem) throw new Error("Budget item not found");
@@ -468,6 +549,7 @@ export const update = mutation({
         await ctx.db.patch(args.id, {
             particulars: args.particulars,
             budgetItemId: args.budgetItemId,
+            categoryId: args.categoryId,
             implementingOffice: args.implementingOffice,
             departmentId: departmentId,
             totalBudgetAllocated: args.totalBudgetAllocated,
@@ -503,14 +585,10 @@ export const update = mutation({
         if (args.budgetItemId) {
             await recalculateBudgetItemMetrics(ctx, args.budgetItemId, userId);
         } else if (oldBudgetItemId && args.budgetItemId === undefined) {
-            // Implicitly same budget item if not in args, but strictly checking `undefined`
-            // If args.budgetItemId is strictly undefined, it means we didn't change it, 
-            // so we should update the existing one to reflect budget changes.
             await recalculateBudgetItemMetrics(ctx, oldBudgetItemId, userId);
         }
 
         // Also trigger project internal aggregation to ensure it's consistent with its own breakdowns
-        // (This handles cases where user manually edits fields that are usually aggregated)
         await recalculateProjectMetrics(ctx, args.id, userId);
 
         return args.id;
@@ -520,6 +598,7 @@ export const update = mutation({
 /**
  * HARD DELETE: Permanent Removal
  * Cascades delete to breakdowns and updates parent budget.
+ * 🆕 ENHANCED: Updates category usage count
  */
 export const remove = mutation({
   args: { 
@@ -543,6 +622,7 @@ export const remove = mutation({
     if (!isCreator && !isSuperAdmin) throw new Error("Not authorized");
 
     const budgetItemId = existing.budgetItemId;
+    const categoryId = existing.categoryId;
     
     // 1. Get Linked Breakdowns
     const breakdowns = await ctx.db
@@ -586,6 +666,14 @@ export const remove = mutation({
       delta: -1,
     });
 
+    // 🆕 Update category usage count
+    if (categoryId) {
+      await ctx.runMutation(internal.projectCategories.updateUsageCount, {
+        categoryId: categoryId,
+        delta: -1,
+      });
+    }
+
     // 5. Update Parent Budget Item
     if (budgetItemId) {
       await recalculateBudgetItemMetrics(ctx, budgetItemId, userId);
@@ -606,9 +694,6 @@ export const togglePin = mutation({
         
         const existing = await ctx.db.get(args.id);
         if (!existing) throw new Error("Project not found");
-        
-        // Ownership check can be relaxed for admins if needed, keeping strict for now
-        // if (existing.createdBy !== userId) throw new Error("Not authorized");
    
         const now = Date.now();
         const newPinnedState = !existing.isPinned;

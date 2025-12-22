@@ -6,6 +6,7 @@ export const projectTables = {
   /**
    * Projects.
    * Enhanced to match budgetItems structure with department relationship.
+   * 🆕 ADDED: Optional categoryId for project categorization
    */
   projects: defineTable({
     // ============================================================================
@@ -26,6 +27,13 @@ export const projectTables = {
      * Department ID reference (optional for filtering/grouping)
      */
     departmentId: v.optional(v.id("departments")),
+
+    /**
+     * 🆕 PROJECT CATEGORY (OPTIONAL)
+     * Links this project to a category for better organization
+     * Projects can exist without a category
+     */
+    categoryId: v.optional(v.id("projectCategories")),
 
     /**
      * 🆕 PARENT BUDGET ITEM (OPTIONAL)
@@ -96,6 +104,9 @@ export const projectTables = {
     .index("particulars", ["particulars"])
     .index("implementingOffice", ["implementingOffice"])
     .index("departmentId", ["departmentId"])
+    // 🆕 CRITICAL INDEXES FOR CATEGORY
+    .index("categoryId", ["categoryId"])
+    .index("categoryAndStatus", ["categoryId", "status"])
     // 🆕 CRITICAL INDEXES FOR AGGREGATION
     .index("isDeleted", ["isDeleted"])
     .index("budgetItemId", ["budgetItemId"]) 

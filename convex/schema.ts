@@ -17,13 +17,14 @@ import { budgetSharedAccessTables } from "./schema/budgetSharedAccess";
 import { passwordResetTables } from "./schema/passwordReset";
 import { govtProjectBreakdownTables } from "./schema/govtProjectBreakdowns";
 import { aggregationTables } from "./schema/aggregations";
-import { govtProjectBreakdownActivityTables } from "./schema/govtProjectBreakdownActivities"; // <--- ADD THIS
+import { govtProjectBreakdownActivityTables } from "./schema/govtProjectBreakdownActivities";
 import { tableSettingsTables } from "./schema/tableSettings";
 import { projectActivityTables } from "./schema/projectActivities";
 import { budgetItemActivityTables } from "./schema/budgetItemActivities";
 import { budgetParticularTables } from "./schema/budgetParticulars";
 import { projectParticularTables } from "./schema/projectParticulars";
 import { implementingAgencyTables } from "./schema/implementingAgencies";
+import { projectCategoryTables } from "./schema/projectCategories"; // 🆕 ADDED
 
 export default defineSchema({
   ...authTables,
@@ -48,5 +49,6 @@ export default defineSchema({
   ...budgetItemActivityTables,
   ...budgetParticularTables,
   ...projectParticularTables,
-  ...implementingAgencyTables
+  ...implementingAgencyTables,
+  ...projectCategoryTables, // 🆕 ADDED
 });

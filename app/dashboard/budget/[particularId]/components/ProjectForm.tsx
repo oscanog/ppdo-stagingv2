@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
 import { useAccentColor } from "../../../contexts/AccentColorContext";
 import {
   Form,
@@ -37,6 +38,7 @@ import { Calculator, AlertCircle, Info, AlertTriangle, PlusCircle, MinusCircle }
 import { Project } from "../../types";
 import { ProjectParticularCombobox } from "./ProjectParticularCombobox";
 import { ImplementingOfficeSelector } from "./ImplementingOfficeSelector";
+import { ProjectCategoryCombobox } from "./ProjectCategoryCombobox";
 import { BudgetViolationModal } from "@/app/dashboard/budget/components/BudgetViolationModal";
 
 const FORM_STORAGE_KEY = "project_form_draft";
@@ -58,6 +60,7 @@ const projectSchema = z
   .object({
     particulars: noWhitespaceString,
     implementingOffice: z.string().min(1, { message: "Implementing office is required." }),
+    categoryId: z.string().optional(), // 🆕 Added category
     totalBudgetAllocated: z.number().min(0, { message: "Must be 0 or greater." }),
     obligatedBudget: z.number().min(0).optional().or(z.literal(0)),
     totalBudgetUtilized: z.number().min(0), 
@@ -77,7 +80,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 interface ProjectFormProps {
   project?: Project | null;
   budgetItemId?: string;
-  onSave: (project: Omit<Project, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOngoing" | "status">) => void;
+  onSave: (project: Omit<Project, "id" | "utilizationRate" | "projectCompleted" | "projectDelayed" | "projectsOngoing" | "status"> & { categoryId?: string }) => void;
   onCancel: () => void;
 }
 
@@ -118,6 +121,7 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     defaultValues: savedDraft || {
       particulars: project?.particulars || "",
       implementingOffice: project?.implementingOffice || "",
+      categoryId: project?.categoryId || undefined, // 🆕 Added category default
       totalBudgetAllocated: project?.totalBudgetAllocated || 0,
       obligatedBudget: project?.obligatedBudget || undefined,
       totalBudgetUtilized: project?.totalBudgetUtilized || 0,
@@ -214,6 +218,7 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
     const projectData = {
       ...values,
       remarks: values.remarks || "",
+      categoryId: values.categoryId || undefined, // 🆕 Include category
     };
 
     if (!project) {
@@ -261,6 +266,30 @@ export function ProjectForm({ project, budgetItemId, onSave, onCancel }: Project
                     Particular cannot be changed after creation
                   </FormDescription>
                 )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {/* 🆕 PROJECT CATEGORY FIELD */}
+          <FormField
+            name="categoryId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-zinc-700 dark:text-zinc-300">
+                  Project Category <span className="text-xs text-zinc-500">(Optional)</span>
+                </FormLabel>
+                <FormControl>
+                  <ProjectCategoryCombobox
+                    value={field.value as Id<"projectCategories"> | undefined}
+                    onChange={(value) => field.onChange(value || undefined)}
+                    disabled={false}
+                    error={form.formState.errors.categoryId?.message}
+                  />
+                </FormControl>
+                <FormDescription className="text-zinc-500 dark:text-zinc-400 text-xs">
+                  Categorize your project for better organization and reporting
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
