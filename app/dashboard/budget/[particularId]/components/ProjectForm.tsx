@@ -43,22 +43,21 @@ import { BudgetViolationModal } from "@/app/dashboard/budget/components/BudgetVi
 
 const FORM_STORAGE_KEY = "project_form_draft";
 
-const noWhitespaceString = z
+// ✅ UPDATED: Allow alphanumeric, underscores, spaces, and percentage signs
+const particularCodeString = z
   .string()
   .min(1, { message: "This field is required." })
   .refine((val) => val.trim().length > 0, {
-    message: "Whitespace only is not allowed.",
+    message: "Cannot be empty or only whitespace.",
   })
-  .refine((val) => val === val.trim(), {
-    message: "Leading or trailing whitespace is not allowed.",
+  .refine((val) => /^[A-Z0-9_%\s]+$/i.test(val), {
+    message: "Only letters, numbers, underscores, percentage signs, and spaces are allowed.",
   })
-  .refine((val) => !/\s/.test(val), {
-    message: "Whitespace is not allowed.",
-  });
+  .transform((val) => val.trim()); // Trim leading/trailing whitespace but allow internal spaces
 
 const projectSchema = z
   .object({
-    particulars: noWhitespaceString,
+    particulars: particularCodeString,
     implementingOffice: z.string().min(1, { message: "Implementing office is required." }),
     categoryId: z.string().optional(),
     totalBudgetAllocated: z.number().min(0, { message: "Must be 0 or greater." }),

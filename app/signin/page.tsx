@@ -664,7 +664,10 @@ export default function SignIn() {
             <div className="mt-8 pt-8 border-t border-zinc-200 dark:border-zinc-700">
               <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
                 Don't have an account?{" "}
-                <Link href="/signup">
+                <span className="text-zinc-400 dark:text-zinc-500">
+                    Please contact your admin
+                  </span>
+                <Link className="hidden" href="/signup">
                   <span className="text-zinc-400 dark:text-zinc-500">
                     temporary signup here
                   </span>

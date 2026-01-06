@@ -56,7 +56,7 @@ export function ProjectParticularCombobox({
   const isCodeAvailable = useQuery(
     api.projectParticulars.isCodeAvailable,
     debouncedSearch && debouncedSearch.length > 0
-      ? { code: debouncedSearch.toUpperCase() }
+      ? { code: debouncedSearch.trim().toUpperCase() }
       : "skip"
   );
   
@@ -87,14 +87,15 @@ export function ProjectParticularCombobox({
     return allParticulars?.find((p) => p.code === value);
   }, [allParticulars, value]);
   
-  // Validate if search query can be a new code
+  // ✅ UPDATED: Validate if search query can be a new code (now allows spaces and %)
   const canCreateNew = React.useMemo(() => {
-    if (!searchQuery || searchQuery.length === 0) return false;
+    if (!searchQuery || searchQuery.trim().length === 0) return false;
     
-    const upperSearch = searchQuery.toUpperCase();
+    const trimmedSearch = searchQuery.trim();
+    const upperSearch = trimmedSearch.toUpperCase();
     
-    // Check format (uppercase alphanumeric and underscores only)
-    const validFormat = /^[A-Z0-9_]+$/.test(upperSearch);
+    // ✅ UPDATED: Check format (uppercase alphanumeric, underscores, spaces, and percentage signs)
+    const validFormat = /^[A-Z0-9_%\s]+$/.test(upperSearch);
     if (!validFormat) return false;
     
     // Check if already exists in list
@@ -110,7 +111,7 @@ export function ProjectParticularCombobox({
   const handleCreateNew = async () => {
     if (!canCreateNew) return;
     
-    const code = searchQuery.toUpperCase();
+    const code = searchQuery.trim().toUpperCase();
     
     try {
       setIsCreating(true);
@@ -289,7 +290,7 @@ export function ProjectParticularCombobox({
                             <Plus className="mr-2 h-4 w-4" />
                             <div className="flex flex-col flex-1">
                               <span className="text-sm font-medium">
-                                Create "{searchQuery.toUpperCase()}"
+                                Create "{searchQuery.trim().toUpperCase()}"
                               </span>
                               <span className="text-xs text-zinc-500 dark:text-zinc-400">
                                 Add as new project particular
@@ -301,19 +302,19 @@ export function ProjectParticularCombobox({
                     ) : (
                       !canCreateNew && (
                         <div className="px-2 py-3 text-xs text-zinc-500 dark:text-zinc-400">
-                          {!/^[A-Z0-9_]+$/.test(searchQuery.toUpperCase()) ? (
+                          {/* ✅ UPDATED: Error message for new validation */}
+                          {!/^[A-Z0-9_%\s]+$/i.test(searchQuery.trim()) ? (
                             <div className="flex items-start gap-2">
                               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                               <div>
                                 <p className="font-medium">Invalid format</p>
                                 <p className="mt-0.5">
-                                  Code must contain only uppercase letters, numbers,
-                                  and underscores
+                                  Code can only contain letters, numbers, underscores, percentage signs, and spaces
                                 </p>
                               </div>
                             </div>
                           ) : allParticulars?.some(
-                              (p) => p.code.toUpperCase() === searchQuery.toUpperCase()
+                              (p) => p.code.toUpperCase() === searchQuery.trim().toUpperCase()
                             ) ? (
                             <div className="flex items-start gap-2">
                               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />

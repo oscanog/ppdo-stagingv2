@@ -56,10 +56,11 @@ export function ProjectCategoryCombobox({
   
   // Check if code is available (for validation when creating)
   const isCodeAvailable = React.useMemo(() => {
-    if (!debouncedSearch || debouncedSearch.length === 0) return false;
+    if (!debouncedSearch || debouncedSearch.trim().length === 0) return false;
     if (!allCategories) return false;
     
-    const upperSearch = debouncedSearch.toUpperCase();
+    const trimmedSearch = debouncedSearch.trim();
+    const upperSearch = trimmedSearch.toUpperCase();
     const exists = allCategories.some(
       (c) => c.code.toUpperCase() === upperSearch || 
              c.fullName.toUpperCase() === upperSearch
@@ -96,14 +97,15 @@ export function ProjectCategoryCombobox({
     return allCategories.find((c) => c._id === value);
   }, [allCategories, value]);
   
-  // Validate if search query can be a new code
+  // ✅ UPDATED: Validate if search query can be a new code (now allows spaces and %)
   const canCreateNew = React.useMemo(() => {
-    if (!searchQuery || searchQuery.length === 0) return false;
+    if (!searchQuery || searchQuery.trim().length === 0) return false;
     
-    const upperSearch = searchQuery.toUpperCase();
+    const trimmedSearch = searchQuery.trim();
+    const upperSearch = trimmedSearch.toUpperCase();
     
-    // Check format (uppercase alphanumeric and underscores only)
-    const validFormat = /^[A-Z0-9_]+$/.test(upperSearch);
+    // ✅ UPDATED: Check format (uppercase alphanumeric, underscores, spaces, and percentage signs)
+    const validFormat = /^[A-Z0-9_%\s]+$/.test(upperSearch);
     if (!validFormat) return false;
     
     // Check if already exists
@@ -114,7 +116,7 @@ export function ProjectCategoryCombobox({
   const handleCreateNew = async () => {
     if (!canCreateNew) return;
     
-    const code = searchQuery.toUpperCase();
+    const code = searchQuery.trim().toUpperCase();
     
     try {
       setIsCreating(true);
@@ -340,7 +342,7 @@ export function ProjectCategoryCombobox({
                             <Sparkles className="mr-2 h-4 w-4 text-blue-600 dark:text-blue-400" />
                             <div className="flex flex-col flex-1">
                               <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                                Create "{searchQuery.toUpperCase()}"
+                                Create "{searchQuery.trim().toUpperCase()}"
                               </span>
                               <span className="text-xs text-zinc-500 dark:text-zinc-400">
                                 Add as new project category
@@ -351,7 +353,8 @@ export function ProjectCategoryCombobox({
                       </CommandItem>
                     ) : (
                       <div className="px-2 py-3 text-xs text-zinc-500 dark:text-zinc-400">
-                        {!/^[A-Z0-9_]+$/.test(searchQuery.toUpperCase()) ? (
+                        {/* ✅ UPDATED: Error message for new validation */}
+                        {!/^[A-Z0-9_%\s]+$/i.test(searchQuery.trim()) ? (
                           <div className="flex items-start gap-2">
                             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-orange-500" />
                             <div>
@@ -359,8 +362,7 @@ export function ProjectCategoryCombobox({
                                 Invalid format
                               </p>
                               <p className="mt-0.5 text-zinc-600 dark:text-zinc-400">
-                                Code must contain only uppercase letters, numbers,
-                                and underscores (e.g., HEALTH_SERVICES)
+                                Code can only contain letters, numbers, underscores, percentage signs, and spaces
                               </p>
                             </div>
                           </div>

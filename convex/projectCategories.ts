@@ -85,6 +85,7 @@ export const getByCode = query({
 
 /**
  * CREATE A NEW PROJECT CATEGORY
+ * ✅ UPDATED: Now allows spaces and percentage signs in code
  * Any authenticated user can create categories
  */
 export const create = mutation({
@@ -102,22 +103,24 @@ export const create = mutation({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    // Validate code format (uppercase, no spaces, underscores allowed)
-    const codeRegex = /^[A-Z0-9_]+$/;
-    if (!codeRegex.test(args.code)) {
+    // ✅ UPDATED: Validate code format (uppercase alphanumeric, underscores, spaces, and percentage signs)
+    const codeRegex = /^[A-Z0-9_%\s]+$/;
+    const trimmedCode = args.code.trim();
+    
+    if (!codeRegex.test(trimmedCode)) {
       throw new Error(
-        "Category code must be uppercase letters, numbers, and underscores only"
+        "Category code can only contain uppercase letters, numbers, underscores, percentage signs, and spaces"
       );
     }
 
     // Check if code already exists
     const existing = await ctx.db
       .query("projectCategories")
-      .withIndex("code", (q) => q.eq("code", args.code))
+      .withIndex("code", (q) => q.eq("code", trimmedCode))
       .first();
 
     if (existing) {
-      throw new Error(`Category with code "${args.code}" already exists`);
+      throw new Error(`Category with code "${trimmedCode}" already exists`);
     }
 
     // Validate parent category if provided
@@ -142,7 +145,7 @@ export const create = mutation({
     const now = Date.now();
 
     const categoryId = await ctx.db.insert("projectCategories", {
-      code: args.code,
+      code: trimmedCode,
       fullName: args.fullName,
       description: args.description,
       colorCode: args.colorCode,
@@ -164,6 +167,7 @@ export const create = mutation({
 
 /**
  * UPDATE A PROJECT CATEGORY
+ * ✅ UPDATED: Now allows spaces and percentage signs in code
  * Users can update non-system-default categories
  * Admins can update any category except isSystemDefault flag
  */
@@ -196,21 +200,24 @@ export const update = mutation({
 
     // Validate code format if changing
     if (args.code !== undefined && args.code !== existing.code) {
-      const codeRegex = /^[A-Z0-9_]+$/;
-      if (!codeRegex.test(args.code)) {
+      const trimmedCode = args.code.trim();
+      
+      // ✅ UPDATED: Validate new code format (allow spaces and %)
+      const codeRegex = /^[A-Z0-9_%\s]+$/;
+      if (!codeRegex.test(trimmedCode)) {
         throw new Error(
-          "Category code must be uppercase letters, numbers, and underscores only"
+          "Category code can only contain uppercase letters, numbers, underscores, percentage signs, and spaces"
         );
       }
 
       // Check if new code already exists
       const duplicate = await ctx.db
         .query("projectCategories")
-        .withIndex("code", (q) => q.eq("code", args.code!))
+        .withIndex("code", (q) => q.eq("code", trimmedCode))
         .first();
 
       if (duplicate && duplicate._id !== args.id) {
-        throw new Error(`Category with code "${args.code}" already exists`);
+        throw new Error(`Category with code "${trimmedCode}" already exists`);
       }
     }
 
@@ -239,7 +246,7 @@ export const update = mutation({
     const now = Date.now();
 
     await ctx.db.patch(args.id, {
-      ...(args.code !== undefined && { code: args.code }),
+      ...(args.code !== undefined && { code: args.code.trim() }),
       ...(args.fullName !== undefined && { fullName: args.fullName }),
       ...(args.description !== undefined && { description: args.description }),
       ...(args.colorCode !== undefined && { colorCode: args.colorCode }),

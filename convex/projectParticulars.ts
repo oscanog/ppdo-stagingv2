@@ -172,6 +172,7 @@ export const getStatistics = query({
 
 /**
  * Create a new project particular
+ * ✅ UPDATED: Now allows spaces and percentage signs in code
  */
 export const create = mutation({
   args: {
@@ -187,22 +188,24 @@ export const create = mutation({
     const userId = await getAuthUserId(ctx);
     if (userId === null) throw new Error("Not authenticated");
 
-    // Validate code format (uppercase alphanumeric and underscores only)
-    const codeRegex = /^[A-Z0-9_]+$/;
-    if (!codeRegex.test(args.code)) {
+    // ✅ UPDATED: Validate code format (uppercase alphanumeric, underscores, spaces, and percentage signs)
+    const codeRegex = /^[A-Z0-9_%\s]+$/;
+    const trimmedCode = args.code.trim();
+    
+    if (!codeRegex.test(trimmedCode)) {
       throw new Error(
-        "Code must contain only uppercase letters, numbers, and underscores"
+        "Code can only contain uppercase letters, numbers, underscores, percentage signs, and spaces"
       );
     }
 
     // Check if code already exists
     const existing = await ctx.db
       .query("projectParticulars")
-      .withIndex("code", (q) => q.eq("code", args.code))
+      .withIndex("code", (q) => q.eq("code", trimmedCode))
       .first();
 
     if (existing) {
-      throw new Error(`Project particular with code "${args.code}" already exists`);
+      throw new Error(`Project particular with code "${trimmedCode}" already exists`);
     }
 
     // Validate color code if provided
@@ -216,7 +219,7 @@ export const create = mutation({
     const now = Date.now();
 
     const particularId = await ctx.db.insert("projectParticulars", {
-      code: args.code,
+      code: trimmedCode,
       fullName: args.fullName,
       description: args.description,
       displayOrder: args.displayOrder,
@@ -237,6 +240,7 @@ export const create = mutation({
 
 /**
  * Update an existing project particular
+ * ✅ UPDATED: Now allows spaces and percentage signs in code
  */
 export const update = mutation({
   args: {
@@ -263,22 +267,24 @@ export const update = mutation({
         throw new Error("Cannot change code of system default particulars");
       }
 
-      // Validate new code format
-      const codeRegex = /^[A-Z0-9_]+$/;
-      if (!codeRegex.test(args.code)) {
+      const trimmedCode = args.code.trim();
+
+      // ✅ UPDATED: Validate new code format (allow spaces and %)
+      const codeRegex = /^[A-Z0-9_%\s]+$/;
+      if (!codeRegex.test(trimmedCode)) {
         throw new Error(
-          "Code must contain only uppercase letters, numbers, and underscores"
+          "Code can only contain uppercase letters, numbers, underscores, percentage signs, and spaces"
         );
       }
 
       // Check if new code already exists
       const duplicate = await ctx.db
         .query("projectParticulars")
-        .withIndex("code", (q) => q.eq("code", args.code!))
+        .withIndex("code", (q) => q.eq("code", trimmedCode))
         .first();
 
       if (duplicate && duplicate._id !== args.id) {
-        throw new Error(`Project particular with code "${args.code}" already exists`);
+        throw new Error(`Project particular with code "${trimmedCode}" already exists`);
       }
     }
 
@@ -293,7 +299,7 @@ export const update = mutation({
     const now = Date.now();
 
     await ctx.db.patch(args.id, {
-      ...(args.code && { code: args.code }),
+      ...(args.code && { code: args.code.trim() }),
       ...(args.fullName && { fullName: args.fullName }),
       ...(args.description !== undefined && { description: args.description }),
       ...(args.displayOrder !== undefined && { displayOrder: args.displayOrder }),
