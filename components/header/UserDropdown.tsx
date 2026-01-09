@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "../ThemeToggle";
 import { useAccentColor } from "../../contexts/AccentColorContext";
-import SignOutButton from "@/app/components/SignOutButton";
+import SignOutButton from "@/components/SignOutButton";
 import { getDisplayName, getUserInitials } from "@/lib/utils";
 
 interface User {

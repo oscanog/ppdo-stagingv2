@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ThemeToggle } from "../dashboard/components/ThemeToggle";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 interface LocationData {

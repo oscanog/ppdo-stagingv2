@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { useAccentColor } from "../../contexts/AccentColorContext";
+import { useAccentColor } from "../../../../contexts/AccentColorContext";
 
 interface TableRow {
   id: string;

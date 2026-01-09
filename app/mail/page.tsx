@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useAccentColor } from "../dashboard/contexts/AccentColorContext";
+import { useAccentColor } from "../../contexts/AccentColorContext";
 import { Email, EmailFolder, EmailFilter, ComposeData } from "./types";
 import { mockEmails, userEmail } from "./data";
 import { EmailList } from "./components/EmailList";

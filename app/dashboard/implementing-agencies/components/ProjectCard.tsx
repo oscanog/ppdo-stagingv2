@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Calendar, MapPin, Users } from "lucide-react"
 import { formatCurrency, formatNumber, Project } from "../mock-data"
-import { useAccentColor } from "@/app/dashboard/contexts/AccentColorContext"
+import { useAccentColor } from "@/contexts/AccentColorContext"
 
 interface ProjectCardProps {
   project: Project

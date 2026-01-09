@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react";
 import { flattenFinancialBreakdown } from "../data";
 import { FinancialBreakdownItemForm } from "./FinancialBreakdownItemForm";
 import { FinancialBreakdownItem } from "./types";
-import { useAccentColor } from "@/app/dashboard/contexts/AccentColorContext";
+import { useAccentColor } from "@/contexts/AccentColorContext";
 import { Modal } from "@/app/dashboard/project/budget//components/Modal";
 import { ConfirmationModal } from "@/app/dashboard/project/budget//components/ConfirmationModal";
 

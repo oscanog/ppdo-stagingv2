@@ -3,12 +3,12 @@
 "use client";
 
 import { useState } from "react";
-import { useSidebar } from "../contexts/SidebarContext";
+import { useSidebar } from "../../contexts/SidebarContext";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
-import { AccountModal } from "./account/AccountModal";
-import { UserDropdown } from "./header/UserDropdown";
-import { NotificationsDropdown } from "./header/NotificationsDropdown";
-import { EmailDropdown } from "./header/EmailDropdown";
+import { AccountModal } from "../account/AccountModal";
+import { UserDropdown } from "./UserDropdown";
+import { NotificationsDropdown } from "./NotificationsDropdown";
+import { EmailDropdown } from "./EmailDropdown";
 import { getDisplayName } from "@/lib/utils";
 
 interface HeaderProps {

@@ -8,13 +8,13 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { api } from "@/convex/_generated/api";
-import { LoginTrail } from "./components/LoginTrail";
-import { MiniGauge } from "./components/MiniGauge";
-import { SpeedometerCard } from "./components/SpeedometerCard";
-import { BarChartCard } from "./components/BarChartCard";
-import { OfficeSelect } from "./components/OfficeSelect";
+import { LoginTrail } from "../../components/LoginTrail";
+import { MiniGauge } from "../../components/MiniGauge";
+import { SpeedometerCard } from "../../components/SpeedometerCard";
+import { BarChartCard } from "../../components/BarChartCard";
+import { OfficeSelect } from "../../components/OfficeSelect";
 import { useMemo, useState } from "react";
-import { PersonalKPICard } from "./components/PersonalKPICard";
+import { PersonalKPICard } from "../../components/PersonalKPICard";
 
 export default function Dashboard() {
   const OFFICES = [

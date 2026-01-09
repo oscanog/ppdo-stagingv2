@@ -8,7 +8,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ThemeToggle } from "../dashboard/components/ThemeToggle";
+import { ThemeToggle } from "../../components/ThemeToggle";
 import { Eye, EyeOff, AlertCircle } from "lucide-react";
 
 // Error type classification for better UX

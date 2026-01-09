@@ -1,6 +1,6 @@
 // app/dashboard/project/budget/[particularId]/[projectbreakdownId]/[projectId]/data.ts
 
-import { Project, Remark } from "../../../../types";
+import { Project, Remark } from "../../../../../../../types/types";
 import { getProjectsByParticular } from "../../data";
 import { FinancialBreakdownItem } from "./components/types";
 

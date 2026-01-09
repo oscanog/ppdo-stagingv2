@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { FinancialBreakdownItem } from "./types";
-import { useAccentColor } from "@/app/dashboard/contexts/AccentColorContext";
+import { useAccentColor } from "@/contexts/AccentColorContext";
 
 interface FinancialBreakdownItemFormProps {
   item?: FinancialBreakdownItem | null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { Email, ComposeData } from "../types";
-import { useAccentColor } from "../../dashboard/contexts/AccentColorContext";
+import { useAccentColor } from "../../../contexts/AccentColorContext";
 
 interface ReplyModalProps {
   replyToEmail: Email;

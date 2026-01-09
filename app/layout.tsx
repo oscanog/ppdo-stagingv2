@@ -5,9 +5,9 @@ import { Cinzel, Inter } from "next/font/google";
 import "./globals.css";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import ConvexClientProvider from "@/components/ConvexClientProvider";
-import { ThemeProvider } from "./contexts/ThemeContext";
+import { ThemeProvider } from "../contexts/ThemeContext";
 import { Toaster } from "@/components/ui/sonner";
-import { AccentColorProvider } from "./dashboard/contexts/AccentColorContext";
+import { AccentColorProvider } from "../contexts/AccentColorContext";
 
 const cinzel = Cinzel({
   subsets: ["latin"],

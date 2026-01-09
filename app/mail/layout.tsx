@@ -3,15 +3,15 @@
 "use client";
 
 
-import { Header } from "../dashboard/components/Header";
-import { Breadcrumbs } from "../dashboard/components/Breadcrumbs";
-import { TimeLocation } from "../dashboard/components/TimeLocation";
-import AIAssistant from "../dashboard/components/AIAssistant";
-import { SearchProvider } from "../dashboard/contexts/SearchContext";
-import { SidebarProvider } from "../dashboard/contexts/SidebarContext";
-import { AccentColorProvider } from "../dashboard/contexts/AccentColorContext";
-import { BreadcrumbProvider } from "../dashboard/contexts/BreadcrumbContext";
-import { Sidebar } from "../dashboard/components/sidebar/Sidebar";
+import { Header } from "../../components/header/Header";
+import { Breadcrumbs } from "../../components/Breadcrumbs";
+import { TimeLocation } from "../../components/TimeLocation";
+import AIAssistant from "../../components/AIAssistant";
+import { SearchProvider } from "../../contexts/SearchContext";
+import { SidebarProvider } from "../../contexts/SidebarContext";
+import { AccentColorProvider } from "../../contexts/AccentColorContext";
+import { BreadcrumbProvider } from "../../contexts/BreadcrumbContext";
+import { Sidebar } from "../../components/sidebar/Sidebar";
 
 function MailContent({ children }: { children: React.ReactNode }) {
   return (

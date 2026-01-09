@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Building2, FileText, CheckCircle2, Clock, Mail, Phone } from "lucide-react"
 import { formatCurrency, getAgencyStats, ImplementingAgency } from "../mock-data"
-import { useAccentColor } from "@/app/dashboard/contexts/AccentColorContext"
+import { useAccentColor } from "@/contexts/AccentColorContext"
 
 interface AgencyCardProps {
   agency: ImplementingAgency

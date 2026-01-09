@@ -1,7 +1,7 @@
 "use client";
 
 import { Email, EmailFolder } from "../types";
-import { useAccentColor } from "../../dashboard/contexts/AccentColorContext";
+import { useAccentColor } from "../../../contexts/AccentColorContext";
 
 interface EmailItemProps {
   email: Email;

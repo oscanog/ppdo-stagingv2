@@ -1,7 +1,7 @@
 "use client";
 
 import { ComposeData } from "../types";
-import { useAccentColor } from "../../dashboard/contexts/AccentColorContext";
+import { useAccentColor } from "../../../contexts/AccentColorContext";
 
 interface ComposeModalProps {
   composeData: ComposeData;

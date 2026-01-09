@@ -1,7 +1,7 @@
 "use client";
 
 import { EmailFolder } from "../types";
-import { useAccentColor } from "../../dashboard/contexts/AccentColorContext";
+import { useAccentColor } from "../../../contexts/AccentColorContext";
 
 interface FolderTabsProps {
   currentFolder: EmailFolder;
