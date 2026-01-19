@@ -3,6 +3,7 @@ import type React from "react";
 export interface SubMenuItem {
   name: string;
   href: string;
+  isNew?: boolean;
 }
 
 export interface NavItem {
@@ -12,6 +13,7 @@ export interface NavItem {
   submenu?: SubMenuItem[];
   category?: string;
   disabled?: boolean;
+  isNew?: boolean;
 }
 
 export interface NavCategory {

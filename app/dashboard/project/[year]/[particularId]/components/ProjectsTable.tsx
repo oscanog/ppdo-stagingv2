@@ -1,0 +1,742 @@
+// app/dashboard/project/budget/[particularId]/components/ProjectsTable.tsx
+
+"use client";
+
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { toast } from "sonner";
+import { useAccentColor } from "@/contexts/AccentColorContext";
+
+// UI Components
+import { Modal } from "@/app/dashboard/project/[year]/components/Modal";
+import { ConfirmationModal } from "@/app/dashboard/project/[year]/components/ConfirmationModal";
+import { ActivityLogSheet } from "@/components/ActivityLogSheet";
+
+// Local Components
+import { ProjectForm } from "./ProjectForm";
+import { ProjectCategoryCombobox } from "./ProjectCategoryCombobox";
+import { ProjectShareModal } from "./ProjectShareModal";
+import { ProjectsTableToolbar } from "./ProjectsTable/ProjectsTableToolbar";
+import { ProjectsTableHeader } from "./ProjectsTable/ProjectsTableHeader";
+import { ProjectsTableBody } from "./ProjectsTable/ProjectsTableBody";
+import { ProjectsTableFooter } from "./ProjectsTable/ProjectsTableFooter";
+import { ProjectContextMenu } from "./ProjectsTable/ProjectContextMenu";
+
+// Types, Constants, and Utils
+import {
+  Project,
+  ProjectsTableProps,
+  SortDirection,
+  ProjectSortField,
+  ProjectContextMenuState,
+} from "../types";
+import { AVAILABLE_COLUMNS } from "../constants";
+import {
+  groupProjectsByCategory,
+  calculateProjectTotals,
+  createProjectSlug,
+  getParticularFullName,
+} from "../utils";
+import {
+  applyFilters,
+  createProjectFilterConfig,
+  exportToCSV,
+  createProjectExportConfig,
+} from "@/services";
+
+export function ProjectsTable({
+  projects,
+  particularId,
+  budgetItemId,
+  budgetItemYear,
+  onAdd,
+  onEdit,
+  onDelete,
+  onOpenTrash,
+  newlyAddedProjectId,
+  expandButton,
+}: ProjectsTableProps) {
+  const { accentColorValue } = useAccentColor();
+  const router = useRouter();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // ==================== QUERIES & MUTATIONS ====================
+  const currentUser = useQuery(api.users.current);
+  const allCategories = useQuery(api.projectCategories.list, {});
+  const pendingParticularRequests = useQuery(
+    api.accessRequests.getParticularPendingCount,
+    { particularCode: particularId }
+  );
+  
+  const togglePinProject = useMutation(api.projects.togglePin);
+  const bulkMoveToTrash = useMutation(api.projects.bulkMoveToTrash);
+  const bulkUpdateCategory = useMutation(api.projects.bulkUpdateCategory);
+  const updateProject = useMutation(api.projects.update);
+
+  // ==================== STATE: MODALS ====================
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showBulkCategoryConfirmModal, setShowBulkCategoryConfirmModal] = useState(false);
+  const [showSingleCategoryModal, setShowSingleCategoryModal] = useState(false);
+  const [showSearchWarningModal, setShowSearchWarningModal] = useState(false);
+  const [showHideAllWarning, setShowHideAllWarning] = useState(false);
+
+  // ==================== STATE: DATA ====================
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedCategoryProject, setSelectedCategoryProject] = useState<Project | null>(null);
+  const [singleCategoryId, setSingleCategoryId] = useState<Id<"projectCategories"> | undefined>(undefined);
+  const [pendingBulkCategoryId, setPendingBulkCategoryId] = useState<Id<"projectCategories"> | undefined>(undefined);
+  
+  // ==================== STATE: SELECTION & FILTERS ====================
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortField, setSortField] = useState<ProjectSortField | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [officeFilter, setOfficeFilter] = useState<string[]>([]);
+  const [yearFilter, setYearFilter] = useState<number[]>([]);
+  const [activeFilterColumn, setActiveFilterColumn] = useState<string | null>(null);
+
+  // ==================== STATE: UI ====================
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<ProjectContextMenuState | null>(null);
+  const [logSheetOpen, setLogSheetOpen] = useState(false);
+  const [selectedLogProject, setSelectedLogProject] = useState<Project | null>(null);
+  
+  // 🆕 NEW STATE: Expanded remarks
+  const [expandedRemarks, setExpandedRemarks] = useState<Set<string>>(new Set());
+
+  // ==================== COMPUTED VALUES ====================
+  const canManageBulkActions = useMemo(() => {
+    return currentUser?.role === "admin" || currentUser?.role === "super_admin";
+  }, [currentUser]);
+
+  // Filter and sort projects
+  const filteredAndSortedProjects = useMemo(() => 
+    applyFilters(projects, createProjectFilterConfig(
+      searchQuery,
+      statusFilter,
+      yearFilter,
+      officeFilter,
+      sortField,
+      sortDirection
+    )),
+    [projects, searchQuery, statusFilter, yearFilter, officeFilter, sortField, sortDirection]
+  );
+
+  // Group projects by category
+  const groupedProjects = useMemo(() => {
+    return groupProjectsByCategory(filteredAndSortedProjects, allCategories);
+  }, [filteredAndSortedProjects, allCategories]);
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    return calculateProjectTotals(filteredAndSortedProjects);
+  }, [filteredAndSortedProjects]);
+
+  // Selection state
+  const isAllSelected = filteredAndSortedProjects.length > 0 && 
+    selectedIds.size === filteredAndSortedProjects.length;
+  const isIndeterminate = selectedIds.size > 0 && 
+    selectedIds.size < filteredAndSortedProjects.length;
+
+  // Count visible columns
+  const totalVisibleColumns = AVAILABLE_COLUMNS.filter(
+    col => !hiddenColumns.has(col.id)
+  ).length;
+
+  // ==================== EFFECTS ====================
+  
+  // Initialize year filter from URL
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const yearParam = urlParams.get("year");
+
+      if (yearParam) {
+        const year = parseInt(yearParam);
+        if (!isNaN(year)) {
+          setYearFilter([year]);
+          return;
+        }
+      }
+
+      const sessionYear = sessionStorage.getItem("budget_year_preference");
+      if (sessionYear) {
+        const year = parseInt(sessionYear);
+        if (!isNaN(year)) {
+          setYearFilter([year]);
+        }
+      }
+    }
+  }, []);
+
+  // Sync year filter to URL
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (yearFilter.length > 0) {
+        const params = new URLSearchParams();
+        yearFilter.forEach(year => params.append("year", String(year)));
+
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.forEach((value, key) => {
+          if (key !== "year") {
+            params.append(key, value);
+          }
+        });
+
+        const newUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState(null, "", newUrl);
+      } else {
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.delete("year");
+
+        const newUrl = currentParams.toString()
+          ? `${window.location.pathname}?${currentParams.toString()}`
+          : window.location.pathname;
+        window.history.replaceState(null, "", newUrl);
+      }
+    }
+  }, [yearFilter]);
+
+  // ==================== EVENT HANDLERS ====================
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(filteredAndSortedProjects.map(p => p.id));
+      setSelectedIds(allIds);
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectRow = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const handleSelectCategory = (categoryProjects: Project[], checked: boolean) => {
+    const newSelected = new Set(selectedIds);
+    categoryProjects.forEach(p => {
+      if (checked) {
+        newSelected.add(p.id);
+      } else {
+        newSelected.delete(p.id);
+      }
+    });
+    setSelectedIds(newSelected);
+  };
+
+  const handleSort = (field: ProjectSortField) => {
+    if (sortField === field) {
+      setSortDirection(
+        sortDirection === "asc" ? "desc" : 
+        sortDirection === "desc" ? null : 
+        "asc"
+      );
+      if (sortDirection === "desc") setSortField(null);
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const handleRowClick = (project: Project, e: React.MouseEvent) => {
+    if (
+      (e.target as HTMLElement).closest("button") ||
+      (e.target as HTMLElement).closest("[role='checkbox']") ||
+      (e.target as HTMLElement).closest(".no-click")
+    ) {
+      return;
+    }
+    
+    // 🔧 Get year from URL params instead of hardcoding
+    const pathSegments = window.location.pathname.split('/');
+    const projectIndex = pathSegments.findIndex(seg => seg === 'project');
+    const year = pathSegments[projectIndex + 1]; // Gets the [year] param
+    
+    const projectSlug = createProjectSlug(project.particulars, project.id);
+    router.push(
+      `/dashboard/project/${year}/${encodeURIComponent(particularId)}/${projectSlug}`
+    );
+  };
+
+  const handleContextMenu = (project: Project, e: React.MouseEvent) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, entity: project });
+  };
+
+  const handleBulkTrash = async () => {
+    try {
+      const toastId = toast.loading(`Moving ${selectedIds.size} project(s) to trash...`);
+      
+      const result = await bulkMoveToTrash({ 
+        ids: Array.from(selectedIds) as Id<"projects">[] 
+      });
+      
+      toast.dismiss(toastId);
+      
+      const processed = (result as any)?.processed || 0;
+      const failed = (result as any)?.failed || 0;
+      
+      toast.success(`Successfully moved ${selectedIds.size} project(s) to trash`);
+      
+      if (failed > 0) {
+        toast.info(`Note: ${failed} project(s) failed to move`);
+      }
+      
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error("Failed to move projects to trash");
+      console.error(error);
+    }
+  };
+
+  const handleBulkCategoryChange = (categoryId: Id<"projectCategories"> | undefined) => {
+    if (!categoryId) return;
+    setPendingBulkCategoryId(categoryId);
+    setShowBulkCategoryConfirmModal(true);
+  };
+
+  const confirmBulkCategoryUpdate = async () => {
+    if (!pendingBulkCategoryId) return;
+    
+    try {
+      const toastId = toast.loading(`Updating ${selectedIds.size} project(s)...`);
+      
+      await bulkUpdateCategory({
+        ids: Array.from(selectedIds) as Id<"projects">[],
+        categoryId: pendingBulkCategoryId
+      });
+      
+      toast.dismiss(toastId);
+      toast.success(`Successfully updated ${selectedIds.size} project(s)`);
+      
+      setSelectedIds(new Set());
+      setPendingBulkCategoryId(undefined);
+      setShowBulkCategoryConfirmModal(false);
+    } catch (error) {
+      toast.error("Failed to update categories");
+      setShowBulkCategoryConfirmModal(false);
+      console.error(error);
+    }
+  };
+
+  const handleSearchFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (selectedIds.size > 0) {
+      e.target.blur();
+      setShowSearchWarningModal(true);
+    }
+  };
+
+  const handleConfirmSearchClear = () => {
+    setSelectedIds(new Set());
+    setShowSearchWarningModal(false);
+    setTimeout(() => {
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+      }
+    }, 50);
+  };
+
+  const handleToggleColumn = (columnId: string, isChecked: boolean) => {
+    const newHidden = new Set(hiddenColumns);
+    if (isChecked) {
+      newHidden.delete(columnId);
+    } else {
+      newHidden.add(columnId);
+    }
+    setHiddenColumns(newHidden);
+  };
+
+  const handleHideAllColumns = () => {
+    setShowHideAllWarning(true);
+  };
+
+  const confirmHideAll = () => {
+    const allColIds = AVAILABLE_COLUMNS.map(c => c.id);
+    setHiddenColumns(new Set(allColIds));
+    setShowHideAllWarning(false);
+  };
+
+  const handleShowAllColumns = () => {
+    setHiddenColumns(new Set());
+  };
+
+  const handleExportCSV = () => {
+    try {
+      exportToCSV(
+        filteredAndSortedProjects,
+        createProjectExportConfig(AVAILABLE_COLUMNS, hiddenColumns)
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to export CSV");
+    }
+  };
+
+  const handleContextChangeCategory = () => {
+    if (!contextMenu) return;
+    setSelectedCategoryProject(contextMenu.entity);
+    setSingleCategoryId(contextMenu.entity.categoryId as Id<"projectCategories"> | undefined);
+    setShowSingleCategoryModal(true);
+  };
+
+  const saveSingleCategoryChange = async () => {
+    if (!selectedCategoryProject) return;
+    
+    try {
+      const toastId = toast.loading("Updating category...");
+      
+      await updateProject({
+        id: selectedCategoryProject.id as Id<"projects">,
+        categoryId: singleCategoryId,
+        particulars: selectedCategoryProject.particulars,
+        implementingOffice: selectedCategoryProject.implementingOffice,
+        totalBudgetAllocated: selectedCategoryProject.totalBudgetAllocated,
+        totalBudgetUtilized: selectedCategoryProject.totalBudgetUtilized,
+        budgetItemId: selectedCategoryProject.budgetItemId as Id<"budgetItems">,
+        remarks: selectedCategoryProject.remarks,
+        year: selectedCategoryProject.year,
+        projectManagerId: selectedCategoryProject.projectManagerId as Id<"users">,
+        reason: "Category updated via context menu"
+      });
+      
+      toast.dismiss(toastId);
+      toast.success("Category updated successfully");
+      
+      setShowSingleCategoryModal(false);
+      setSelectedCategoryProject(null);
+    } catch (error) {
+      toast.error("Failed to update category");
+      console.error(error);
+    }
+  };
+
+  const handlePinProject = async () => {
+    if (!contextMenu) return;
+    
+    try {
+      await togglePinProject({ id: contextMenu.entity.id as Id<"projects"> });
+    } catch (error) {
+      toast.error("Failed to toggle pin");
+    }
+  };
+
+  const handleViewLog = () => {
+    if (!contextMenu) return;
+    setSelectedLogProject(contextMenu.entity);
+    setLogSheetOpen(true);
+  };
+
+  const handleEditProject = () => {
+    if (!contextMenu) return;
+    setSelectedProject(contextMenu.entity);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteProject = () => {
+    if (!contextMenu) return;
+    setSelectedProject(contextMenu.entity);
+    setShowDeleteModal(true);
+  };
+
+  // 🆕 NEW HANDLER: Toggle remarks expansion
+  const handleToggleRemarks = (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click navigation
+    const newExpanded = new Set(expandedRemarks);
+    if (newExpanded.has(projectId)) {
+      newExpanded.delete(projectId);
+    } else {
+      newExpanded.add(projectId);
+    }
+    setExpandedRemarks(newExpanded);
+  };
+
+  // ==================== RENDER ====================
+
+  return (
+    <>
+      <div className="print-area bg-white dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-visible transition-all duration-300 shadow-sm">
+        
+        {/* Toolbar */}
+        <ProjectsTableToolbar
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onSearchFocus={handleSearchFocus}
+          searchInputRef={searchInputRef}
+          selectedCount={selectedIds.size}
+          onClearSelection={() => setSelectedIds(new Set())}
+          canManageBulkActions={canManageBulkActions}
+          onBulkCategoryChange={handleBulkCategoryChange}
+          hiddenColumns={hiddenColumns}
+          onToggleColumn={handleToggleColumn}
+          onShowAllColumns={handleShowAllColumns}
+          onHideAllColumns={handleHideAllColumns}
+          onExportCSV={handleExportCSV}
+          onPrint={() => window.print()}
+          onOpenTrash={onOpenTrash}
+          onBulkTrash={handleBulkTrash}
+          isAdmin={canManageBulkActions}
+          pendingRequestsCount={pendingParticularRequests}
+          onOpenShare={() => setShowShareModal(true)}
+          onAddProject={onAdd ? () => setShowAddModal(true) : undefined}
+          expandButton={expandButton}
+          accentColor={accentColorValue}
+        />
+
+        {/* Table */}
+        <div className="overflow-x-auto max-h-[600px] relative">
+          <table className="w-full">
+            
+            {/* Header */}
+            <ProjectsTableHeader
+              hiddenColumns={hiddenColumns}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSort={handleSort}
+              canManageBulkActions={canManageBulkActions}
+              isAllSelected={isAllSelected}
+              isIndeterminate={isIndeterminate}
+              onSelectAll={handleSelectAll}
+              onFilterClick={setActiveFilterColumn}
+              activeFilterColumn={activeFilterColumn}
+            />
+
+            {/* Body */}
+            <ProjectsTableBody
+              groupedProjects={groupedProjects}
+              hiddenColumns={hiddenColumns}
+              selectedIds={selectedIds}
+              newlyAddedProjectId={newlyAddedProjectId}
+              canManageBulkActions={canManageBulkActions}
+              totalVisibleColumns={totalVisibleColumns}
+              onSelectCategory={handleSelectCategory}
+              onSelectRow={handleSelectRow}
+              onRowClick={handleRowClick}
+              onContextMenu={handleContextMenu}
+              accentColor={accentColorValue}
+              expandedRemarks={expandedRemarks}
+              onToggleRemarks={handleToggleRemarks}
+            />
+
+            {/* Footer */}
+            <tfoot>
+              <ProjectsTableFooter
+                totals={totals}
+                hiddenColumns={hiddenColumns}
+                canManageBulkActions={canManageBulkActions}
+                accentColor={accentColorValue}
+              />
+            </tfoot>
+
+          </table>
+        </div>
+      </div>
+
+      {/* Context Menu */}
+      <ProjectContextMenu
+        contextMenu={contextMenu}
+        onClose={() => setContextMenu(null)}
+        onPin={handlePinProject}
+        onViewLog={handleViewLog}
+        onChangeCategory={handleContextChangeCategory}
+        onEdit={handleEditProject}
+        onDelete={handleDeleteProject}
+        canEdit={!!onEdit}
+        canDelete={!!onDelete}
+      />
+
+      {/* Activity Log Sheet */}
+      {selectedLogProject && (
+        <ActivityLogSheet
+          type="project"
+          entityId={selectedLogProject.id}
+          title={`Project History: ${selectedLogProject.particulars}`}
+          isOpen={logSheetOpen}
+          onOpenChange={(open) => {
+            setLogSheetOpen(open);
+            if (!open) setSelectedLogProject(null);
+          }}
+        />
+      )}
+
+      {/* Add Project Modal */}
+      {showAddModal && (
+        <Modal
+          isOpen={showAddModal}
+          onClose={() => setShowAddModal(false)}
+          title="Add Project"
+          size="xl"
+        >
+          <ProjectForm
+            budgetItemId={budgetItemId}
+            budgetItemYear={budgetItemYear}
+            onSave={(data) => {
+              if (onAdd) onAdd(data);
+              setShowAddModal(false);
+            }}
+            onCancel={() => setShowAddModal(false)}
+          />
+        </Modal>
+      )}
+
+      {/* Edit Project Modal */}
+      {showEditModal && selectedProject && (
+        <Modal
+          isOpen={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedProject(null);
+          }}
+          title="Edit Project"
+          size="xl"
+        >
+          <ProjectForm
+            project={selectedProject}
+            budgetItemId={budgetItemId}
+            onSave={(data) => {
+              if (onEdit) onEdit(selectedProject.id, data);
+              setShowEditModal(false);
+              setSelectedProject(null);
+            }}
+            onCancel={() => {
+              setShowEditModal(false);
+              setSelectedProject(null);
+            }}
+          />
+        </Modal>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && selectedProject && (
+        <ConfirmationModal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedProject(null);
+          }}
+          onConfirm={() => {
+            if (onDelete) onDelete(selectedProject.id);
+            setSelectedProject(null);
+          }}
+          title="Move to Trash"
+          message={`Are you sure you want to move "${selectedProject.particulars}" to trash? Associated breakdowns will also be moved.`}
+          confirmText="Move to Trash"
+          variant="danger"
+        />
+      )}
+
+      {/* Bulk Category Confirmation Modal */}
+      {showBulkCategoryConfirmModal && pendingBulkCategoryId && (
+        <ConfirmationModal
+          isOpen={showBulkCategoryConfirmModal}
+          onClose={() => {
+            setShowBulkCategoryConfirmModal(false);
+            setPendingBulkCategoryId(undefined);
+          }}
+          onConfirm={confirmBulkCategoryUpdate}
+          title="Confirm Bulk Category Update"
+          message={`Are you sure you want to move ${selectedIds.size} selected projects to this category? This will update their classification.`}
+          confirmText="Yes, Update Projects"
+          variant="default"
+        />
+      )}
+
+      {/* Single Category Change Modal */}
+      {showSingleCategoryModal && selectedCategoryProject && (
+        <Modal
+          isOpen={showSingleCategoryModal}
+          onClose={() => {
+            setShowSingleCategoryModal(false);
+            setSelectedCategoryProject(null);
+          }}
+          title="Move Project to Category"
+          size="sm"
+        >
+          <div className="space-y-4">
+            <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800">
+              <p className="text-sm font-medium">{selectedCategoryProject.particulars}</p>
+              <p className="text-xs text-zinc-500 mt-1">
+                Current Category:{" "}
+                {selectedCategoryProject.categoryId
+                  ? allCategories?.find((c) => c._id === selectedCategoryProject.categoryId)
+                      ?.fullName
+                  : "Uncategorized"}
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                Select New Category
+              </label>
+              <ProjectCategoryCombobox
+                value={singleCategoryId}
+                onChange={(val) => setSingleCategoryId(val)}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4">
+              <button
+                onClick={() => setShowSingleCategoryModal(false)}
+                className="px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveSingleCategoryChange}
+                style={{ backgroundColor: accentColorValue }}
+                className="px-4 py-2 text-sm font-medium text-white rounded-md hover:opacity-90 transition-opacity"
+              >
+                Update Category
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Search Warning Modal */}
+      <ConfirmationModal
+        isOpen={showSearchWarningModal}
+        onClose={() => setShowSearchWarningModal(false)}
+        onConfirm={handleConfirmSearchClear}
+        title="Clear Selection?"
+        message={`${selectedIds.size} ${
+          selectedIds.size === 1 ? "item" : "items"
+        } will be unselected. Do you want to proceed?`}
+        confirmText="Proceed"
+        variant="default"
+      />
+
+      {/* Hide All Columns Warning */}
+      <ConfirmationModal
+        isOpen={showHideAllWarning}
+        onClose={() => setShowHideAllWarning(false)}
+        onConfirm={confirmHideAll}
+        title="Hide All Columns?"
+        message="Are you sure you want to hide all columns? The table will display no data."
+        confirmText="Hide All"
+        variant="default"
+      />
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <ProjectShareModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          particularCode={particularId}
+          particularFullName={getParticularFullName(particularId)}
+        />
+      )}
+    </>
+  );
+}
