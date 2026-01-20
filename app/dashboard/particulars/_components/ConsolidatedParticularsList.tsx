@@ -22,6 +22,7 @@ import { useParticularPermissions } from "../_hooks/useParticularPermissions";
 import { useHierarchyData } from "../_hooks/useHierarchyData";
 import { useSearchFilter } from "../_hooks/useSearchFilter";
 import { useUrlState } from "../_hooks/useUrlState";
+import { UI_TIMING } from "../_constants/particularConstants";
 
 type NodeType = "budget" | "project" | "breakdown";
 type SortOrder = "asc" | "desc";
@@ -103,12 +104,12 @@ export function ConsolidatedParticularsList({
     }
   }, []);
 
-  // Debounce search
+  // Debounce search - using constant
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm);
       updateUrlState({ search: searchTerm || undefined });
-    }, 300);
+    }, UI_TIMING.SEARCH_DEBOUNCE_DELAY);
 
     return () => clearTimeout(timer);
   }, [searchTerm, updateUrlState]);
@@ -244,13 +245,13 @@ export function ConsolidatedParticularsList({
     setSelectedItem({ type, item });
   };
 
-  // Handle share URL
+  // Handle share URL - using constant
   const handleShareUrl = async () => {
     const success = await copyUrlToClipboard();
     if (success) {
       setUrlCopied(true);
       toast.success("Link copied to clipboard!");
-      setTimeout(() => setUrlCopied(false), 2000);
+      setTimeout(() => setUrlCopied(false), UI_TIMING.URL_COPIED_DURATION);
     } else {
       toast.error("Failed to copy link");
     }
@@ -282,7 +283,7 @@ export function ConsolidatedParticularsList({
     </div>
   );
 
-  // Render tree items helper
+  // Render tree items helper - using constant for animation delay
   const renderTreeItems = (data: typeof hierarchyData) => {
     return data.map((item, index) => {
       const budgetExpanded = expandedNodes.has(item.particular._id);
@@ -292,7 +293,7 @@ export function ConsolidatedParticularsList({
           key={`${animationKey}-${item.particular._id}`}
           className="animate-slide-down"
           style={{
-            animationDelay: `${index * 50}ms`,
+            animationDelay: `${index * UI_TIMING.ANIMATION_DELAY_PER_ITEM}ms`,
             animationFillMode: "backwards",
           }}
         >
@@ -407,7 +408,7 @@ export function ConsolidatedParticularsList({
             setShowSuggestions(true);
           }}
           onSearchFocus={() => setShowSuggestions(true)}
-          onSearchBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+          onSearchBlur={() => setTimeout(() => setShowSuggestions(false), UI_TIMING.SUGGESTION_CLOSE_DELAY)}
           showSuggestions={showSuggestions}
           searchSuggestions={searchSuggestions}
           onSuggestionClick={handleSuggestionClick}

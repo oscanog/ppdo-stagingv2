@@ -13,6 +13,7 @@ import { YearSelector } from "./_components/YearSelector";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useUrlState } from "./_hooks/useUrlState";
+import { UI_TIMING } from "./_constants/particularConstants";
 
 export default function ParticularPage() {
   const { user, isLoading: isUserLoading } = useCurrentUser();
@@ -67,7 +68,7 @@ export default function ParticularPage() {
   const handleYearChange = (year: string) => {
     setSelectedYear(year);
     const yearText = year === "all" ? "All Years" : `Year ${year}`;
-    toast.success(`Filtering by: ${yearText}`, { duration: 2000 });
+    toast.success(`Filtering by: ${yearText}`, { duration: UI_TIMING.TOAST_DURATION });
   };
 
   // Check if user has access

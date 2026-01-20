@@ -61,6 +61,7 @@ import {
   Boxes,
 } from "lucide-react";
 import { InlineEdit } from "./InlineEdit";
+import { UI_TIMING, formatCurrency } from "../_constants/particularConstants";
 
 type NodeType = "budget" | "project" | "breakdown";
 
@@ -82,14 +83,6 @@ interface TreeNodeProps {
   grandChildrenCount?: number;
   children?: React.ReactNode;
 }
-
-const formatCurrency = (amount: number) => {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    minimumFractionDigits: 0,
-  }).format(amount);
-};
 
 export function TreeNode({
   item,
@@ -118,7 +111,7 @@ export function TreeNode({
     setIsHovered(true);
     tooltipTimeoutRef.current = setTimeout(() => {
       setShowTooltip(true);
-    }, 2000);
+    }, UI_TIMING.TOOLTIP_HOVER_DELAY);
   };
 
   const handleMouseLeave = () => {
