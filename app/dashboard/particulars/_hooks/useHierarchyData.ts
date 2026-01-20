@@ -91,6 +91,75 @@ export function useHierarchyData({
     return data;
   }, [budgetParticulars, projectParticulars, budgetItems, projects, breakdowns, selectedYear, sortOrder]);
 
+  // Group data by year when "All Years" is selected
+  const groupedByYear = useMemo(() => {
+    if (selectedYear !== "all" || hierarchyData.length === 0) {
+      return null;
+    }
+
+    // Collect all years from the data
+    const yearsMap = new Map<number, typeof hierarchyData>();
+
+    hierarchyData.forEach((item) => {
+      item.budgetItems.forEach((bi) => {
+        bi.projects.forEach((project) => {
+          if (project.year) {
+            if (!yearsMap.has(project.year)) {
+              yearsMap.set(project.year, []);
+            }
+            
+            // Find or create the particular entry for this year
+            const yearData = yearsMap.get(project.year)!;
+            let particularEntry = yearData.find(
+              (d) => d.particular._id === item.particular._id
+            );
+
+            if (!particularEntry) {
+              particularEntry = {
+                particular: item.particular,
+                budgetItems: [],
+                totalProjects: 0,
+                totalBreakdowns: 0,
+              };
+              yearData.push(particularEntry);
+            }
+
+            // Find or create the budget item entry
+            let budgetItemEntry = particularEntry.budgetItems.find(
+              (b) => b._id === bi._id
+            );
+
+            if (!budgetItemEntry) {
+              budgetItemEntry = {
+                ...bi,
+                projects: [],
+              };
+              particularEntry.budgetItems.push(budgetItemEntry);
+            }
+
+            // Add the project with its breakdowns
+            budgetItemEntry.projects.push(project);
+            particularEntry.totalProjects += 1;
+            particularEntry.totalBreakdowns += project.breakdowns?.length || 0;
+          }
+        });
+      });
+    });
+
+    // Convert to sorted array
+    const yearGroups = Array.from(yearsMap.entries())
+      .sort(([a], [b]) => b - a) // Sort years descending
+      .map(([year, data]) => ({
+        year,
+        data: data.sort((a, b) => {
+          const comparison = a.particular.fullName.localeCompare(b.particular.fullName);
+          return sortOrder === "asc" ? comparison : -comparison;
+        }),
+      }));
+
+    return yearGroups;
+  }, [hierarchyData, selectedYear, sortOrder]);
+
   const totals = useMemo(() => {
     const totalBudgetItems = hierarchyData.reduce(
       (sum, item) => sum + item.budgetItems.length,
@@ -112,5 +181,5 @@ export function useHierarchyData({
     };
   }, [hierarchyData]);
 
-  return { hierarchyData, totals };
+  return { hierarchyData, groupedByYear, totals };
 }

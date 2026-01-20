@@ -1,3 +1,5 @@
+// app/dashboard/trust-funds/components/TrustFundStatistics.tsx
+
 import React, { useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -24,10 +26,15 @@ export default function TrustFundStatistics({
     []
   );
 
+  const utilizationRate = useMemo(() => {
+    if (totalReceived === 0) return 0;
+    return ((totalUtilized / totalReceived) * 100).toFixed(2);
+  }, [totalReceived, totalUtilized]);
+
   return (
     <section
       aria-label="Trust fund statistics"
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 no-print"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 no-print animate-in fade-in slide-in-from-top-2 duration-300"
     >
       <StatCard
         label="Total Trust Funds Received"
@@ -47,6 +54,11 @@ export default function TrustFundStatistics({
       <StatCard
         label="Total Projects"
         value={totalProjects.toLocaleString()}
+      />
+
+      <StatCard
+        label="Average Utilization Rate"
+        value={`${utilizationRate}%`}
       />
     </section>
   );

@@ -9,8 +9,8 @@ import { Doc, Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Share2, Check } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Loader2, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 import { TreeNode } from "./TreeNode";
 import { HierarchyHeader } from "./HierarchyHeader";
@@ -125,7 +125,7 @@ export function ConsolidatedParticularsList({
   }, [sortOrder, updateUrlState]);
 
   // Custom hooks for data processing
-  const { hierarchyData, totals } = useHierarchyData({
+  const { hierarchyData, groupedByYear, totals } = useHierarchyData({
     budgetParticulars,
     projectParticulars,
     budgetItems,
@@ -273,6 +273,128 @@ export function ConsolidatedParticularsList({
     );
   }
 
+  // Render year header component
+  const YearHeader = ({ year }: { year: number }) => (
+    <div className="sticky top-0 z-10 bg-gray-100 dark:bg-gray-800 border-t border-gray-300 dark:border-gray-700 px-4 pt-1 mb-2">
+      <h3 className="text-lg font-semibold text-black dark:text-gray-100">
+        {year}
+      </h3>
+    </div>
+  );
+
+  // Render tree items helper
+  const renderTreeItems = (data: typeof hierarchyData) => {
+    return data.map((item, index) => {
+      const budgetExpanded = expandedNodes.has(item.particular._id);
+
+      return (
+        <div
+          key={`${animationKey}-${item.particular._id}`}
+          className="animate-slide-down"
+          style={{
+            animationDelay: `${index * 50}ms`,
+            animationFillMode: "backwards",
+          }}
+        >
+          <TreeNode
+            item={item.particular}
+            level={0}
+            type="budget"
+            isExpanded={budgetExpanded}
+            onToggle={() => toggleNode(item.particular._id)}
+            onClick={() => handleItemClick("budget", item.particular)}
+            onEdit={() =>
+              setEditingNode({
+                type: "budget",
+                id: item.particular._id,
+                value: item.particular.fullName,
+              })
+            }
+            onDelete={() =>
+              setDeletingItem({ type: "budget", item: item.particular })
+            }
+            isEditing={
+              editingNode?.type === "budget" &&
+              editingNode?.id === item.particular._id
+            }
+            onSaveEdit={handleSaveEdit}
+            onCancelEdit={() => setEditingNode(null)}
+            canEdit={canEditParticular}
+            canDelete={canDeleteParticular}
+            childrenCount={item.totalProjects}
+            grandChildrenCount={item.totalBreakdowns}
+          >
+            {item.budgetItems.map((budgetItem: BudgetItemWithProjects) =>
+              budgetItem.projects.map((project: ProjectWithBreakdowns) => {
+                const projectExpanded = expandedNodes.has(project._id);
+                const breakdownCount = project.breakdowns?.length || 0;
+
+                return (
+                  <TreeNode
+                    key={project._id}
+                    item={project}
+                    level={1}
+                    type="project"
+                    isExpanded={projectExpanded}
+                    onToggle={() => toggleNode(project._id)}
+                    onClick={() => handleItemClick("project", project)}
+                    onEdit={() =>
+                      setEditingNode({
+                        type: "project",
+                        id: project._id,
+                        value: project.particulars,
+                      })
+                    }
+                    onDelete={() =>
+                      setDeletingItem({ type: "project", item: project })
+                    }
+                    isEditing={
+                      editingNode?.type === "project" &&
+                      editingNode?.id === project._id
+                    }
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={() => setEditingNode(null)}
+                    canEdit={canEditParticular}
+                    canDelete={canDeleteParticular}
+                    childrenCount={breakdownCount}
+                  >
+                    {project.breakdowns?.map((breakdown: Doc<"govtProjectBreakdowns">) => (
+                      <TreeNode
+                        key={breakdown._id}
+                        item={breakdown}
+                        level={2}
+                        type="breakdown"
+                        isExpanded={false}
+                        onToggle={() => {}}
+                        onClick={() => handleItemClick("breakdown", breakdown)}
+                        onEdit={() =>
+                          setEditingNode({
+                            type: "breakdown",
+                            id: breakdown._id,
+                            value: breakdown.projectName,
+                          })
+                        }
+                        onDelete={() => {}}
+                        isEditing={
+                          editingNode?.type === "breakdown" &&
+                          editingNode?.id === breakdown._id
+                        }
+                        onSaveEdit={handleSaveEdit}
+                        onCancelEdit={() => setEditingNode(null)}
+                        canEdit={canEditParticular}
+                        canDelete={false}
+                      />
+                    ))}
+                  </TreeNode>
+                );
+              })
+            )}
+          </TreeNode>
+        </div>
+      );
+    });
+  };
+
   return (
     <>
       <Card>
@@ -292,8 +414,6 @@ export function ConsolidatedParticularsList({
           isSearchActive={!!debouncedSearch}
         />
 
-       
-
         <CardContent className="-my-4 px-2 max-h-[calc(100vh-340px)] overflow-y-auto">
           {debouncedSearch ? (
             <SearchResultsView 
@@ -303,127 +423,31 @@ export function ConsolidatedParticularsList({
             />
           ) : (
             <>
-              {filteredData.length === 0 && (
+              {/* When "All Years" is selected and data is grouped by year */}
+              {selectedYear === "all" && groupedByYear && groupedByYear.length > 0 ? (
+                groupedByYear.map((yearGroup, yearIndex) => (
+                  <div key={`year-${yearGroup.year}`} className="mb-4">
+                    <YearHeader year={yearGroup.year} />
+                    <div className="space-y-1">
+                      {renderTreeItems(yearGroup.data)}
+                    </div>
+                  </div>
+                ))
+              ) : selectedYear !== "all" && filteredData.length > 0 ? (
+                /* When specific year is selected */
+                renderTreeItems(filteredData)
+              ) : (
+                /* No data */
                 <div className="text-center py-8 text-sm text-gray-500">
                   No particulars available
                   {selectedYear !== "all" && ` for year ${selectedYear}`}
                 </div>
               )}
-
-              {filteredData.map((item, index) => {
-                const budgetExpanded = expandedNodes.has(item.particular._id);
-
-                return (
-                  <div
-                    key={`${animationKey}-${item.particular._id}`}
-                    className="animate-slide-down"
-                    style={{
-                      animationDelay: `${index * 50}ms`,
-                      animationFillMode: "backwards",
-                    }}
-                  >
-                    <TreeNode
-                      item={item.particular}
-                      level={0}
-                      type="budget"
-                      isExpanded={budgetExpanded}
-                      onToggle={() => toggleNode(item.particular._id)}
-                      onClick={() => handleItemClick("budget", item.particular)}
-                      onEdit={() =>
-                        setEditingNode({
-                          type: "budget",
-                          id: item.particular._id,
-                          value: item.particular.fullName,
-                        })
-                      }
-                      onDelete={() =>
-                        setDeletingItem({ type: "budget", item: item.particular })
-                      }
-                      isEditing={
-                        editingNode?.type === "budget" &&
-                        editingNode?.id === item.particular._id
-                      }
-                      onSaveEdit={handleSaveEdit}
-                      onCancelEdit={() => setEditingNode(null)}
-                      canEdit={canEditParticular}
-                      canDelete={canDeleteParticular}
-                      childrenCount={item.totalProjects}
-                      grandChildrenCount={item.totalBreakdowns}
-                    >
-                      {item.budgetItems.map((budgetItem: BudgetItemWithProjects) =>
-                        budgetItem.projects.map((project: ProjectWithBreakdowns) => {
-                          const projectExpanded = expandedNodes.has(project._id);
-                          const breakdownCount = project.breakdowns?.length || 0;
-
-                          return (
-                            <TreeNode
-                              key={project._id}
-                              item={project}
-                              level={1}
-                              type="project"
-                              isExpanded={projectExpanded}
-                              onToggle={() => toggleNode(project._id)}
-                              onClick={() => handleItemClick("project", project)}
-                              onEdit={() =>
-                                setEditingNode({
-                                  type: "project",
-                                  id: project._id,
-                                  value: project.particulars,
-                                })
-                              }
-                              onDelete={() =>
-                                setDeletingItem({ type: "project", item: project })
-                              }
-                              isEditing={
-                                editingNode?.type === "project" &&
-                                editingNode?.id === project._id
-                              }
-                              onSaveEdit={handleSaveEdit}
-                              onCancelEdit={() => setEditingNode(null)}
-                              canEdit={canEditParticular}
-                              canDelete={canDeleteParticular}
-                              childrenCount={breakdownCount}
-                            >
-                              {project.breakdowns?.map((breakdown: Doc<"govtProjectBreakdowns">) => (
-                                <TreeNode
-                                  key={breakdown._id}
-                                  item={breakdown}
-                                  level={2}
-                                  type="breakdown"
-                                  isExpanded={false}
-                                  onToggle={() => {}}
-                                  onClick={() => handleItemClick("breakdown", breakdown)}
-                                  onEdit={() =>
-                                    setEditingNode({
-                                      type: "breakdown",
-                                      id: breakdown._id,
-                                      value: breakdown.projectName,
-                                    })
-                                  }
-                                  onDelete={() => {}}
-                                  isEditing={
-                                    editingNode?.type === "breakdown" &&
-                                    editingNode?.id === breakdown._id
-                                  }
-                                  onSaveEdit={handleSaveEdit}
-                                  onCancelEdit={() => setEditingNode(null)}
-                                  canEdit={canEditParticular}
-                                  canDelete={false}
-                                />
-                              ))}
-                            </TreeNode>
-                          );
-                        })
-                      )}
-                    </TreeNode>
-                  </div>
-                );
-              })}
             </>
           )}
         </CardContent>
 
-        {!debouncedSearch && filteredData.length > 0 && (
+        {!debouncedSearch && (selectedYear === "all" ? (groupedByYear && groupedByYear.length > 0) : filteredData.length > 0) && (
           <HierarchyFooter
             budgetItems={totals.budgetItems}
             projects={totals.projects}

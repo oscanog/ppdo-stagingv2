@@ -36,6 +36,7 @@ export const defaultNavItems: NavItem[] = [
     href: "/dashboard/trust-funds",
     category: "Department",
     icon: <Vault size={20} />,
+    isNew: true,
   },
   
   {
@@ -43,11 +44,14 @@ export const defaultNavItems: NavItem[] = [
     href: "/dashboard/particulars",
     category: "Department",
     icon: <FileText size={20} />,
+    isNew: true,
   },
-  { name: "Office", 
+  { 
+    name: "Office", 
     href: "/dashboard/office", 
     category: "Cross Department", 
-    icon: <Building2 size={20} /> },
+    icon: <Building2 size={20} />,
+  },
   {
     name: "CMS",
     href: "/dashboard/cms",

@@ -50,6 +50,11 @@ export function SidebarNav({ categories, isMinimized, pathname, accentColor, exp
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <span className={isMinimized ? "shrink-0" : ""} style={isActive ? { color: accentColor } : undefined}>{item.icon}</span>
                           <span className={`transition-all duration-300 truncate ${isMinimized ? "md:hidden" : ""}`}>{item.name}</span>
+                          {item.isNew && !isMinimized && (
+                            <span className="ml-auto inline-flex items-center rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                              NEW
+                            </span>
+                          )}
                         </div>
                         {!isMinimized && (
                           <svg className={`w-4 h-4 transition-transform duration-200 shrink-0 ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,6 +76,11 @@ export function SidebarNav({ categories, isMinimized, pathname, accentColor, exp
                                 >
                                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSubActive ? "" : "bg-zinc-400 dark:bg-zinc-600"}`} style={isSubActive ? { backgroundColor: accentColor } : undefined} />
                                   <span className="truncate">{subItem.name}</span>
+                                  {subItem.isNew && (
+                                    <span className="ml-auto inline-flex items-center rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                      NEW
+                                    </span>
+                                  )}
                                 </Link>
                               </li>
                             );
@@ -102,6 +112,11 @@ export function SidebarNav({ categories, isMinimized, pathname, accentColor, exp
                     >
                       <span className={isMinimized ? "shrink-0" : ""} style={isActive ? { color: accentColor } : undefined}>{item.icon}</span>
                       <span className={`transition-all duration-300 truncate ${isMinimized ? "md:hidden" : ""}`}>{item.name}</span>
+                      {item.isNew && !isMinimized && (
+                        <span className="ml-auto inline-flex items-center rounded-full bg-blue-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                          NEW
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
