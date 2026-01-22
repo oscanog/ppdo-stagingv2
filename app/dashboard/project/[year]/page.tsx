@@ -47,6 +47,7 @@ export default function YearBudgetPage({ params }: PageProps) {
       return {
         totalAllocated: 0,
         totalUtilized: 0,
+        totalObligated: 0, // 🆕 NEW
         averageUtilizationRate: 0,
         totalProjects: 0,
       };
@@ -60,6 +61,11 @@ export default function YearBudgetPage({ params }: PageProps) {
       (sum, item) => sum + item.totalBudgetUtilized, 
       0
     );
+    // 🆕 NEW: Calculate total obligated budget
+    const totalObligated = yearFilteredItems.reduce(
+      (sum, item) => sum + (item.obligatedBudget || 0), 
+      0
+    );
     const averageUtilizationRate = yearFilteredItems.reduce(
       (sum, item) => sum + item.utilizationRate, 
       0
@@ -68,6 +74,7 @@ export default function YearBudgetPage({ params }: PageProps) {
     return {
       totalAllocated,
       totalUtilized,
+      totalObligated, // 🆕 NEW
       averageUtilizationRate,
       totalProjects: yearFilteredItems.length,
     };
@@ -115,8 +122,10 @@ export default function YearBudgetPage({ params }: PageProps) {
       <BudgetStatistics
         totalAllocated={yearStatistics.totalAllocated}
         totalUtilized={yearStatistics.totalUtilized}
+        totalObligated={yearStatistics.totalObligated}
         averageUtilizationRate={yearStatistics.averageUtilizationRate}
         totalProjects={yearStatistics.totalProjects}
+        items={yearFilteredItems}
       />
 
       <div className="mb-6">
