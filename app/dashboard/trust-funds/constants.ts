@@ -26,7 +26,7 @@ export const STATUS_COLUMN_WIDTH = 140;
 
 export const STATUS_CONFIG = {
   not_available: { 
-    label: "Not Available", 
+    label: "N/A", 
     className: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
     dotColor: "bg-zinc-400"
   },
@@ -45,11 +45,11 @@ export const STATUS_CONFIG = {
     className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
     dotColor: "bg-zinc-600"
   },
-  active: { 
-    label: "Active", 
-    className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-    dotColor: "bg-zinc-700"
-  },
+  // active: { 
+  //   label: "Active", 
+  //   className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  //   dotColor: "bg-zinc-700"
+  // },
 } as const;
 
 export const STATUS_CLASSES = {

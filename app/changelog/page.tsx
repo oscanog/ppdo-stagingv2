@@ -5,7 +5,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, User, Package, Sparkles } from "lucide-react";
+import { Calendar, Package, Sparkles } from "lucide-react";
 import {
   CHANGELOG_DATA,
   getCategoryBadgeColor,
@@ -13,6 +13,7 @@ import {
   type ChangelogEntry,
   type ChangelogItem,
 } from "@/data/changelog-data";
+import { AuthorAvatar } from "./AuthorAvatar";
 
 export default function ChangelogPage() {
   return (
@@ -80,8 +81,8 @@ function ChangelogCard({ entry, isLatest }: { entry: ChangelogEntry; isLatest: b
             <Calendar className="h-4 w-4" />
             <span>{entry.date}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <User className="h-4 w-4" />
+          <div className="flex items-center gap-2">
+            <AuthorAvatar authorName={entry.author} size="sm" />
             <span>{entry.author}</span>
           </div>
         </div>

@@ -84,7 +84,7 @@ function StatusCell({ status, onStatusChange, isUpdating = false }: StatusCellPr
             <SelectItem value="not_available" className="text-xs">
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-zinc-400" />
-                Not Available
+                -
               </span>
             </SelectItem>
             <SelectItem value="not_yet_started" className="text-xs">
@@ -105,7 +105,7 @@ function StatusCell({ status, onStatusChange, isUpdating = false }: StatusCellPr
                 Completed
               </span>
             </SelectItem>
-            <SelectItem value="active" className="text-xs">
+            <SelectItem value="active" className="hidden text-xs">
               <span className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-zinc-700" />
                 Active

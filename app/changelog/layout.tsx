@@ -1,4 +1,4 @@
-// app/mail/layout.tsx
+// app/changelog/layout.tsx
 
 "use client";
 

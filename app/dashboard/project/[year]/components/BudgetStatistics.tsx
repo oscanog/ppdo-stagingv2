@@ -76,7 +76,7 @@ export default function BudgetStatistics({
     },
     { 
       key: 'not_available' as const, 
-      label: 'Not Available',
+      label: 'N/A',
       dotColor: 'bg-zinc-400'
     },
   ];

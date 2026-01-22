@@ -94,7 +94,7 @@ export function TrustFundForm({ trustFund, onSave, onCancel, year }: TrustFundFo
       received: trustFund?.received || 0,
       obligatedPR: trustFund?.obligatedPR || undefined,
       utilized: trustFund?.utilized || 0,
-      status: trustFund?.status || "not_yet_started",
+      status: trustFund?.status || "not_available",
       remarks: trustFund?.remarks || "",
       year: trustFund?.year || year || new Date().getFullYear(),
     },
@@ -203,11 +203,11 @@ export function TrustFundForm({ trustFund, onSave, onCancel, year }: TrustFundFo
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
+                    <SelectItem value="not_available">-</SelectItem>
                     <SelectItem value="not_yet_started">Not Yet Started</SelectItem>
-                    <SelectItem value="not_available">Not Available</SelectItem>
                     <SelectItem value="ongoing">Ongoing</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
+                    {/* <SelectItem value="active">Active</SelectItem> */}
                   </SelectContent>
                 </Select>
                 <FormMessage />

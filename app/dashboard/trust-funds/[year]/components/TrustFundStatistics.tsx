@@ -52,6 +52,12 @@ export default function TrustFundStatistics({
   // Define all possible statuses with their display configuration
   const statusConfig = [
     { 
+      key: 'not_available' as const, 
+      label: '- N/A',
+      dotColor: 'bg-zinc-300',
+      visible: false // Hidden by default
+    },
+    { 
       key: 'not_yet_started' as const, 
       label: 'Not Yet Started',
       dotColor: 'bg-zinc-400',
@@ -69,18 +75,12 @@ export default function TrustFundStatistics({
       dotColor: 'bg-zinc-600',
       visible: true
     },
-    { 
-      key: 'active' as const, 
-      label: 'Active',
-      dotColor: 'bg-zinc-700',
-      visible: false // Hidden by default
-    },
-    { 
-      key: 'not_available' as const, 
-      label: 'Not Available',
-      dotColor: 'bg-zinc-300',
-      visible: false // Hidden by default
-    },
+    // { 
+    //   key: 'active' as const, 
+    //   label: 'Active',
+    //   dotColor: 'bg-zinc-700',
+    //   visible: false // Hidden by default
+    // },
   ];
 
   // Filter visible statuses based on showAllStatuses state
