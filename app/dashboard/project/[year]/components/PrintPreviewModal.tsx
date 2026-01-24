@@ -1,23 +1,30 @@
-// app/dashboard/project/[year]/components/PrintPreviewModal.tsx
-// 🔧 FIXED VERSION - Properly injects converted table data into canvas
+// app/dashboard/project/[year]/components/PrintPreviewModal.tsx (ROBUST FIX)
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { toast } from 'sonner';
+import { useCallback, useState, useEffect } from 'react';
 import { PrintPreviewToolbar } from './PrintPreviewToolbar';
 import { ConfirmationModal } from './ConfirmationModal';
-import { convertTableToCanvas } from '@/lib/print-canvas/tableToCanvas';
-import { printAllPages } from '@/lib/print';
+import { TemplateSelector } from './TemplateSelector';
+import { TemplateApplicationModal } from './TemplateApplicationModal';
 import { PrintDraft, ColumnDefinition, BudgetTotals, RowMarker } from '@/lib/print-canvas/types';
 import { BudgetItem } from '@/app/dashboard/project/[year]/types';
-import { Page, HeaderFooter } from '@/app/dashboard/canvas/_components/editor/types';
+import { CanvasTemplate } from '@/app/(extra)/canvas/_components/editor/types/template';
 
-// ✅ Import the actual canvas components we need
-import Toolbar from '@/app/dashboard/canvas/_components/editor/toolbar';
-import Canvas from '@/app/dashboard/canvas/_components/editor/canvas';
-import PagePanel from '@/app/dashboard/canvas/_components/editor/page-panel';
-import BottomPageControls from '@/app/dashboard/canvas/_components/editor/bottom-page-controls';
+// Canvas components
+import Toolbar from '@/app/(extra)/canvas/_components/editor/toolbar';
+import Canvas from '@/app/(extra)/canvas/_components/editor/canvas';
+import PagePanel from '@/app/(extra)/canvas/_components/editor/page-panel';
+import BottomPageControls from '@/app/(extra)/canvas/_components/editor/bottom-page-controls';
+
+// Custom hooks
+import { usePrintPreviewState } from './hooks/usePrintPreviewState';
+import { usePrintPreviewActions } from './hooks/usePrintPreviewActions';
+import { usePrintPreviewDraft } from './hooks/usePrintPreviewDraft';
+import { convertTableToCanvas } from '@/lib/print-canvas/tableToCanvas';
+import { applyTemplateToPages } from '@/lib/canvas-utils';
+import { mergeTemplateWithCanvas } from '@/lib/canvas-utils/mergeTemplate';
+import { toast } from 'sonner';
 
 interface PrintPreviewModalProps {
   isOpen: boolean;
@@ -37,10 +44,8 @@ interface PrintPreviewModalProps {
   particular?: string;
   existingDraft?: PrintDraft | null;
   onDraftSaved?: (draft: PrintDraft) => void;
-  rowMarkers?: RowMarker[]; // Optional: for category/group headers
+  rowMarkers?: RowMarker[];
 }
-
-type ActiveSection = 'header' | 'page' | 'footer';
 
 export function PrintPreviewModal({
   isOpen,
@@ -56,46 +61,36 @@ export function PrintPreviewModal({
   onDraftSaved,
   rowMarkers,
 }: PrintPreviewModalProps) {
+  // State management
+  const state = usePrintPreviewState();
 
+  // Loading state for template application
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
+  const [templateToApply, setTemplateToApply] = useState<CanvasTemplate | null | undefined>(null);
 
-  // ✅ Canvas state - initialized in useEffect
-  const [pages, setPages] = useState<Page[]>([]);
-  const [header, setHeader] = useState<HeaderFooter>({ elements: [] });
-  const [footer, setFooter] = useState<HeaderFooter>({ elements: [] });
-  const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  const [isEditingElementId, setIsEditingElementId] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<ActiveSection>('page');
+  // Template application confirmation state
+  const [showTemplateApplicationModal, setShowTemplateApplicationModal] = useState(false);
+  const [savedTemplate, setSavedTemplate] = useState<CanvasTemplate | null>(null);
 
-  // Draft state
-  const [isDirty, setIsDirty] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  // Live template application state (for "Apply Template" button)
+  const [showLiveTemplateSelector, setShowLiveTemplateSelector] = useState(false);
 
-  // 🔧 FIX: Initialize canvas from table data or existing draft
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    if (existingDraft) {
-      setPages(existingDraft.canvasState.pages);
-      setHeader(existingDraft.canvasState.header);
-      setFooter(existingDraft.canvasState.footer);
-      setCurrentPageIndex(existingDraft.canvasState.currentPageIndex);
-      setLastSavedTime(existingDraft.timestamp);
-      setIsDirty(false);
-    } else {
-
+  // Initialize from table data with optional template
+  const initializeFromTableData = useCallback(
+    (template?: CanvasTemplate) => {
+      console.group('🎨 INITIALIZING PRINT PREVIEW');
+      console.log('Template:', template);
+      console.log('Template Page Background:', template?.page?.backgroundColor);
+      
       try {
+        // Convert table to canvas pages using template's page settings
         const result = convertTableToCanvas({
           items: budgetItems,
           totals,
           columns,
           hiddenColumns,
-          pageSize: 'A4',
-          orientation: 'portrait',
+          pageSize: template?.page.size || 'A4',
+          orientation: template?.page.orientation || 'portrait',
           includeHeaders: true,
           includeTotals: true,
           title: `Budget Tracking ${year}`,
@@ -103,258 +98,429 @@ export function PrintPreviewModal({
           rowMarkers,
         });
 
-        // ✅ Set the converted pages to state
-        setPages(result.pages);
-        setHeader(result.header);
-        setFooter(result.footer);
-        setCurrentPageIndex(0);
-        setIsDirty(false);
+        console.log('📄 Generated pages:', result.pages.length);
+        console.log('📄 First page background BEFORE template:', result.pages[0]?.backgroundColor);
 
-        toast.success(`Generated ${result.metadata.totalPages} page(s) from ${result.metadata.totalRows} row(s)`);
+        // Apply template if selected
+        let finalPages = result.pages;
+        let finalHeader = result.header;
+        let finalFooter = result.footer;
+
+        if (template) {
+          console.log('🎨 Applying template to pages...');
+          
+          // Apply template styling to all pages
+          finalPages = applyTemplateToPages(result.pages, template);
+          
+          // Use template's header and footer
+          finalHeader = {
+            elements: template.header.elements,
+            backgroundColor: template.header.backgroundColor || '#ffffff',
+          };
+          
+          finalFooter = {
+            elements: template.footer.elements,
+            backgroundColor: template.footer.backgroundColor || '#ffffff',
+          };
+          
+          console.log('✅ Template applied');
+          console.log('📄 First page background AFTER template:', finalPages[0]?.backgroundColor);
+          console.log('📄 Header background:', finalHeader.backgroundColor);
+          console.log('📄 Footer background:', finalFooter.backgroundColor);
+          
+          state.setAppliedTemplate(template);
+          
+          toast.success(
+            `Applied template "${template.name}" to ${finalPages.length} page(s)`
+          );
+        } else {
+          console.log('📄 No template - using default styling');
+          toast.success(
+            `Generated ${result.metadata.totalPages} page(s) from ${result.metadata.totalRows} row(s)`
+          );
+        }
+
+        // Set final state
+        console.log('💾 Setting final state...');
+        state.setPages(finalPages);
+        state.setHeader(finalHeader);
+        state.setFooter(finalFooter);
+        state.setCurrentPageIndex(0);
+        state.setIsDirty(false);
+        state.setHasInitialized(true);
+        
+        console.log('✅ Initialization complete');
+        console.groupEnd();
       } catch (error) {
+        console.error('❌ Failed to convert table to canvas:', error);
+        console.groupEnd();
         toast.error('Failed to convert table to canvas');
       }
+    },
+    [
+      budgetItems,
+      totals,
+      columns,
+      hiddenColumns,
+      year,
+      particular,
+      rowMarkers,
+      state,
+    ]
+  );
+
+  // Handle template selection
+  const handleTemplateSelect = useCallback(
+    (template: CanvasTemplate | null) => {
+      console.log('✅ Template selected:', template?.name || 'none');
+      setTemplateToApply(template);
+      // CRITICAL: Close the selector immediately after selection
+      state.setShowTemplateSelector(false);
+    },
+    [state]
+  );
+
+  // Handle applying saved template to fresh data
+  const handleApplySavedTemplate = useCallback(() => {
+    if (!savedTemplate) return;
+
+    console.log('🎯 Applying saved template to fresh data:', savedTemplate.name);
+    setIsLoadingTemplate(true);
+
+    // Small delay for smooth UI transition
+    setTimeout(() => {
+      // Regenerate canvas with fresh data + saved template
+      initializeFromTableData(savedTemplate);
+
+      // Store timestamp from existing draft if available
+      if (existingDraft) {
+        state.setLastSavedTime(existingDraft.timestamp);
+      }
+
+      setIsLoadingTemplate(false);
+      setSavedTemplate(null);
+    }, 500);
+  }, [savedTemplate, initializeFromTableData, existingDraft, state]);
+
+  // Handle skipping template application (load old canvas state)
+  const handleSkipTemplate = useCallback(() => {
+    if (!existingDraft) return;
+
+    console.log('📄 Skipping template - loading saved canvas state...');
+    state.setPages(existingDraft.canvasState.pages);
+    state.setHeader(existingDraft.canvasState.header);
+    state.setFooter(existingDraft.canvasState.footer);
+    state.setCurrentPageIndex(existingDraft.canvasState.currentPageIndex);
+    state.setLastSavedTime(existingDraft.timestamp);
+
+    // Still restore the template reference for future saves
+    if (existingDraft.appliedTemplate) {
+      state.setAppliedTemplate(existingDraft.appliedTemplate);
     }
-  }, [isOpen, budgetItems, totals, columns, hiddenColumns, year, particular, existingDraft, rowMarkers]);
 
-  // Save draft handler
-  const handleSaveDraft = useCallback(() => {
-    if (!onDraftSaved) return;
+    state.setIsDirty(false);
+    setSavedTemplate(null);
+  }, [existingDraft, state]);
 
-    setIsSaving(true);
+  // Handle applying template to live canvas (from toolbar button)
+  const handleApplyLiveTemplate = useCallback(
+    (template: CanvasTemplate | null) => {
+      if (!template) {
+        console.log('❌ No template selected');
+        return;
+      }
 
-    const draft: PrintDraft = {
-      id: `draft-${year}-${particular || 'all'}-${Date.now()}`,
-      timestamp: Date.now(),
-      budgetYear: year,
-      budgetParticular: particular,
-      filterState: {
-        ...filterState,
-        hiddenColumns: Array.from(hiddenColumns),
-      },
-      canvasState: {
-        pages,
-        currentPageIndex,
-        header,
-        footer,
-      },
-      tableSnapshot: {
-        items: budgetItems,
-        totals,
-        columns,
-      },
-    };
+      console.log('🎨 Applying template to live canvas:', template.name);
 
-    try {
-      onDraftSaved(draft);
-      setLastSavedTime(Date.now());
-      setIsDirty(false);
-      toast.success('Draft saved successfully');
-    } catch (error) {
-      toast.error('Failed to save draft');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [pages, header, footer, currentPageIndex, budgetItems, totals, columns, hiddenColumns, filterState, year, particular, onDraftSaved]);
+      // Merge template with existing canvas content
+      const merged = mergeTemplateWithCanvas(
+        state.pages,
+        state.header,
+        state.footer,
+        template
+      );
 
-  // Print handler (used by canvas toolbar)
-  const handlePrint = useCallback(() => {
-    try {
-      printAllPages(pages, header, footer);
-    } catch (error) {
-      toast.error('Failed to print');
-    }
-  }, [pages, header, footer]);
+      // Update state with merged content
+      state.setPages(merged.pages);
+      state.setHeader(merged.header);
+      state.setFooter(merged.footer);
+      state.setAppliedTemplate(template);
+      state.setIsDirty(true);
 
-  // Close handler
-  const handleClose = useCallback(() => {
-    if (isDirty) {
-      setShowCloseConfirm(true);
-    } else {
-      onClose();
-    }
-  }, [isDirty, onClose]);
+      toast.success(`Applied template "${template.name}" to canvas`);
+      setShowLiveTemplateSelector(false);
+    },
+    [state]
+  );
 
-  // Canvas handlers
-  const updateElement = useCallback((id: string, updates: any) => {
-    const isInHeader = header.elements.some(el => el.id === id);
-    if (isInHeader) {
-      setHeader(prev => ({
-        ...prev,
-        elements: prev.elements.map(el => el.id === id ? { ...el, ...updates } : el)
-      }));
-      setIsDirty(true);
+  // Initialize when modal opens or template is selected
+  useEffect(() => {
+    if (!isOpen) {
+      state.setHasInitialized(false);
+      setTemplateToApply(null);
+      setSavedTemplate(null);
+      setShowTemplateApplicationModal(false);
+      setShowLiveTemplateSelector(false);
       return;
     }
 
-    const isInFooter = footer.elements.some(el => el.id === id);
-    if (isInFooter) {
-      setFooter(prev => ({
-        ...prev,
-        elements: prev.elements.map(el => el.id === id ? { ...el, ...updates } : el)
-      }));
-      setIsDirty(true);
+    console.log('🔄 Initialization useEffect triggered');
+    console.log('  - isOpen:', isOpen);
+    console.log('  - hasInitialized:', state.hasInitialized);
+    console.log('  - existingDraft:', !!existingDraft);
+    console.log('  - templateToApply:', templateToApply);
+
+    // Show template selector on first open (if no existing draft and not initialized)
+    if (!existingDraft && !state.hasInitialized && templateToApply === null) {
+      console.log('📋 Showing template selector...');
+      state.setShowTemplateSelector(true);
       return;
     }
 
-    setPages(prev => prev.map((page, idx) =>
-      idx === currentPageIndex
-        ? { ...page, elements: page.elements.map(el => el.id === id ? { ...el, ...updates } : el) }
-        : page
-    ));
-    setIsDirty(true);
-  }, [currentPageIndex, header, footer]);
+    // Initialize from existing draft
+    if (existingDraft && !state.hasInitialized) {
+      console.log('📂 Loading from existing draft...');
 
-  const deleteElement = useCallback((id: string) => {
-    const isInHeader = header.elements.some(el => el.id === id);
-    if (isInHeader) {
-      setHeader(prev => ({
-        ...prev,
-        elements: prev.elements.filter(el => el.id !== id)
-      }));
-      setSelectedElementId(null);
-      setIsDirty(true);
+      // Check if draft has a saved template
+      if (existingDraft.appliedTemplate) {
+        console.log('🎨 Draft has saved template:', existingDraft.appliedTemplate.name);
+        // Show template application modal
+        setSavedTemplate(existingDraft.appliedTemplate);
+        setShowTemplateApplicationModal(true);
+        state.setHasInitialized(true);
+        return;
+      }
+
+      // No template - just load the saved canvas state
+      console.log('📄 Loading saved canvas state without template...');
+      state.setPages(existingDraft.canvasState.pages);
+      state.setHeader(existingDraft.canvasState.header);
+      state.setFooter(existingDraft.canvasState.footer);
+      state.setCurrentPageIndex(existingDraft.canvasState.currentPageIndex);
+      state.setLastSavedTime(existingDraft.timestamp);
+      state.setIsDirty(false);
+      state.setHasInitialized(true);
       return;
     }
 
-    const isInFooter = footer.elements.some(el => el.id === id);
-    if (isInFooter) {
-      setFooter(prev => ({
-        ...prev,
-        elements: prev.elements.filter(el => el.id !== id)
-      }));
-      setSelectedElementId(null);
-      setIsDirty(true);
-      return;
+    // Initialize from table data with template
+    if (!state.hasInitialized && templateToApply !== null) {
+      console.log('🎯 Initializing with template:', templateToApply?.name || 'none');
+      
+      // Show loading state
+      setIsLoadingTemplate(true);
+      
+      // Small delay to ensure smooth UI
+      setTimeout(() => {
+        initializeFromTableData(templateToApply || undefined);
+        setIsLoadingTemplate(false);
+      }, 500);
     }
+  }, [
+    isOpen,
+    existingDraft,
+    templateToApply,
+    state.hasInitialized,
+    initializeFromTableData,
+    state,
+  ]);
 
-    setPages(prev => prev.map((page, idx) =>
-      idx === currentPageIndex
-        ? { ...page, elements: page.elements.filter(el => el.id !== id) }
-        : page
-    ));
-    setSelectedElementId(null);
-    setIsDirty(true);
-  }, [currentPageIndex, header, footer]);
+  // Canvas actions
+  const actions = usePrintPreviewActions({
+    currentPageIndex: state.currentPageIndex,
+    header: state.header,
+    footer: state.footer,
+    setPages: state.setPages,
+    setHeader: state.setHeader,
+    setFooter: state.setFooter,
+    setSelectedElementId: state.setSelectedElementId,
+    setIsDirty: state.setIsDirty,
+  });
 
-  // Element operations
-  const changePageSize = useCallback((size: 'A4' | 'Short' | 'Long') => {
-    setPages(prev => prev.map(page => ({ ...page, size })));
-    setIsDirty(true);
-  }, []);
+  // Draft management
+  const { handleSaveDraft, handlePrint, handleClose } = usePrintPreviewDraft({
+    pages: state.pages,
+    header: state.header,
+    footer: state.footer,
+    currentPageIndex: state.currentPageIndex,
+    budgetItems,
+    totals,
+    columns,
+    hiddenColumns,
+    filterState,
+    year,
+    particular,
+    existingDraft,
+    onDraftSaved,
+    isDirty: state.isDirty,
+    setIsDirty: state.setIsDirty,
+    setIsSaving: state.setIsSaving,
+    setLastSavedTime: state.setLastSavedTime,
+    setShowCloseConfirm: state.setShowCloseConfirm,
+    onClose,
+    appliedTemplate: state.appliedTemplate,
+  });
 
-  const changeOrientation = useCallback((orientation: 'portrait' | 'landscape') => {
-    setPages(prev => prev.map(page => ({ ...page, orientation })));
-    setIsDirty(true);
-  }, []);
-
-  // Format last saved time
-  const formattedLastSaved = lastSavedTime
-    ? formatTimestamp(lastSavedTime)
-    : '';
+  const formattedLastSaved = state.lastSavedTime ? formatTimestamp(state.lastSavedTime) : '';
 
   if (!isOpen) return null;
 
-  const currentPage = pages[currentPageIndex] || { id: 'empty', size: 'A4', elements: [] };
-
-  // Combine all elements for layer panel
-  const allElements = [
-    ...header.elements.map(el => ({ ...el, section: 'header' as const })),
-    ...currentPage.elements.map(el => ({ ...el, section: 'page' as const })),
-    ...footer.elements.map(el => ({ ...el, section: 'footer' as const })),
-  ];
+  // Show loading screen while template is being applied
+  if (isLoadingTemplate) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white dark:bg-zinc-900">
+        <div className="text-center">
+          <div className="mb-6">
+            <div className="relative w-24 h-24 mx-auto">
+              <div className="absolute inset-0 border-4 border-stone-200 dark:border-stone-700 rounded-full"></div>
+              <div className="absolute inset-0 border-4 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
+              <div className="absolute inset-3 bg-blue-100 dark:bg-blue-900/30 rounded-full animate-pulse"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg className="w-10 h-10 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <p className="text-lg font-semibold text-stone-900 dark:text-stone-100 mb-2">
+            {templateToApply ? 'Applying Template' : 'Generating Print Preview'}
+          </p>
+          <p className="text-sm text-stone-600 dark:text-stone-400">
+            {templateToApply ? `Applying "${templateToApply.name}"...` : 'Preparing your pages...'}
+          </p>
+          <div className="flex items-center justify-center gap-2 mt-4">
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
       <div className="fixed inset-0 z-50 bg-white dark:bg-zinc-900 flex flex-col">
-        {/* Toolbar */}
+        {/* Custom Toolbar */}
         <PrintPreviewToolbar
-          isDirty={isDirty}
-          isSaving={isSaving}
+          isDirty={state.isDirty}
+          isSaving={state.isSaving}
           lastSavedTime={formattedLastSaved}
           onBack={handleClose}
           onClose={handleClose}
           onSaveDraft={handleSaveDraft}
+          onApplyTemplate={() => setShowLiveTemplateSelector(true)}
         />
 
-        {/* Canvas Editor Area */}
-        <div className="flex-1 overflow-y-auto bg-stone-50" style={{ marginRight: '192px' }}>
-          {/* Toolbar for canvas editing */}
-          <div className="sticky top-0 z-10 bg-stone-100 border-b border-stone-300 shadow-sm">
-            <Toolbar
-              selectedElement={currentPage.elements.find(el => el.id === selectedElementId)}
-              onUpdateElement={selectedElementId ? (updates) => updateElement(selectedElementId, updates) : undefined}
-              onAddText={() => {/* Add text logic */ }}
-              pageSize={currentPage.size}
-              orientation={currentPage.orientation}
-              onPageSizeChange={changePageSize}
-              onOrientationChange={changeOrientation}
-              onPrint={handlePrint}
-              activeSection={activeSection}
-              headerBackgroundColor={header.backgroundColor || '#ffffff'}
-              footerBackgroundColor={footer.backgroundColor || '#ffffff'}
-              pageBackgroundColor={currentPage.backgroundColor || '#ffffff'}
-              onHeaderBackgroundChange={(color) => setHeader(prev => ({ ...prev, backgroundColor: color }))}
-              onFooterBackgroundChange={(color) => setFooter(prev => ({ ...prev, backgroundColor: color }))}
-              onPageBackgroundChange={(color) => setPages(prev => prev.map((p, i) => i === currentPageIndex ? { ...p, backgroundColor: color } : p))}
-              pages={pages}
-              header={header}
-              footer={footer}
-            />
+        {/* Main Layout */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Canvas Area */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-stone-50 min-w-0">
+            {/* Canvas Toolbar */}
+            <div className="sticky top-0 z-10 bg-stone-100 border-b border-stone-300 shadow-sm">
+              <Toolbar
+                selectedElement={state.selectedElement}
+                onUpdateElement={
+                  state.selectedElementId
+                    ? (updates) => actions.updateElement(state.selectedElementId!, updates)
+                    : undefined
+                }
+                onAddText={() => {}}
+                pageSize={state.currentPage.size}
+                orientation={state.currentPage.orientation}
+                onPageSizeChange={actions.changePageSize}
+                onOrientationChange={actions.changeOrientation}
+                onPrint={handlePrint}
+                activeSection={state.activeSection}
+                headerBackgroundColor={state.header.backgroundColor || '#ffffff'}
+                footerBackgroundColor={state.footer.backgroundColor || '#ffffff'}
+                pageBackgroundColor={state.currentPage.backgroundColor || '#ffffff'}
+                onHeaderBackgroundChange={actions.updateHeaderBackground}
+                onFooterBackgroundChange={actions.updateFooterBackground}
+                onPageBackgroundChange={actions.updatePageBackground}
+                pages={state.pages}
+                header={state.header}
+                footer={state.footer}
+              />
+            </div>
+
+            {/* Canvas Scroll Area */}
+            <div className="flex-1 overflow-y-auto overflow-x-auto flex items-start justify-center pt-4 pb-16 px-8">
+              <Canvas
+                page={state.currentPage}
+                selectedElementId={state.selectedElementId}
+                onSelectElement={state.setSelectedElementId}
+                onUpdateElement={actions.updateElement}
+                onDeleteElement={actions.deleteElement}
+                isEditingElementId={state.isEditingElementId}
+                onEditingChange={state.setIsEditingElementId}
+                header={state.header}
+                footer={state.footer}
+                pageNumber={state.currentPageIndex + 1}
+                totalPages={state.pages.length}
+                activeSection={state.activeSection}
+                onActiveSectionChange={state.setActiveSection}
+              />
+            </div>
+
+            {/* Bottom Controls */}
+            <div className="border-t border-stone-200 bg-white flex-shrink-0">
+              <BottomPageControls
+                currentPageIndex={state.currentPageIndex}
+                totalPages={state.pages.length}
+                onAddPage={() => {}}
+                onDuplicatePage={() => {}}
+                onDeletePage={() => {}}
+                elements={state.allElements}
+                selectedElementId={state.selectedElementId}
+                onSelectElement={state.setSelectedElementId}
+                onUpdateElement={actions.updateElement}
+                onReorderElements={actions.reorderElements}
+                onPreviousPage={() =>
+                  state.setCurrentPageIndex((prev) => Math.max(0, prev - 1))
+                }
+                onNextPage={() =>
+                  state.setCurrentPageIndex((prev) =>
+                    Math.min(state.pages.length - 1, prev + 1)
+                  )
+                }
+              />
+            </div>
           </div>
 
-          {/* Canvas */}
-          <div className="flex items-center justify-center pt-4 pb-16 px-8 min-h-full">
-            <Canvas
-              page={currentPage}
-              selectedElementId={selectedElementId}
-              onSelectElement={setSelectedElementId}
-              onUpdateElement={updateElement}
-              onDeleteElement={deleteElement}
-              isEditingElementId={isEditingElementId}
-              onEditingChange={setIsEditingElementId}
-              header={header}
-              footer={footer}
-              pageNumber={currentPageIndex + 1}
-              totalPages={pages.length}
-              activeSection={activeSection}
-              onActiveSectionChange={setActiveSection}
+          {/* Right Sidebar */}
+          <div className="w-64 border-l border-stone-200 bg-zinc-50 flex-shrink-0 overflow-y-auto">
+            <PagePanel
+              pages={state.pages}
+              currentPageIndex={state.currentPageIndex}
+              onPageSelect={state.setCurrentPageIndex}
+              onAddPage={() => {}}
+              onReorderPages={() => {}}
             />
           </div>
         </div>
-
-        {/* Page Panel (right side) */}
-        <div className="fixed right-0 top-0 bottom-0 w-48">
-          <PagePanel
-            pages={pages}
-            currentPageIndex={currentPageIndex}
-            onPageSelect={setCurrentPageIndex}
-            onAddPage={() => {/* Add page logic */ }}
-            onReorderPages={(from, to) => {/* Reorder logic */ }}
-          />
-        </div>
-
-        {/* Bottom Controls */}
-        <BottomPageControls
-          currentPageIndex={currentPageIndex}
-          totalPages={pages.length}
-          onAddPage={() => {/* Add page logic */ }}
-          onDuplicatePage={() => {/* Duplicate logic */ }}
-          onDeletePage={() => {/* Delete logic */ }}
-          elements={allElements}
-          selectedElementId={selectedElementId}
-          onSelectElement={setSelectedElementId}
-          onUpdateElement={updateElement}
-          onReorderElements={(from, to) => {/* Reorder elements */ }}
-          onPreviousPage={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
-          onNextPage={() => setCurrentPageIndex(prev => Math.min(pages.length - 1, prev + 1))}
-        />
       </div>
+
+      {/* Template Selector */}
+      <TemplateSelector
+        isOpen={state.showTemplateSelector}
+        onClose={() => {
+          // CRITICAL: Only call handleTemplateSelect if user hasn't already selected
+          // Check if we're closing without any template selection
+          if (!state.hasInitialized && templateToApply === null) {
+            // User closed without selecting - start blank
+            console.log('❌ User closed template selector without choosing - starting blank');
+            handleTemplateSelect(undefined as any);
+          }
+          state.setShowTemplateSelector(false);
+        }}
+        onSelectTemplate={handleTemplateSelect}
+      />
 
       {/* Close Confirmation */}
       <ConfirmationModal
-        isOpen={showCloseConfirm}
-        onClose={() => setShowCloseConfirm(false)}
+        isOpen={state.showCloseConfirm}
+        onClose={() => state.setShowCloseConfirm(false)}
         onConfirm={() => {
           handleSaveDraft();
           setTimeout(() => onClose(), 100);
@@ -364,6 +530,24 @@ export function PrintPreviewModal({
         confirmText="Save & Close"
         cancelText="Discard & Close"
         variant="default"
+      />
+
+      {/* Template Application Confirmation */}
+      <TemplateApplicationModal
+        isOpen={showTemplateApplicationModal}
+        onClose={() => {
+          setShowTemplateApplicationModal(false);
+          handleSkipTemplate();
+        }}
+        onProceed={handleApplySavedTemplate}
+        template={savedTemplate}
+      />
+
+      {/* Live Template Selector (from toolbar button) */}
+      <TemplateSelector
+        isOpen={showLiveTemplateSelector}
+        onClose={() => setShowLiveTemplateSelector(false)}
+        onSelectTemplate={handleApplyLiveTemplate}
       />
     </>
   );

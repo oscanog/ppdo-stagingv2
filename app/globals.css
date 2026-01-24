@@ -443,3 +443,30 @@ h6 {
     @apply bg-background text-foreground;
   }
 }
+
+/* Custom scrollbar for template list */
+.scrollbar-thin::-webkit-scrollbar {
+  height: 8px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  @apply bg-stone-300 dark:bg-stone-700 rounded-full;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  @apply bg-stone-400 dark:bg-stone-600;
+}
+
+/* For Firefox */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(214 211 209) transparent;
+}
+
+.dark .scrollbar-thin {
+  scrollbar-color: rgb(68 64 60) transparent;
+}
