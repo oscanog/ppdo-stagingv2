@@ -14,9 +14,9 @@
   "planningMode": "skip",
   "requirePlanApproval": false,
   "dependencies": [],
-  "workMode": "current",
+  "workMode": "custom",
   "titleGenerating": false,
-  "status": "backlog",
+  "status": "waiting_approval",
   "id": "feature-1769260868567-jjjf4i7z4",
   "descriptionHistory": [
     {
@@ -24,5 +24,8 @@
       "timestamp": "2026-01-24T13:21:08.764Z",
       "source": "initial"
     }
-  ]
+  ],
+  "startedAt": "2026-01-24T18:52:45.717Z",
+  "updatedAt": "2026-01-24T18:56:50.275Z",
+  "justFinishedAt": "2026-01-24T18:56:50.275Z"
 }

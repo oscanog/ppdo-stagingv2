@@ -28,6 +28,9 @@ export function usePrintPreviewState() {
   const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
+  // Document metadata
+  const [documentTitle, setDocumentTitle] = useState<string>('');
+
   const currentPage = pages[currentPageIndex] || {
     id: 'empty',
     size: 'A4' as const,
@@ -83,7 +86,11 @@ export function usePrintPreviewState() {
     setLastSavedTime,
     showCloseConfirm,
     setShowCloseConfirm,
-    
+
+    // Document metadata
+    documentTitle,
+    setDocumentTitle,
+
     // Computed values
     currentPage,
     selectedElement,

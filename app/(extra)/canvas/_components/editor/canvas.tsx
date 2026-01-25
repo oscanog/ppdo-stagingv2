@@ -8,6 +8,8 @@ import { getPageDimensions, HEADER_HEIGHT, FOOTER_HEIGHT } from './constants';
 import TextElementComponent from './text-element';
 import ImageElementComponent from './image-element';
 import HeaderFooterSection from './header-footer-section';
+import { TableResizeOverlay } from '@/app/dashboard/project/[year]/components/table-resize/TableResizeOverlay';
+import { TableBorderOverlay } from '@/app/dashboard/project/[year]/components/table-borders/TableBorderOverlay';
 
 type ActiveSection = 'header' | 'page' | 'footer';
 
@@ -27,6 +29,8 @@ interface CanvasProps {
   onActiveSectionChange: (section: ActiveSection) => void;
   onImageDropped?: (image: any) => void;
   selectedGroupId?: string | null;
+  isEditorMode?: boolean;
+  onSetDirty?: (dirty: boolean) => void;
 }
 
 export default function Canvas({
@@ -45,6 +49,8 @@ export default function Canvas({
   onActiveSectionChange,
   onImageDropped,
   selectedGroupId = null,
+  isEditorMode = false,
+  onSetDirty,
 }: CanvasProps) {
   console.group('📋 STEP 7: Canvas Component - Rendering');
   console.log('📄 Page data:', page);
@@ -462,6 +468,9 @@ export default function Canvas({
           return null;
         })}
 
+        {/* ✅ DEFAULT TABLE BORDERS - Always visible */}
+        <TableBorderOverlay elements={page.elements} />
+
         {/* Group outline */}
         {selectedGroupId && activeSection === 'page' && (() => {
           const bounds = getGroupBounds(selectedGroupId);
@@ -481,6 +490,18 @@ export default function Canvas({
             />
           );
         })()}
+
+        {/* Table resize overlay - only in editor mode */}
+        {isEditorMode && onSetDirty && (
+          <TableResizeOverlay
+            elements={page.elements}
+            onUpdateElement={onUpdateElement}
+            setIsDirty={onSetDirty}
+            isEditorMode={isEditorMode}
+            pageSize={page.size}
+            pageOrientation={page.orientation}
+          />
+        )}
       </div>
 
       <HeaderFooterSection

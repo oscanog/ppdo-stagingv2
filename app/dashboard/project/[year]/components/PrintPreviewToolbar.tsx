@@ -5,9 +5,13 @@
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, X, Save, Palette, Ruler } from 'lucide-react';
+import { DocumentTitleEditor } from './DocumentTitleEditor';
 
 interface PrintPreviewToolbarProps {
+  documentTitle: string;
+  onTitleChange: (newTitle: string) => void;
   isDirty: boolean;
   isSaving: boolean;
   lastSavedTime: string;
@@ -19,9 +23,13 @@ interface PrintPreviewToolbarProps {
   onEditorModeChange: (enabled: boolean) => void;
   rulerVisible?: boolean;
   onToggleRuler?: () => void;
+  pageOrientation?: 'portrait' | 'landscape';
+  pageSize?: string;
 }
 
 export function PrintPreviewToolbar({
+  documentTitle,
+  onTitleChange,
   isDirty,
   isSaving,
   lastSavedTime,
@@ -33,6 +41,8 @@ export function PrintPreviewToolbar({
   onEditorModeChange,
   rulerVisible = false,
   onToggleRuler,
+  pageOrientation = 'portrait',
+  pageSize = 'A4',
 }: PrintPreviewToolbarProps) {
 
   return (
@@ -52,9 +62,12 @@ export function PrintPreviewToolbar({
         <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700" />
 
         <div className="flex flex-col">
-          <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-            Print Preview Editor
-          </span>
+          <DocumentTitleEditor
+            title={documentTitle}
+            onTitleChange={onTitleChange}
+            isEditorMode={isEditorMode}
+            isDirty={isDirty}
+          />
           {lastSavedTime && (
             <span className="text-xs text-zinc-500 dark:text-zinc-400">
               {isDirty ? (

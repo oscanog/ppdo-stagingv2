@@ -4,8 +4,8 @@
 
 import { useState } from 'react';
 import { loadGoogleFont } from '@/lib/fonts';
-import { exportAsPDF } from '@/lib/export-pdf';
 import { Button } from '@/components/ui/button';
+import PDFExportModal from '../PDFExportModal';
 import {
   Select,
   SelectContent,
@@ -99,7 +99,7 @@ export default function Toolbar({
   const isTextElement = selectedElement?.type === 'text';
   const [hexInput, setHexInput] = useState('');
   const [showHexInput, setShowHexInput] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
+  const [showPDFExportModal, setShowPDFExportModal] = useState(false);
 
   const handleFontFamilyChange = (value: string) => {
     loadGoogleFont(value);
@@ -207,13 +207,8 @@ export default function Toolbar({
     }
   };
 
-  const handleExportPDF = async () => {
-    setIsExporting(true);
-    try {
-      await exportAsPDF(pages, header, footer);
-    } finally {
-      setIsExporting(false);
-    }
+  const handleExportPDF = () => {
+    setShowPDFExportModal(true);
   };
 
   return (
@@ -465,11 +460,10 @@ export default function Toolbar({
           onClick={handleExportPDF}
           size="sm"
           variant="outline"
-          disabled={isExporting}
           className="gap-1.5 h-8 text-xs bg-white"
         >
           <FileDown className="w-3.5 h-3.5" />
-          {isExporting ? 'Exporting...' : 'Export as PDF'}
+          Export as PDF
         </Button>
 
         {isEditorMode && (
@@ -484,6 +478,14 @@ export default function Toolbar({
           </Button>
         )}
       </div>
+
+      <PDFExportModal
+        isOpen={showPDFExportModal}
+        onClose={() => setShowPDFExportModal(false)}
+        pages={pages}
+        header={header}
+        footer={footer}
+      />
     </div>
   );
 }
