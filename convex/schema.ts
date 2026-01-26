@@ -32,6 +32,11 @@ import { trustFundActivityTables } from "./schema/trustFundActivities";
 import { trustFundSharedAccessTables } from "./schema/trustFundSharedAccess";
 import { trustFundBreakdownTables } from "./schema/trustFundBreakdowns";
 import { trustFundBreakdownActivityTables } from "./schema/trustFundBreakdownActivities";
+import { specialEducationFundTables } from "./schema/specialEducationFunds";
+import { specialEducationFundActivityTables } from "./schema/specialEducationFundActivities";
+import { specialEducationFundSharedAccessTables } from "./schema/specialEducationFundSharedAccess";
+import { specialEducationFundBreakdownTables } from "./schema/specialEducationFundBreakdowns";
+import { specialEducationFundBreakdownActivityTables } from "./schema/specialEducationFundBreakdownActivities";
 
 export default defineSchema({
   ...authTables,
@@ -65,4 +70,9 @@ export default defineSchema({
   ...trustFundSharedAccessTables,
   ...trustFundBreakdownTables,
   ...trustFundBreakdownActivityTables,
+  ...specialEducationFundTables,
+  ...specialEducationFundActivityTables,
+  ...specialEducationFundSharedAccessTables,
+  ...specialEducationFundBreakdownTables,
+  ...specialEducationFundBreakdownActivityTables,
 });

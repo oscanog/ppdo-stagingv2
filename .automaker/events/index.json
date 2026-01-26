@@ -2,6 +2,19 @@
   "version": 1,
   "events": [
     {
+      "id": "evt-1769390033680-24efb064",
+      "trigger": "feature_success",
+      "timestamp": "2026-01-26T01:13:53.680Z",
+      "featureName": "Implement Special Education Funds schema system",
+      "featureId": "feature-1769389031510-kohqm4k92"
+    },
+    {
+      "id": "evt-1769389031712-e7f75ad9",
+      "trigger": "feature_created",
+      "timestamp": "2026-01-26T00:57:11.712Z",
+      "featureId": "feature-1769389031510-kohqm4k92"
+    },
+    {
       "id": "evt-1769355204604-5170ea19",
       "trigger": "auto_mode_complete",
       "timestamp": "2026-01-25T15:33:24.604Z"

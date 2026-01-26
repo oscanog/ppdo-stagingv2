@@ -227,6 +227,29 @@ export const updateStatus = mutation({
       }
     }
 
+    // SPECIAL EDUCATION FUND ACCESS APPROVAL
+    if (args.status === "approved" && request.accessType === "specialEducationFund") {
+      // Check if user already has special education fund access
+      const existingAccess = await ctx.db
+        .query("specialEducationFundSharedAccess")
+        .withIndex("userIdAndActive", (q) =>
+          q.eq("userId", request.userId).eq("isActive", true)
+        )
+        .first();
+
+      if (!existingAccess) {
+        // Grant access with viewer level by default
+        await ctx.db.insert("specialEducationFundSharedAccess", {
+          userId: request.userId,
+          accessLevel: "viewer",
+          grantedBy: userId,
+          grantedAt: now,
+          isActive: true,
+          notes: `Access granted via request approval. Request ID: ${args.requestId}`,
+        });
+      }
+    }
+
     return { success: true };
   },
 });

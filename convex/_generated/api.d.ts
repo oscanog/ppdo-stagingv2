@@ -43,6 +43,8 @@ import type * as lib_particularActivityLogger from "../lib/particularActivityLog
 import type * as lib_projectActivityLogger from "../lib/projectActivityLogger.js";
 import type * as lib_projectAggregation from "../lib/projectAggregation.js";
 import type * as lib_rbac from "../lib/rbac.js";
+import type * as lib_specialEducationFundActivityLogger from "../lib/specialEducationFundActivityLogger.js";
+import type * as lib_specialEducationFundBreakdownActivityLogger from "../lib/specialEducationFundBreakdownActivityLogger.js";
 import type * as lib_statusValidation from "../lib/statusValidation.js";
 import type * as lib_trustFundActivityLogger from "../lib/trustFundActivityLogger.js";
 import type * as lib_trustFundBreakdownActivityLogger from "../lib/trustFundBreakdownActivityLogger.js";
@@ -83,6 +85,11 @@ import type * as schema_projectParticulars from "../schema/projectParticulars.js
 import type * as schema_projects from "../schema/projects.js";
 import type * as schema_security from "../schema/security.js";
 import type * as schema_shared_baseBreakdown from "../schema/shared/baseBreakdown.js";
+import type * as schema_specialEducationFundActivities from "../schema/specialEducationFundActivities.js";
+import type * as schema_specialEducationFundBreakdownActivities from "../schema/specialEducationFundBreakdownActivities.js";
+import type * as schema_specialEducationFundBreakdowns from "../schema/specialEducationFundBreakdowns.js";
+import type * as schema_specialEducationFundSharedAccess from "../schema/specialEducationFundSharedAccess.js";
+import type * as schema_specialEducationFunds from "../schema/specialEducationFunds.js";
 import type * as schema_tableSettings from "../schema/tableSettings.js";
 import type * as schema_trustFundActivities from "../schema/trustFundActivities.js";
 import type * as schema_trustFundBreakdownActivities from "../schema/trustFundBreakdownActivities.js";
@@ -90,6 +97,11 @@ import type * as schema_trustFundBreakdowns from "../schema/trustFundBreakdowns.
 import type * as schema_trustFundSharedAccess from "../schema/trustFundSharedAccess.js";
 import type * as schema_trustFunds from "../schema/trustFunds.js";
 import type * as schema_users from "../schema/users.js";
+import type * as specialEducationFundAccess from "../specialEducationFundAccess.js";
+import type * as specialEducationFundActivities from "../specialEducationFundActivities.js";
+import type * as specialEducationFundBreakdowns from "../specialEducationFundBreakdowns.js";
+import type * as specialEducationFundSharedAccess from "../specialEducationFundSharedAccess.js";
+import type * as specialEducationFunds from "../specialEducationFunds.js";
 import type * as tableSettings from "../tableSettings.js";
 import type * as trustFundAccess from "../trustFundAccess.js";
 import type * as trustFundActivities from "../trustFundActivities.js";
@@ -141,6 +153,8 @@ declare const fullApi: ApiFromModules<{
   "lib/projectActivityLogger": typeof lib_projectActivityLogger;
   "lib/projectAggregation": typeof lib_projectAggregation;
   "lib/rbac": typeof lib_rbac;
+  "lib/specialEducationFundActivityLogger": typeof lib_specialEducationFundActivityLogger;
+  "lib/specialEducationFundBreakdownActivityLogger": typeof lib_specialEducationFundBreakdownActivityLogger;
   "lib/statusValidation": typeof lib_statusValidation;
   "lib/trustFundActivityLogger": typeof lib_trustFundActivityLogger;
   "lib/trustFundBreakdownActivityLogger": typeof lib_trustFundBreakdownActivityLogger;
@@ -181,6 +195,11 @@ declare const fullApi: ApiFromModules<{
   "schema/projects": typeof schema_projects;
   "schema/security": typeof schema_security;
   "schema/shared/baseBreakdown": typeof schema_shared_baseBreakdown;
+  "schema/specialEducationFundActivities": typeof schema_specialEducationFundActivities;
+  "schema/specialEducationFundBreakdownActivities": typeof schema_specialEducationFundBreakdownActivities;
+  "schema/specialEducationFundBreakdowns": typeof schema_specialEducationFundBreakdowns;
+  "schema/specialEducationFundSharedAccess": typeof schema_specialEducationFundSharedAccess;
+  "schema/specialEducationFunds": typeof schema_specialEducationFunds;
   "schema/tableSettings": typeof schema_tableSettings;
   "schema/trustFundActivities": typeof schema_trustFundActivities;
   "schema/trustFundBreakdownActivities": typeof schema_trustFundBreakdownActivities;
@@ -188,6 +207,11 @@ declare const fullApi: ApiFromModules<{
   "schema/trustFundSharedAccess": typeof schema_trustFundSharedAccess;
   "schema/trustFunds": typeof schema_trustFunds;
   "schema/users": typeof schema_users;
+  specialEducationFundAccess: typeof specialEducationFundAccess;
+  specialEducationFundActivities: typeof specialEducationFundActivities;
+  specialEducationFundBreakdowns: typeof specialEducationFundBreakdowns;
+  specialEducationFundSharedAccess: typeof specialEducationFundSharedAccess;
+  specialEducationFunds: typeof specialEducationFunds;
   tableSettings: typeof tableSettings;
   trustFundAccess: typeof trustFundAccess;
   trustFundActivities: typeof trustFundActivities;

@@ -136,15 +136,15 @@ export function createRestoreFields() {
  * Soft delete a breakdown record (move to trash)
  *
  * @param ctx - Mutation context
- * @param tableName - Name of the breakdown table ("govtProjectBreakdowns" | "trustFundBreakdowns")
+ * @param tableName - Name of the breakdown table ("govtProjectBreakdowns" | "trustFundBreakdowns" | "specialEducationFundBreakdowns")
  * @param id - Breakdown record ID
  * @param userId - User performing the deletion
  * @param reason - Optional reason for deletion
  */
 export async function softDeleteBreakdown(
   ctx: MutationCtx,
-  tableName: "govtProjectBreakdowns" | "trustFundBreakdowns",
-  id: Id<"govtProjectBreakdowns"> | Id<"trustFundBreakdowns">,
+  tableName: "govtProjectBreakdowns" | "trustFundBreakdowns" | "specialEducationFundBreakdowns",
+  id: Id<"govtProjectBreakdowns"> | Id<"trustFundBreakdowns"> | Id<"specialEducationFundBreakdowns">,
   userId: Id<"users">,
   reason?: string
 ): Promise<void> {
@@ -167,8 +167,8 @@ export async function softDeleteBreakdown(
  */
 export async function restoreBreakdown(
   ctx: MutationCtx,
-  tableName: "govtProjectBreakdowns" | "trustFundBreakdowns",
-  id: Id<"govtProjectBreakdowns"> | Id<"trustFundBreakdowns">,
+  tableName: "govtProjectBreakdowns" | "trustFundBreakdowns" | "specialEducationFundBreakdowns",
+  id: Id<"govtProjectBreakdowns"> | Id<"trustFundBreakdowns"> | Id<"specialEducationFundBreakdowns">,
   userId: Id<"users">
 ): Promise<void> {
   const restoreFields = createRestoreFields();
@@ -195,7 +195,7 @@ export async function restoreBreakdown(
  * @returns Updated record
  */
 export async function applyBreakdownPatch<
-  T extends "govtProjectBreakdowns" | "trustFundBreakdowns"
+  T extends "govtProjectBreakdowns" | "trustFundBreakdowns" | "specialEducationFundBreakdowns"
 >(
   ctx: MutationCtx,
   tableName: T,
@@ -392,17 +392,17 @@ export function validateBreakdownStatus(
  *
  * @param ctx - Query context
  * @param tableName - Breakdown table name
- * @param parentIdField - Field name for parent reference ("projectId" | "trustFundId")
+ * @param parentIdField - Field name for parent reference ("projectId" | "trustFundId" | "specialEducationFundId")
  * @param parentId - Parent entity ID
  * @returns Array of active breakdown records
  */
 export async function getActiveBreakdowns<
-  T extends "govtProjectBreakdowns" | "trustFundBreakdowns"
+  T extends "govtProjectBreakdowns" | "trustFundBreakdowns" | "specialEducationFundBreakdowns"
 >(
   ctx: QueryCtx,
   tableName: T,
-  parentIdField: "projectId" | "trustFundId",
-  parentId: Id<"projects"> | Id<"trustFunds">
+  parentIdField: "projectId" | "trustFundId" | "specialEducationFundId",
+  parentId: Id<"projects"> | Id<"trustFunds"> | Id<"specialEducationFunds">
 ): Promise<Array<any>> {
   const breakdowns = await ctx.db
     .query(tableName)
