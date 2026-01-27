@@ -2,7 +2,7 @@
 
 import { Id } from "@/convex/_generated/dataModel";
 
-export type TrustFundStatus = "not_available" | "not_yet_started" | "ongoing" | "completed" | "active";
+export type TrustFundStatus = "not_available" | "not_yet_started" | "ongoing" | "completed" | "active" | "on_process";
 
 export interface TrustFund {
   id: string;

@@ -41,6 +41,8 @@ import { specialHealthFundTables } from "./schema/specialHealthFunds";
 import { specialHealthFundActivityTables } from "./schema/specialHealthFundActivities";
 import { specialHealthFundBreakdownTables } from "./schema/specialHealthFundBreakdowns";
 import { specialHealthFundBreakdownActivityTables } from "./schema/specialHealthFundBreakdownActivities";
+import { bugReportsTables } from "./schema/bugReports";
+import { suggestionsTables } from "./schema/suggestions";
 
 export default defineSchema({
   ...authTables,
@@ -83,4 +85,6 @@ export default defineSchema({
   ...specialHealthFundActivityTables,
   ...specialHealthFundBreakdownTables,
   ...specialHealthFundBreakdownActivityTables,
+  ...bugReportsTables,
+  ...suggestionsTables,
 });

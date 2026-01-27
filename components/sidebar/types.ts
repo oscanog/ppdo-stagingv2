@@ -1,9 +1,16 @@
+//components\sidebar\types.ts
+
 import type React from "react";
 
 export interface SubMenuItem {
   name: string;
-  href: string;
+  href?: string;
+  submenu?: SubMenuItem[];
   isNew?: boolean;
+
+  // ✅ ADD THIS
+  badgeCount?: number;
+  badgeColor?: string;
 }
 
 export interface NavItem {

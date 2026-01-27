@@ -17,6 +17,7 @@ import type * as budgetItems from "../budgetItems.js";
 import type * as budgetParticularAccess from "../budgetParticularAccess.js";
 import type * as budgetParticulars from "../budgetParticulars.js";
 import type * as budgetSharedAccess from "../budgetSharedAccess.js";
+import type * as bugReports from "../bugReports.js";
 import type * as config from "../config.js";
 import type * as config_onboardingConfig from "../config/onboardingConfig.js";
 import type * as dashboard from "../dashboard.js";
@@ -74,6 +75,7 @@ import type * as schema_budgetParticularSharedAccess from "../schema/budgetParti
 import type * as schema_budgetParticulars from "../schema/budgetParticulars.js";
 import type * as schema_budgetSharedAccess from "../schema/budgetSharedAccess.js";
 import type * as schema_budgets from "../schema/budgets.js";
+import type * as schema_bugReports from "../schema/bugReports.js";
 import type * as schema_departments from "../schema/departments.js";
 import type * as schema_fiscalYears from "../schema/fiscalYears.js";
 import type * as schema_govtProjectBreakdownActivities from "../schema/govtProjectBreakdownActivities.js";
@@ -99,6 +101,7 @@ import type * as schema_specialHealthFundActivities from "../schema/specialHealt
 import type * as schema_specialHealthFundBreakdownActivities from "../schema/specialHealthFundBreakdownActivities.js";
 import type * as schema_specialHealthFundBreakdowns from "../schema/specialHealthFundBreakdowns.js";
 import type * as schema_specialHealthFunds from "../schema/specialHealthFunds.js";
+import type * as schema_suggestions from "../schema/suggestions.js";
 import type * as schema_tableSettings from "../schema/tableSettings.js";
 import type * as schema_trustFundActivities from "../schema/trustFundActivities.js";
 import type * as schema_trustFundBreakdownActivities from "../schema/trustFundBreakdownActivities.js";
@@ -115,6 +118,7 @@ import type * as specialEducationFunds from "../specialEducationFunds.js";
 import type * as specialHealthFundBreakdownActivities from "../specialHealthFundBreakdownActivities.js";
 import type * as specialHealthFundBreakdowns from "../specialHealthFundBreakdowns.js";
 import type * as specialHealthFunds from "../specialHealthFunds.js";
+import type * as suggestions from "../suggestions.js";
 import type * as tableSettings from "../tableSettings.js";
 import type * as trustFundAccess from "../trustFundAccess.js";
 import type * as trustFundActivities from "../trustFundActivities.js";
@@ -140,6 +144,7 @@ declare const fullApi: ApiFromModules<{
   budgetParticularAccess: typeof budgetParticularAccess;
   budgetParticulars: typeof budgetParticulars;
   budgetSharedAccess: typeof budgetSharedAccess;
+  bugReports: typeof bugReports;
   config: typeof config;
   "config/onboardingConfig": typeof config_onboardingConfig;
   dashboard: typeof dashboard;
@@ -197,6 +202,7 @@ declare const fullApi: ApiFromModules<{
   "schema/budgetParticulars": typeof schema_budgetParticulars;
   "schema/budgetSharedAccess": typeof schema_budgetSharedAccess;
   "schema/budgets": typeof schema_budgets;
+  "schema/bugReports": typeof schema_bugReports;
   "schema/departments": typeof schema_departments;
   "schema/fiscalYears": typeof schema_fiscalYears;
   "schema/govtProjectBreakdownActivities": typeof schema_govtProjectBreakdownActivities;
@@ -222,6 +228,7 @@ declare const fullApi: ApiFromModules<{
   "schema/specialHealthFundBreakdownActivities": typeof schema_specialHealthFundBreakdownActivities;
   "schema/specialHealthFundBreakdowns": typeof schema_specialHealthFundBreakdowns;
   "schema/specialHealthFunds": typeof schema_specialHealthFunds;
+  "schema/suggestions": typeof schema_suggestions;
   "schema/tableSettings": typeof schema_tableSettings;
   "schema/trustFundActivities": typeof schema_trustFundActivities;
   "schema/trustFundBreakdownActivities": typeof schema_trustFundBreakdownActivities;
@@ -238,6 +245,7 @@ declare const fullApi: ApiFromModules<{
   specialHealthFundBreakdownActivities: typeof specialHealthFundBreakdownActivities;
   specialHealthFundBreakdowns: typeof specialHealthFundBreakdowns;
   specialHealthFunds: typeof specialHealthFunds;
+  suggestions: typeof suggestions;
   tableSettings: typeof tableSettings;
   trustFundAccess: typeof trustFundAccess;
   trustFundActivities: typeof trustFundActivities;

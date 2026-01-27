@@ -7,28 +7,36 @@ import { SidebarNav } from "./SidebarNav";
 import { SidebarFooter } from "./SidebarFooter";
 import { SidebarProps } from "./types";
 import { groupItemsByCategory } from "./utils";
-import { defaultNavItems } from "./navItems";
+import { useNavItems } from "./navItems";
 import { useSidebar } from "../../contexts/SidebarContext";
 import { useAccentColor } from "../../contexts/AccentColorContext";
 
-export function Sidebar({ navItems = defaultNavItems }: SidebarProps) {
+export function Sidebar({ navItems }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(true);
   const { isMinimized } = useSidebar();
   const pathname = usePathname();
   const { accentColorValue } = useAccentColor();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
-  const grouped = groupItemsByCategory(navItems);
+  // ✅ Call the hook correctly
+  const resolvedNavItems = navItems ?? useNavItems();
+
+  const grouped = groupItemsByCategory(resolvedNavItems);
 
   useEffect(() => {
-    navItems.forEach((item, index) => {
+    resolvedNavItems.forEach((item, index) => {
       if (item.submenu && item.submenu.length > 0) {
         const itemKey = item.href || `nav-item-${index}`;
-        const hasActiveSubmenu = item.submenu.some((sub) => pathname === sub.href);
-        if (hasActiveSubmenu) setExpandedItems((prev) => new Set(prev).add(itemKey));
+        const hasActiveSubmenu = item.submenu.some(
+          (sub) => pathname === sub.href
+        );
+        if (hasActiveSubmenu) {
+          setExpandedItems((prev) => new Set(prev).add(itemKey));
+        }
       }
     });
-  }, [pathname, navItems]);
+  }, [pathname, resolvedNavItems]);
+
 
   return (
     <>
