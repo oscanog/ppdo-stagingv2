@@ -270,9 +270,9 @@ export default function TrustFundBreakdownPage() {
           isOpen={isConfirmationOpen}
           onClose={() => setIsConfirmationOpen(false)}
           data={{
-            obligated: trustFund.obligatedPR,
-            utilized: trustFund.utilized,
-            balance: trustFund.balance,
+            obligated: trustFund.obligatedPR ?? 0,
+            utilized: trustFund.utilized ?? 0,
+            balance: trustFund.balance ?? 0,
           }}
         />
       )}

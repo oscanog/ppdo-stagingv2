@@ -258,9 +258,9 @@ export default function SpecialHealthFundBreakdownPage({ params }: PageProps) {
                     isOpen={isConfirmationOpen}
                     onClose={() => setIsConfirmationOpen(false)}
                     data={{
-                        obligated: fund.obligatedPR,
-                        utilized: fund.utilized,
-                        balance: fund.balance,
+                        obligated: fund.obligatedPR ?? 0,
+                        utilized: fund.utilized ?? 0,
+                        balance: fund.balance ?? 0,
                     }}
                 />
             )}
