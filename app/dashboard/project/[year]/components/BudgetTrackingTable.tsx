@@ -470,6 +470,7 @@ export function BudgetTrackingTable({
           isOpen={modalStates.showDraftConfirm}
           onClose={() => setShowDraftConfirm(false)}
           onConfirm={handleLoadDraft}
+          onCancel={handleStartFresh}
           title="Load Existing Draft?"
           message={`You have a print preview draft from ${draftState ? formatTimestamp(draftState.timestamp) : 'recently'}. Load it or start fresh?`}
           confirmText="Load Draft"
