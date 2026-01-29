@@ -36,7 +36,7 @@ export const STATIC_NAV_ITEMS: NavItem[] = [
     },
     {
         name: "20% DF",
-        href: "/dashboard/20df",
+        href: "/dashboard/20_percent_df",
         category: "Department",
         icon: <Percent size={20} />,
         isNew: true,

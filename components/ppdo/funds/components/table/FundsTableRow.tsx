@@ -115,6 +115,12 @@ function StatusCell({ status, onStatusChange, isUpdating = false }: StatusCellPr
                                 Completed
                             </span>
                         </SelectItem>
+                        <SelectItem value="delayed" className="text-xs">
+                            <span className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-red-500" />
+                                Delayed
+                            </span>
+                        </SelectItem>
                     </SelectContent>
                 </Select>
             )}
@@ -139,7 +145,7 @@ interface FundsTableRowProps<T extends BaseFund> {
     canEdit: boolean;
     canDelete: boolean;
     isUpdatingStatus?: boolean;
-    fundType: 'trust' | 'specialEducation' | 'specialHealth';
+    fundType: 'trust' | 'specialEducation' | 'specialHealth' | 'twentyPercent';
 }
 
 export function FundsTableRow<T extends BaseFund>({
@@ -189,7 +195,9 @@ export function FundsTableRow<T extends BaseFund>({
             ? 'trust-funds'
             : fundType === 'specialEducation'
                 ? 'special-education-funds'
-                : 'special-health-funds';
+                : fundType === 'specialHealth'
+                    ? 'special-health-funds'
+                    : '20_percent_df';
         router.push(`/dashboard/${basePath}/${year}/${slug}`);
     };
 
