@@ -166,14 +166,14 @@ export function BudgetTableRow({
       )}
 
       {/* Ongoing */}
-      {!hiddenColumns.has("projectsOnTrack") && (
+      {!hiddenColumns.has("projectsOngoing") && (
         <td className="px-4 sm:px-6 py-4 text-right">
           <span
             className={`text-sm font-medium ${getProjectStatusColor(
-              item.projectsOnTrack
+              item.projectsOngoing
             )}`}
           >
-            {Math.round(item.projectsOnTrack)}
+            {Math.round(item.projectsOngoing)}
           </span>
         </td>
       )}

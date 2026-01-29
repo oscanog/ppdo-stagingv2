@@ -26,7 +26,13 @@ export default function YearTwentyPercentDFPage({ params }: PageProps) {
 
     // Fetch data
     const projectsRaw = useQuery(api.twentyPercentDF.list, { year });
-    const projects = useMemo(() => projectsRaw || [], [projectsRaw]);
+    const projects = useMemo(() => {
+        if (!projectsRaw) return [];
+        return projectsRaw.map((item) => ({
+            ...item,
+            id: item._id,
+        }));
+    }, [projectsRaw]);
     const isLoading = projectsRaw === undefined;
 
     // Mutations (only for top-level page actions if needed, table handles most)
