@@ -19,6 +19,8 @@ import { useTemplateStorage } from '@/app/(extra)/canvas/_components/editor/hook
 import { toast } from 'sonner';
 import { PageOrientationTab } from './PageOrientationTab';
 
+import TemplateCreator from '@/app/(extra)/canvas/_components/TemplateCreator';
+
 // Updated interface to handle the full result
 interface TemplateSelectorProps {
   isOpen: boolean;
@@ -26,15 +28,15 @@ interface TemplateSelectorProps {
   onComplete: (result: { template: CanvasTemplate | null; orientation: 'portrait' | 'landscape' }) => void;
 }
 
-type SetupStep = 'template' | 'orientation';
+type SetupStep = 'template' | 'orientation' | 'canvas-editor';
 
 export function TemplateSelector({ isOpen, onClose, onComplete }: TemplateSelectorProps) {
   const { templates, deleteTemplate, duplicateTemplate, refreshTemplates } = useTemplateStorage();
-  
+
   // Setup State
   const [step, setStep] = useState<SetupStep>('template');
   const [selectedTemplate, setSelectedTemplate] = useState<CanvasTemplate | null>(null);
-  
+
   // UI State for Template Grid
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -97,23 +99,61 @@ export function TemplateSelector({ isOpen, onClose, onComplete }: TemplateSelect
   };
 
   const handleCreateNew = () => {
-    window.open('/canvas', '_blank');
+    // Switch to embedded editor instead of opening new window
+    setStep('canvas-editor');
   };
 
+  const handleEditorSaveSuccess = (template: CanvasTemplate) => {
+    console.log('💾 Editor saved new template:', template.name);
+    refreshTemplates(); // Refresh list to include new template
+    setSelectedTemplate(template); // Auto-select the new template
+    setStep('orientation'); // Move to next step
+  };
+
+  const handleEditorBack = () => {
+    refreshTemplates();
+    setStep('template');
+  };
+
+  // Determine modal size based on step
+  const getModalDimensions = () => {
+    switch (step) {
+      case 'canvas-editor':
+        return { width: '100vw', height: '100vh', maxWidth: '100vw', maxHeight: '100vh' };
+      case 'template':
+        return { width: '1200px', height: '800px', maxWidth: '95vw', maxHeight: '90vh' };
+      case 'orientation':
+      default:
+        return { width: '800px', height: '600px', maxWidth: '95vw', maxHeight: '90vh' };
+    }
+  };
+
+  const dimensions = getModalDimensions();
+
   return (
-    <ResizableModal 
-      open={isOpen} 
+    <ResizableModal
+      open={isOpen}
       onOpenChange={(open) => { if (!open) onClose(); }}
     >
       <ResizableModalContent
-        width={step === 'template' ? "1200px" : "800px"} // Adjust width based on step
-        height="800px"
-        maxWidth="95vw"
-        maxHeight="90vh"
+        width={dimensions.width}
+        height={dimensions.height}
+        maxWidth={dimensions.maxWidth}
+        maxHeight={dimensions.maxHeight}
         onCloseClick={onClose}
-        preventOutsideClick={false}
+        preventOutsideClick={step === 'canvas-editor'} // Prevent accidental close in editor
+        className={step === 'canvas-editor' ? 'p-0 overflow-hidden' : ''} // Remove padding for editor
       >
-        {step === 'template' ? (
+        {step === 'canvas-editor' ? (
+          /* Step: Canvas Editor (Full Screen) */
+          <TemplateCreator
+            onBack={handleEditorBack}
+            onClose={onClose}
+            onSaveSuccess={handleEditorSaveSuccess}
+            // Pass null to create new, or we could support editing existing here too
+            templateData={null}
+          />
+        ) : step === 'template' ? (
           <>
             {/* Header */}
             <ResizableModalHeader>
@@ -151,11 +191,10 @@ export function TemplateSelector({ isOpen, onClose, onComplete }: TemplateSelect
                       onClick={() => setSelectedId(template.id)}
                       onMouseEnter={() => setHoveredId(template.id)}
                       onMouseLeave={() => setHoveredId(null)}
-                      className={`relative border-2 rounded-lg overflow-hidden transition-all cursor-pointer w-full group ${
-                        selectedId === template.id
+                      className={`relative border-2 rounded-lg overflow-hidden transition-all cursor-pointer w-full group ${selectedId === template.id
                           ? 'border-[#15803D] ring-2 ring-[#15803D]/20 shadow-lg'
                           : 'border-stone-200 dark:border-stone-700 hover:border-stone-400 dark:hover:border-stone-500 hover:shadow-md hover:-translate-y-1'
-                      }`}
+                        }`}
                     >
                       <div className="aspect-[8.5/11] bg-stone-100 dark:bg-stone-800 relative">
                         {template.thumbnail ? (

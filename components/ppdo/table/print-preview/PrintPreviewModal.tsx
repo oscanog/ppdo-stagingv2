@@ -184,19 +184,19 @@ export function PrintPreviewModal({
     const pageSize = state.currentPage.size || 'A4';
     const orientation = state.currentPage.orientation || 'portrait';
     const MARGIN = 20; // Same as tableToCanvas.ts
-    
+
     // Page dimensions
     const PAGE_SIZES = {
       A4: { width: 595, height: 842 },
       Short: { width: 612, height: 792 },
       Long: { width: 612, height: 936 },
     };
-    
+
     const baseSize = PAGE_SIZES[pageSize as keyof typeof PAGE_SIZES] || PAGE_SIZES.A4;
     const size = orientation === 'landscape'
       ? { width: baseSize.height, height: baseSize.width }
       : baseSize;
-    
+
     const totalAvailableWidth = size.width - (MARGIN * 2);
     const firstColumnX = allColumns[0][1].originalX;
 
@@ -210,7 +210,7 @@ export function PrintPreviewModal({
       // Proportional width based on original weight
       const widthRatio = info.originalWidth / totalVisibleOriginalWidth;
       const newWidth = totalAvailableWidth * widthRatio;
-      
+
       newColumnLayout.set(key, {
         x: currentX,
         width: newWidth
@@ -448,7 +448,7 @@ export function PrintPreviewModal({
   const handleSetupComplete = useCallback((result: { template: CanvasTemplate | null, orientation: 'portrait' | 'landscape' }) => {
     console.log('🎯 Setup complete, closing modal and initializing...');
     setShowSetupModal(false);
-    
+
     // Defer slightly to allow modal unmount animation to start cleanly
     setTimeout(() => {
       initializeFromTableData(result.template, result.orientation);
@@ -460,7 +460,7 @@ export function PrintPreviewModal({
     console.log('📋 Applying saved template from existing draft...');
     setIsLoadingTemplate(true);
     setShowTemplateApplicationModal(false);
-    
+
     setTimeout(() => {
       initializeFromTableData(savedTemplate, savedTemplate.page.orientation);
       if (existingDraft) state.setLastSavedTime(existingDraft.timestamp);
@@ -473,7 +473,7 @@ export function PrintPreviewModal({
     if (!existingDraft) return;
     console.log('⏭️ Skipping template application, loading existing draft as-is...');
     setShowTemplateApplicationModal(false);
-    
+
     state.setPages(existingDraft.canvasState.pages);
     state.setHeader(existingDraft.canvasState.header);
     state.setFooter(existingDraft.canvasState.footer);
@@ -593,6 +593,7 @@ export function PrintPreviewModal({
 
   const actions = usePrintPreviewActions({
     currentPageIndex: state.currentPageIndex,
+    setCurrentPageIndex: state.setCurrentPageIndex,
     header: state.header,
     footer: state.footer,
     setPages: state.setPages,
@@ -704,7 +705,7 @@ export function PrintPreviewModal({
               <Toolbar
                 selectedElement={state.selectedElement}
                 onUpdateElement={state.selectedElementId ? (updates) => actions.updateElement(state.selectedElementId!, updates) : undefined}
-                onAddText={() => {}}
+                onAddText={() => { }}
                 pageSize={state.currentPage.size}
                 orientation={state.currentPage.orientation}
                 onPageSizeChange={actions.changePageSize}
@@ -725,16 +726,42 @@ export function PrintPreviewModal({
             </div>
 
             <div ref={canvasScrollRef} className="flex-1 overflow-y-auto overflow-x-auto flex items-start justify-center pt-4 pb-16 px-8" onScroll={(e) => { const target = e.target as HTMLDivElement; setScrollLeft(target.scrollLeft); setScrollTop(target.scrollTop); }}>
-              <Canvas page={{ ...state.currentPage, elements: visibleElements }} selectedElementId={isEditorMode ? state.selectedElementId : null} onSelectElement={isEditorMode ? state.setSelectedElementId : () => {}} onUpdateElement={isEditorMode ? actions.updateElement : () => {}} onDeleteElement={isEditorMode ? actions.deleteElement : () => {}} isEditingElementId={isEditorMode ? state.isEditingElementId : null} onEditingChange={isEditorMode ? state.setIsEditingElementId : () => {}} header={state.header} footer={state.footer} pageNumber={state.currentPageIndex + 1} totalPages={state.pages.length} activeSection={state.activeSection} onActiveSectionChange={isEditorMode ? state.setActiveSection : () => {}} selectedGroupId={state.selectedGroupId} isEditorMode={isEditorMode} onSetDirty={state.setIsDirty} />
+              <Canvas page={{ ...state.currentPage, elements: visibleElements }} selectedElementId={isEditorMode ? state.selectedElementId : null} onSelectElement={isEditorMode ? state.setSelectedElementId : () => { }} onUpdateElement={isEditorMode ? actions.updateElement : () => { }} onDeleteElement={isEditorMode ? actions.deleteElement : () => { }} isEditingElementId={isEditorMode ? state.isEditingElementId : null} onEditingChange={isEditorMode ? state.setIsEditingElementId : () => { }} header={state.header} footer={state.footer} pageNumber={state.currentPageIndex + 1} totalPages={state.pages.length} activeSection={state.activeSection} onActiveSectionChange={isEditorMode ? state.setActiveSection : () => { }} selectedGroupId={state.selectedGroupId} isEditorMode={isEditorMode} onSetDirty={state.setIsDirty} />
             </div>
 
             <div className="border-t border-stone-200 bg-white flex-shrink-0">
-              <BottomPageControls currentPageIndex={state.currentPageIndex} totalPages={state.pages.length} onAddPage={() => {}} onDuplicatePage={() => {}} onDeletePage={() => {}} elements={state.allElements} selectedElementId={state.selectedElementId} onSelectElement={state.setSelectedElementId} onUpdateElement={actions.updateElement} onReorderElements={actions.reorderElements} onPreviousPage={() => state.setCurrentPageIndex((prev) => Math.max(0, prev - 1))} onNextPage={() => state.setCurrentPageIndex((prev) => Math.min(state.pages.length - 1, prev + 1))} isEditorMode={isEditorMode} selectedGroupId={state.selectedGroupId} onSelectGroup={state.setSelectedGroupId} />
+              <BottomPageControls
+                currentPageIndex={state.currentPageIndex}
+                totalPages={state.pages.length}
+                onAddPage={actions.addPage}
+                onDuplicatePage={() => actions.duplicatePage(state.currentPageIndex)}
+                onDeletePage={() => actions.deletePage(state.currentPageIndex)}
+                elements={state.allElements}
+                selectedElementId={state.selectedElementId}
+                onSelectElement={state.setSelectedElementId}
+                onUpdateElement={actions.updateElement}
+                onReorderElements={actions.reorderElements}
+                onPreviousPage={() => state.setCurrentPageIndex((prev) => Math.max(0, prev - 1))}
+                onNextPage={() => state.setCurrentPageIndex((prev) => Math.min(state.pages.length - 1, prev + 1))}
+                isEditorMode={isEditorMode}
+                selectedGroupId={state.selectedGroupId}
+                onSelectGroup={state.setSelectedGroupId}
+              />
             </div>
           </div>
 
           <div className="w-64 border-l border-stone-200 bg-zinc-50 flex-shrink-0 overflow-y-auto">
-            <PagePanel pages={state.pages} currentPageIndex={state.currentPageIndex} onPageSelect={state.setCurrentPageIndex} onAddPage={() => {}} onReorderPages={() => {}} header={state.header} footer={state.footer} />
+            <PagePanel
+              pages={state.pages}
+              currentPageIndex={state.currentPageIndex}
+              onPageSelect={state.setCurrentPageIndex}
+              onAddPage={actions.addPage}
+              onDuplicatePage={actions.duplicatePage}
+              onDeletePage={actions.deletePage}
+              onReorderPages={actions.reorderPages}
+              header={state.header}
+              footer={state.footer}
+            />
           </div>
         </div>
       </div>
@@ -751,7 +778,7 @@ export function PrintPreviewModal({
       {/* Confirmation Modals */}
       <ConfirmationModal isOpen={state.showCloseConfirm} onClose={() => state.setShowCloseConfirm(false)} onConfirm={() => { handleSaveDraft(); setTimeout(() => onClose(), 100); }} title="Save Print Preview as Draft?" message="You have unsaved changes. Save them for later?" confirmText="Save & Close" cancelText="Discard & Close" variant="default" />
       <TemplateApplicationModal isOpen={showTemplateApplicationModal} onClose={() => { setShowTemplateApplicationModal(false); handleSkipTemplate(); }} onProceed={handleApplySavedTemplate} template={savedTemplate} />
-      
+
       {/* Live Template Selector (Standalone for Toolbar) */}
       {showLiveTemplateSelector && (
         <TemplateSelector

@@ -2,9 +2,12 @@
 
 import { useCallback } from 'react';
 import { Page, HeaderFooter, CanvasElement } from '@/app/(extra)/canvas/_components/editor/types';
+import { createNewPage, generateId } from '@/app/(extra)/canvas/_components/editor/utils';
+import { toast } from 'sonner';
 
 interface UsePrintPreviewActionsProps {
   currentPageIndex: number;
+  setCurrentPageIndex: (index: number | ((prev: number) => number)) => void;
   header: HeaderFooter;
   footer: HeaderFooter;
   setPages: (updater: (prev: Page[]) => Page[]) => void;
@@ -16,6 +19,7 @@ interface UsePrintPreviewActionsProps {
 
 export function usePrintPreviewActions({
   currentPageIndex,
+  setCurrentPageIndex,
   header,
   footer,
   setPages,
@@ -24,7 +28,7 @@ export function usePrintPreviewActions({
   setSelectedElementId,
   setIsDirty,
 }: UsePrintPreviewActionsProps) {
-  
+
   const updateElement = useCallback(
     (id: string, updates: Partial<CanvasElement>) => {
       const isInHeader = header.elements.some((el) => el.id === id);
@@ -55,11 +59,11 @@ export function usePrintPreviewActions({
         prev.map((page, idx) =>
           idx === currentPageIndex
             ? {
-                ...page,
-                elements: page.elements.map((el) =>
-                  el.id === id ? ({ ...el, ...updates } as any) : el
-                ),
-              }
+              ...page,
+              elements: page.elements.map((el) =>
+                el.id === id ? ({ ...el, ...updates } as any) : el
+              ),
+            }
             : page
         )
       );
@@ -163,6 +167,85 @@ export function usePrintPreviewActions({
     [currentPageIndex, setPages, setIsDirty]
   );
 
+  // --- Page Operations ---
+
+  const addPage = useCallback(() => {
+    setPages(prev => {
+      const lastPage = prev[prev.length - 1];
+      const newPage = createNewPage(lastPage?.size || 'A4', lastPage?.orientation || 'portrait');
+      const newPages = [...prev, newPage];
+      setCurrentPageIndex(newPages.length - 1);
+      return newPages;
+    });
+    setSelectedElementId(null);
+    setIsDirty(true);
+    toast.success('Page added');
+  }, [setPages, setCurrentPageIndex, setSelectedElementId, setIsDirty]);
+
+  const duplicatePage = useCallback((index: number) => {
+    setPages((prev) => {
+      const pageToDuplicate = prev[index];
+      if (!pageToDuplicate) return prev;
+
+      const newPage: Page = {
+        ...pageToDuplicate,
+        id: generateId(),
+        elements: pageToDuplicate.elements.map((el) => ({
+          ...el,
+          id: generateId(),
+        })),
+      };
+
+      const newPages = [...prev.slice(0, index + 1), newPage, ...prev.slice(index + 1)];
+      setCurrentPageIndex(index + 1);
+      return newPages;
+    });
+    setSelectedElementId(null);
+    setIsDirty(true);
+    toast.success('Page duplicated');
+  }, [setPages, setCurrentPageIndex, setSelectedElementId, setIsDirty]);
+
+  const deletePage = useCallback((index: number) => {
+    setPages((prev) => {
+      if (prev.length === 1) {
+        // Reset last page instead of deleting
+        const newPage = createNewPage(prev[0].size, prev[0].orientation);
+        setCurrentPageIndex(0);
+        return [newPage];
+      }
+
+      const newPages = prev.filter((_, i) => i !== index);
+      setCurrentPageIndex((prevIdx) => {
+        if (prevIdx === index) {
+          return index > 0 ? index - 1 : 0;
+        }
+        return prevIdx > index ? prevIdx - 1 : prevIdx;
+      });
+      return newPages;
+    });
+    setSelectedElementId(null);
+    setIsDirty(true);
+    toast.success('Page deleted');
+  }, [setPages, setCurrentPageIndex, setSelectedElementId, setIsDirty]);
+
+  const reorderPages = useCallback((fromIndex: number, toIndex: number) => {
+    setPages((prev) => {
+      const newPages = [...prev];
+      const [movedPage] = newPages.splice(fromIndex, 1);
+      newPages.splice(toIndex, 0, movedPage);
+
+      setCurrentPageIndex((prevIdx) => {
+        if (prevIdx === fromIndex) return toIndex;
+        if (prevIdx > fromIndex && prevIdx <= toIndex) return prevIdx - 1;
+        if (prevIdx < fromIndex && prevIdx >= toIndex) return prevIdx + 1;
+        return prevIdx;
+      });
+
+      return newPages;
+    });
+    setIsDirty(true);
+  }, [setPages, setCurrentPageIndex, setIsDirty]);
+
   return {
     updateElement,
     deleteElement,
@@ -172,5 +255,9 @@ export function usePrintPreviewActions({
     updateHeaderBackground,
     updateFooterBackground,
     updatePageBackground,
+    addPage,
+    duplicatePage,
+    deletePage,
+    reorderPages,
   };
 }

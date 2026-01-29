@@ -23,46 +23,47 @@ interface TemplateCreatorProps {
   onBack: () => void;
   onClose?: () => void;
   templateData?: CanvasTemplate | null;
+  onSaveSuccess?: (template: CanvasTemplate) => void;
 }
 
 type ActiveSection = 'header' | 'page' | 'footer';
 
-export default function TemplateCreator({ onBack, onClose, templateData }: TemplateCreatorProps) {
+export default function TemplateCreator({ onBack, onClose, templateData, onSaveSuccess }: TemplateCreatorProps) {
   const { templates, addTemplate, updateTemplate, getTemplate } = useTemplateStorage();
-  
+
   const loadedTemplate = templateData;
-  
+
   const [templateName, setTemplateName] = useState(loadedTemplate?.name || 'Untitled Template');
   const [isSaving, setIsSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  
+
   // Update template name when loaded template changes
   useEffect(() => {
     if (loadedTemplate) {
       setTemplateName(loadedTemplate.name);
     }
   }, [loadedTemplate]);
-  
+
   // Initialize with template data or blank page
   const initialPages: Page[] = React.useMemo(() => {
     if (loadedTemplate) {
       console.log('🎨 Creating initial pages from loaded template');
       console.log('  - Template page background:', loadedTemplate.page.backgroundColor);
-      
-      return [{ 
-        id: 'template-page', 
+
+      return [{
+        id: 'template-page',
         size: loadedTemplate.page.size,
         orientation: loadedTemplate.page.orientation,
         backgroundColor: loadedTemplate.page.backgroundColor || '#ffffff',
-        elements: loadedTemplate.page.elements 
+        elements: loadedTemplate.page.elements
       }];
     }
-    
+
     console.log('🎨 Creating blank initial page');
-    return [{ 
-      id: 'template-page', 
-      size: 'A4', 
-      orientation: 'portrait', 
+    return [{
+      id: 'template-page',
+      size: 'A4',
+      orientation: 'portrait',
       elements: [],
       backgroundColor: '#ffffff'
     }];
@@ -71,7 +72,7 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
   const initialHeader: HeaderFooter = React.useMemo(() => {
     return loadedTemplate?.header || { elements: [], backgroundColor: '#ffffff' };
   }, [loadedTemplate]);
-  
+
   const initialFooter: HeaderFooter = React.useMemo(() => {
     return loadedTemplate?.footer || { elements: [], backgroundColor: '#ffffff' };
   }, [loadedTemplate]);
@@ -103,7 +104,7 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
     updateFooterBackground,
     updatePageBackground,
   } = useEditorState(
-    initialPages, 
+    initialPages,
     0,
     initialHeader,
     initialFooter
@@ -129,6 +130,21 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
     onDeleteElement: deleteElement,
   });
 
+
+
+  // Enhanced save success handler
+  const handleSaveSuccess = (template: CanvasTemplate) => {
+    // If an external success handler is provided, use it (e.g. for modal flow)
+    if (onSaveSuccess) {
+      onSaveSuccess(template);
+    } else {
+      // Default behavior: go back after delay
+      setTimeout(() => {
+        onBack();
+      }, 500);
+    }
+  };
+
   const handleSaveTemplate = useCallback(async () => {
     if (!templateName.trim()) {
       toast.error('Please enter a template name');
@@ -150,12 +166,12 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
       console.log('Footer Elements:', footer.elements.length);
       console.log('Header Background:', header.backgroundColor);
       console.log('Footer Background:', footer.backgroundColor);
-      
+
       // Capture thumbnail
       console.log('📸 Capturing thumbnail...');
       const thumbnail = await captureCanvasAsThumbnail('template-canvas-container', 300, 400);
       console.log('✅ Thumbnail captured, size:', thumbnail.length, 'characters');
-      
+
       const template: CanvasTemplate = {
         id: loadedTemplate?.id || `template-${generateId()}`,
         name: templateName.trim(),
@@ -183,7 +199,7 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
       console.log('🔍 Validating template...');
       const validation = validateTemplate(template);
       console.log('Validation result:', validation);
-      
+
       if (!validation.valid) {
         console.error('❌ Validation failed:', validation.errors);
         toast.error(validation.errors[0]);
@@ -207,10 +223,7 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
       console.log('📦 Final Template Object:', template);
       console.groupEnd();
 
-      // Small delay before navigating back
-      setTimeout(() => {
-        onBack();
-      }, 500);
+      handleSaveSuccess(template);
     } catch (error) {
       console.error('❌ Failed to save template:', error);
       console.groupEnd();
@@ -218,7 +231,7 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
     } finally {
       setIsSaving(false);
     }
-  }, [templateName, header, footer, currentPage, loadedTemplate, addTemplate, updateTemplate, onBack]);
+  }, [templateName, header, footer, currentPage, loadedTemplate, addTemplate, updateTemplate, onBack, handleSaveSuccess]);
 
   const handleImageDropped = useCallback((image: any) => {
     if (image.dataUrl) {
@@ -230,20 +243,20 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
   const editorKey = loadedTemplate?.id || 'new-template';
 
   return (
-    <div key={editorKey} className="h-screen bg-stone-50 dark:bg-stone-900 flex flex-col">
+    <div key={editorKey} className="h-full bg-stone-50 dark:bg-stone-900 flex flex-col">
       {/* Header Bar */}
       <div className="bg-white dark:bg-stone-800 border-b border-stone-200 dark:border-stone-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={onBack}
             disabled={isSaving}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          
+
           <div className="border-l border-stone-300 dark:border-stone-600 pl-4">
             <input
               type="text"
@@ -269,8 +282,8 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
               Close
             </Button>
           )}
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => setShowPreview(!showPreview)}
             disabled={isSaving}
@@ -278,8 +291,8 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
             <Eye className="w-4 h-4 mr-2" />
             {showPreview ? 'Edit' : 'Preview'}
           </Button>
-          <Button 
-            onClick={handleSaveTemplate} 
+          <Button
+            onClick={handleSaveTemplate}
             size="sm"
             disabled={isSaving}
             className="bg-[#4FBA76] hover:bg-green-700"
@@ -316,8 +329,8 @@ export default function TemplateCreator({ onBack, onClose, templateData }: Templ
       )}
 
       {/* Canvas Area */}
-      <div 
-        className="flex-1 overflow-y-auto flex items-start justify-center pt-8 pb-16 px-8" 
+      <div
+        className="flex-1 overflow-y-auto flex items-start justify-center pt-8 pb-16 px-8"
         id="template-canvas-container"
       >
         <div className={showPreview ? 'pointer-events-none' : ''}>
