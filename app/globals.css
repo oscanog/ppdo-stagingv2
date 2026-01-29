@@ -154,6 +154,31 @@ h6 {
   height: 100%;
 }
 
+@keyframes ppdo-carousel-slide {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.ppdo-carousel-track {
+  display: inline-flex;
+  width: max-content;
+  animation: ppdo-carousel-slide 20s linear infinite;
+  will-change: transform;
+}
+
+.ppdo-carousel-container:hover .ppdo-carousel-track {
+  animation-play-state: paused;
+}
+
+.ppdo-carousel-paused {
+  animation-play-state: paused;
+}
+
 @keyframes float-slow {
 
   0%,

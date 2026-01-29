@@ -29,12 +29,14 @@ export function FiscalYearDeleteDialog({
         <AlertDialog open={isOpen} onOpenChange={setIsOpen}>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Fiscal Year {yearToDelete?.year}?</AlertDialogTitle>
-                    <AlertDialogDescription className="space-y-2">
-                        <p>Are you sure you want to delete this fiscal year?</p>
-                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                            <strong>Note:</strong> Deleting this fiscal year will not affect or delete the {itemTypeLabel} associated with year {yearToDelete?.year}. You can recreate the same fiscal year later to view these items again.
-                        </p>
+                    <AlertDialogTitle>Delete Year {yearToDelete?.year}?</AlertDialogTitle>
+                    <AlertDialogDescription className="space-y-2" asChild>
+                        <div>
+                            <p>Are you sure you want to delete this year?</p>
+                            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                                <strong>Note:</strong> Deleting this year will not affect or delete the {itemTypeLabel} associated with year {yearToDelete?.year}. You can recreate the same year later to view these items again.
+                            </p>
+                        </div>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

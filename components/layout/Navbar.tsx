@@ -80,7 +80,7 @@ export default function Navbar() {
                     ${
                       isActive(link.href)
                         ? "text-yellow-600"
-                        : "text-[#012130] hover:text-yellow-600"
+                        : "text-white hover:text-yellow-600"
                     }
                   `}
                 >
