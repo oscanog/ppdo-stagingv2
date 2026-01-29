@@ -187,10 +187,6 @@ export function BudgetTrackingTable({
   // PRINT & EXPORT HOOKS
   // ============================================================================
 
-  // ============================================================================
-  // PRINT & EXPORT HOOKS
-  // ============================================================================
-
   const searchParams = useSearchParams();
   const yearParam = searchParams.get("year");
   const year = yearParam ? parseInt(yearParam) : new Date().getFullYear();

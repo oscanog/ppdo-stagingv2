@@ -172,7 +172,8 @@ function getActionBadge(action: string) {
   }
 }
 
-function getInitials(name: string) {
+function getInitials(name: string | undefined | null) {
+  if (!name) return "??";
   return name
     .split(" ")
     .map((piece) => piece[0])

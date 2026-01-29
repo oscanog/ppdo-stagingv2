@@ -149,7 +149,7 @@ export default function YearTwentyPercentDFPage({ params }: PageProps) {
                 pageDescription="Monitor 20% development fund allocations and utilization"
                 showDetails={showDetails}
                 onToggleDetails={() => setShowDetails(!showDetails)}
-                onOpenTrash={() => setShowTrashModal(true)}
+
                 activityLogType="twentyPercentDF"
             />
 

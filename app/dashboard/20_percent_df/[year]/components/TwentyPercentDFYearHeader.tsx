@@ -1,15 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ChevronLeft, Calendar, Eye, EyeOff, Trash2 } from "lucide-react";
+import { ChevronLeft, Calendar, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ActivityLogSheet } from "@/components/ActivityLogSheet";
 
 // Define the activity log type - must match ActivityLogType from ActivityLogSheet
-type ActivityLogType = 
-  | "budgetItem" 
-  | "project" 
-  | "breakdown" 
+type ActivityLogType =
+  | "budgetItem"
+  | "project"
+  | "breakdown"
   | "trustFund"
   | "specialEducationFund"
   | "specialHealthFund"
@@ -21,7 +21,7 @@ interface TwentyPercentDFYearHeaderProps {
   pageDescription?: string;
   showDetails: boolean;
   onToggleDetails: () => void;
-  onOpenTrash: () => void;
+
   activityLogType: ActivityLogType;
 }
 
@@ -31,7 +31,7 @@ export function TwentyPercentDFYearHeader({
   pageDescription = "Manage 20% development fund allocations and utilization",
   showDetails,
   onToggleDetails,
-  onOpenTrash,
+
   activityLogType,
 }: TwentyPercentDFYearHeaderProps) {
   const router = useRouter();
@@ -89,19 +89,12 @@ export function TwentyPercentDFYearHeader({
             )}
           </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onOpenTrash}
-            className="gap-2"
-          >
-            <Trash2 className="h-4 w-4" />
-            Trash
-          </Button>
 
-          <ActivityLogSheet 
-            type={activityLogType} 
-            title={`${pageTitle} History ${year}`} 
+
+          <ActivityLogSheet
+            type={activityLogType}
+            entityId="all"
+            title={`${pageTitle} History ${year}`}
           />
         </div>
       </div>
