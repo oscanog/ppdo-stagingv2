@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ColumnDef } from "@tanstack/react-table";
 import { BugsSuggestionsDataTable, MediaThumbnails } from "@/components/ppdo/dashboard/BugsSuggestionsDataTable";
 import { SuggestionModal } from "@/components/maintenance/SuggestionModal";
+import { StatusDropdown } from "@/components/maintenance/StatusDropdown";
 
 export default function SuggestionsPage() {
   const router = useRouter();
@@ -26,41 +27,13 @@ export default function SuggestionsPage() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => {
-        const status = row.getValue("status") as string;
-        let colorClass = "";
-        let icon = null;
-        let label = "";
-
-        switch (status) {
-          case "acknowledged":
-            colorClass = "bg-[#15803D]/10 text-[#15803D] border-[#15803D]/20";
-            icon = <CheckCircle2 className="w-3 h-3 mr-1" />;
-            label = "Acknowledged";
-            break; // Added break
-          case "to_review":
-            colorClass = "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800";
-            icon = <Clock className="w-3 h-3 mr-1" />;
-            label = "To Review";
-            break;
-          case "denied":
-            colorClass = "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800";
-            icon = <XCircle className="w-3 h-3 mr-1" />;
-            label = "Denied";
-            break;
-          default:
-            colorClass = "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
-            icon = <Clock className="w-3 h-3 mr-1" />;
-            label = "Pending";
-        }
-
-        return (
-          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colorClass}`}>
-            {icon}
-            {label}
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <StatusDropdown
+          itemId={row.original._id}
+          itemType="suggestion"
+          currentStatus={row.getValue("status")}
+        />
+      ),
     },
     {
       accessorKey: "submitter",
@@ -82,10 +55,44 @@ export default function SuggestionsPage() {
     },
     {
       accessorKey: "submittedAt",
-      header: "Date",
+      header: "Date Suggested",
       cell: ({ row }) => {
         return <span className="text-xs text-muted-foreground whitespace-nowrap">
           {new Date(row.getValue("submittedAt")).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric"
+          })}
+        </span>
+      }
+    },
+    {
+      accessorKey: "updater",
+      header: "Updated By",
+      cell: ({ row }) => {
+        const updater = row.original.updater;
+        if (!updater) return <span className="text-muted-foreground text-xs">—</span>;
+
+        let name = "Unknown";
+        if (updater.firstName || updater.lastName) {
+          name = [updater.firstName, updater.lastName].filter(Boolean).join(" ");
+        } else if (updater.name) {
+          name = updater.name;
+        } else if (updater.email) {
+          name = updater.email;
+        }
+        return <span className="text-sm text-stone-600 dark:text-stone-400">{name}</span>;
+      },
+    },
+    {
+      accessorKey: "updatedAt",
+      header: "Last Updated",
+      cell: ({ row }) => {
+        const updatedAt = row.getValue("updatedAt") as number;
+        if (!updatedAt) return <span className="text-muted-foreground text-xs">—</span>;
+
+        return <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {new Date(updatedAt).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
             year: "numeric"
@@ -101,6 +108,7 @@ export default function SuggestionsPage() {
       }
     }
   ];
+
 
   return (
     <div className="space-y-6">

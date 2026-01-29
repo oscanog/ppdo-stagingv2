@@ -33,6 +33,7 @@ export const budgetTables = {
     projectCompleted: v.number(),
     projectDelayed: v.number(),
     projectsOngoing: v.number(),
+    projectsOnTrack: v.optional(v.number()),
 
     /**
      * Year for this budget item (optional)

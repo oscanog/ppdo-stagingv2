@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ColumnDef } from "@tanstack/react-table";
 import { BugsSuggestionsDataTable, MediaThumbnails } from "@/components/ppdo/dashboard/BugsSuggestionsDataTable";
 import { BugReportModal } from "@/components/maintenance/BugReportModal";
+import { StatusDropdown } from "@/components/maintenance/StatusDropdown";
 
 export default function BugReportsPage() {
   const router = useRouter();
@@ -26,36 +27,13 @@ export default function BugReportsPage() {
     {
       accessorKey: "status",
       header: "Status",
-      cell: ({ row }) => {
-        const status = row.getValue("status") as string;
-        let colorClass = "";
-        let icon = null;
-        let label = "";
-
-        switch (status) {
-          case "fixed":
-            colorClass = "bg-[#15803D]/10 text-[#15803D] border-[#15803D]/20";
-            icon = <CheckCircle2 className="w-3 h-3 mr-1" />;
-            label = "Fixed";
-            break;
-          case "not_fixed":
-            colorClass = "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800";
-            icon = <AlertCircle className="w-3 h-3 mr-1" />;
-            label = "Not Fixed";
-            break;
-          default:
-            colorClass = "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
-            icon = <Clock className="w-3 h-3 mr-1" />;
-            label = "Pending";
-        }
-
-        return (
-          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colorClass}`}>
-            {icon}
-            {label}
-          </span>
-        );
-      },
+      cell: ({ row }) => (
+        <StatusDropdown
+          itemId={row.original._id}
+          itemType="bug"
+          currentStatus={row.getValue("status")}
+        />
+      ),
     },
     {
       accessorKey: "submitter",
@@ -77,10 +55,44 @@ export default function BugReportsPage() {
     },
     {
       accessorKey: "submittedAt",
-      header: "Date",
+      header: "Date Reported",
       cell: ({ row }) => {
         return <span className="text-xs text-muted-foreground whitespace-nowrap">
           {new Date(row.getValue("submittedAt")).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric"
+          })}
+        </span>
+      }
+    },
+    {
+      accessorKey: "updater",
+      header: "Updated By",
+      cell: ({ row }) => {
+        const updater = row.original.updater;
+        if (!updater) return <span className="text-muted-foreground text-xs">—</span>;
+
+        let name = "Unknown";
+        if (updater.firstName || updater.lastName) {
+          name = [updater.firstName, updater.lastName].filter(Boolean).join(" ");
+        } else if (updater.name) {
+          name = updater.name;
+        } else if (updater.email) {
+          name = updater.email;
+        }
+        return <span className="text-sm text-stone-600 dark:text-stone-400">{name}</span>;
+      },
+    },
+    {
+      accessorKey: "updatedAt",
+      header: "Last Updated",
+      cell: ({ row }) => {
+        const updatedAt = row.getValue("updatedAt") as number;
+        if (!updatedAt) return <span className="text-muted-foreground text-xs">—</span>;
+
+        return <span className="text-xs text-muted-foreground whitespace-nowrap">
+          {new Date(updatedAt).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
             year: "numeric"
@@ -96,6 +108,7 @@ export default function BugReportsPage() {
       }
     }
   ];
+
 
   return (
     <div className="space-y-6">

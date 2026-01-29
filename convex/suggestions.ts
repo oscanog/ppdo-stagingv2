@@ -220,14 +220,43 @@ export const updateStatus = mutation({
   },
   handler: async (ctx, { id, status }) => {
     const userId = await requireUserId(ctx);
+    const user = await ctx.db.get(userId);
+
+    if (user?.role !== "super_admin") {
+      throw new Error("Only super_admin can update suggestion status");
+    }
+
+    const existing = await ctx.db.get(id);
+    if (!existing) {
+      throw new Error("Suggestion not found");
+    }
+
+    if (existing.status === status) {
+      return id;
+    }
+
+    const now = Date.now();
+
+    // Log the change
+    await ctx.db.insert("maintenanceAuditLog", {
+      itemId: id,
+      itemType: "suggestion",
+      performedBy: userId,
+      oldStatus: existing.status,
+      newStatus: status,
+      timestamp: now,
+    });
 
     await ctx.db.patch(id, {
       status,
-      updatedAt: Date.now(),
+      updatedAt: now,
       updatedBy: userId,
     });
+
+    return id;
   },
 });
+
 
 // ==================== STATS ====================
 export const getStats = query({

@@ -68,6 +68,7 @@ export const projectTables = {
     projectCompleted: v.number(),
     projectDelayed: v.number(),
     projectsOngoing: v.number(),
+    projectsOnTrack: v.optional(v.number()),
 
     // ============================================================================
     // ADDITIONAL PROJECT FIELDS

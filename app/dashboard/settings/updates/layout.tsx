@@ -40,7 +40,7 @@ function Nav() {
   };
 
   return (
-    <nav className="flex gap-2 border-b pb-4 overflow-x-auto">
+    <nav className="flex gap-2 border-b pb-4 pt-2 overflow-x-auto">
       <Link href="/dashboard/settings/updates" className={linkClasses("/dashboard/settings/updates")}>
         Overview
       </Link>
