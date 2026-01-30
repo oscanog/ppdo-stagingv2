@@ -48,8 +48,8 @@ export function FundsContextMenu({
 
     // Call hook before early return to follow Rules of Hooks
     const { ref, style } = useContextMenuPosition(
-        contextMenu?.x ?? 0,
-        contextMenu?.y ?? 0
+        contextMenu?.x,
+        contextMenu?.y
     );
 
     if (!contextMenu) return null;

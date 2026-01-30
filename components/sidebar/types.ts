@@ -17,7 +17,6 @@ export interface NavItem {
   submenu?: SubMenuItem[];
   category?: string;
   disabled?: boolean;
-  isNew?: boolean;
   badgeCount?: number;
   badgeColor?: string;
   badgeComponent?: React.ComponentType<any>;

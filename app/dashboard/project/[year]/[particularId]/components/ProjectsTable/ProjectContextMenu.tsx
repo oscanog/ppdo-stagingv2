@@ -54,15 +54,15 @@ export function ProjectContextMenu({
     };
   }, [contextMenu, onClose]);
 
+  const { ref, style } = useContextMenuPosition(contextMenu?.x, contextMenu?.y);
+
   if (!contextMenu) return null;
 
   const isPinned = 'isPinned' in contextMenu.entity && (contextMenu.entity as any).isPinned;
   // Get current auto-calculate state (default to true for backward compatibility)
-  const isAutoCalculate = 'autoCalculateBudgetUtilized' in contextMenu.entity 
+  const isAutoCalculate = 'autoCalculateBudgetUtilized' in contextMenu.entity
     ? (contextMenu.entity as any).autoCalculateBudgetUtilized !== false
     : true;
-
-  const { ref, style } = useContextMenuPosition(contextMenu.x, contextMenu.y);
 
   return (
     <div

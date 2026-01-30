@@ -1,15 +1,14 @@
-import React from "react";
 import {
     LayoutDashboard,
     Gauge,
     FileEdit,
     Settings as SettingsIcon,
-    Calculator,
-    Vault,
+    Wallet,
+    LockKeyhole,
     Building2,
     FileText,
     GraduationCap,
-    Heart,
+    HeartPulse,
     TrendingUp,
 } from "lucide-react";
 import { NavItem } from "./types";
@@ -32,34 +31,34 @@ export const STATIC_NAV_ITEMS: NavItem[] = [
         name: "Projects (11 plans)",
         href: "/dashboard/project",
         category: "Department",
-        icon: <Calculator size={20} />,
+        icon: <Wallet size={20} />,
     },
     {
         name: "20% DF",
         href: "/dashboard/20_percent_df",
         category: "Department",
         icon: <TrendingUp size={20} />,
-        isNew: true,
+        // isNew: true,
     },
     {
         name: "Trust Funds (Project Organs)",
         href: "/dashboard/trust-funds",
         category: "Department",
-        icon: <Vault size={20} />,
+        icon: <LockKeyhole size={20} />,
     },
     {
         name: "Special Education Funds",
         href: "/dashboard/special-education-funds",
         category: "Department",
         icon: <GraduationCap size={20} />,
-        isNew: true,
+        // isNew: true,
     },
     {
         name: "Special Health Funds",
         href: "/dashboard/special-health-funds",
         category: "Department",
-        icon: <Heart size={20} />,
-        isNew: true,
+        icon: <HeartPulse size={20} />,
+        // isNew: true,
     },
     {
         name: "Particulars",
@@ -103,7 +102,7 @@ export const STATIC_NAV_ITEMS: NavItem[] = [
                     },
                     {
                         name: "Suggestions",
-                        href: "/dashboard/settings/suggestions",
+                        href: "/dashboard/settings/updates/suggestions",
                         badgeComponent: SuggestionsBadge,
                     },
                 ],

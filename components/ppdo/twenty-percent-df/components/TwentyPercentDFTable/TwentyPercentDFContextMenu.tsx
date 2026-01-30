@@ -45,7 +45,7 @@ export function TwentyPercentDFContextMenu({
     isTogglingAutoCalculate = false,
 }: TwentyPercentDFContextMenuProps) {
 
-    const { ref, style } = useContextMenuPosition(contextMenu?.x || 0, contextMenu?.y || 0);
+    const { ref, style } = useContextMenuPosition(contextMenu?.x, contextMenu?.y);
     const contextMenuStyle = style as ContextMenuStyle;
 
     useEffect(() => {

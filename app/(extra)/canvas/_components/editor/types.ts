@@ -91,6 +91,7 @@ export interface MarginSettings {
 export interface RulerState {
   visible: boolean;
   showVertical: boolean;
+  showMarginGuides: boolean;
   unit: RulerUnit;
   margins: MarginSettings;
   indents: IndentSettings;

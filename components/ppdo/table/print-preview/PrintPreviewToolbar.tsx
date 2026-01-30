@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, X, Save, Palette, Ruler, MoreVertical } from 'lucide-react';
+import { ArrowLeft, X, Save, Palette, Ruler, MoreVertical, Square } from 'lucide-react';
 import { DocumentTitleEditor } from './DocumentTitleEditor';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ResponsiveMoreMenu } from "@/components/shared/table/ResponsiveMoreMenu";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { MarginDropdown } from '@/app/(extra)/canvas/_components/editor/margin-dropdown';
 
 interface PrintPreviewToolbarProps {
   documentTitle: string;
@@ -26,9 +27,14 @@ interface PrintPreviewToolbarProps {
   onEditorModeChange: (enabled: boolean) => void;
   rulerVisible?: boolean;
   onToggleRuler?: () => void;
+  marginGuidesVisible?: boolean;
+  onToggleMarginGuides?: () => void;
   pageOrientation?: 'portrait' | 'landscape';
   pageSize?: string;
+  currentMargin?: number;
+  onMarginChange?: (value: number) => void;
 }
+
 
 export function PrintPreviewToolbar({
   documentTitle,
@@ -44,8 +50,12 @@ export function PrintPreviewToolbar({
   onEditorModeChange,
   rulerVisible = false,
   onToggleRuler,
+  marginGuidesVisible = false,
+  onToggleMarginGuides,
   pageOrientation = 'portrait',
   pageSize = 'A4',
+  currentMargin,
+  onMarginChange,
 }: PrintPreviewToolbarProps) {
 
   return (
@@ -132,6 +142,16 @@ export function PrintPreviewToolbar({
             </TooltipProvider>
           )}
 
+          {/* Margin Toggle Button */}
+          {onToggleMarginGuides && (
+            <MarginDropdown
+              marginGuidesVisible={marginGuidesVisible}
+              onToggleMarginGuides={onToggleMarginGuides}
+              currentMargin={currentMargin || 1.0}
+              onMarginChange={onMarginChange || (() => { })}
+            />
+          )}
+
           {/* Apply Template Button - Only in editor mode */}
           {isEditorMode && onApplyTemplate && (
             <TooltipProvider>
@@ -210,6 +230,13 @@ export function PrintPreviewToolbar({
               <DropdownMenuItem onClick={onToggleRuler}>
                 <Ruler className="w-4 h-4 mr-2" />
                 {rulerVisible ? 'Hide Ruler' : 'Show Ruler'}
+              </DropdownMenuItem>
+            )}
+
+            {onToggleMarginGuides && (
+              <DropdownMenuItem onClick={onToggleMarginGuides}>
+                <Square className="w-4 h-4 mr-2" />
+                {marginGuidesVisible ? 'Hide Margins' : 'Show Margins'}
               </DropdownMenuItem>
             )}
 

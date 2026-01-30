@@ -9,7 +9,7 @@ type Style = { top: number; left: number } | {};
  * Returns a `ref` to attach to the menu element and a `style` object
  * with computed `top` and `left` coordinates (in px).
  */
-export function useContextMenuPosition(x: number, y: number, margin = 8) {
+export function useContextMenuPosition(x: number | null | undefined, y: number | null | undefined, margin = 8) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [style, setStyle] = useState<Style>({});
 
