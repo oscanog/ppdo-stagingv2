@@ -28,7 +28,7 @@ export function DashboardHeader() {
 
   if (isLoading) {
     return (
-      <header className="sticky top-0 z-40 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm">
+      <header className="sticky top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm">
         <div className="flex h-16 items-center justify-between px-6">
           <div className="h-8 w-32 bg-zinc-200 dark:bg-zinc-800 rounded animate-pulse" />
           <div className="h-10 w-10 bg-zinc-200 dark:bg-zinc-800 rounded-full animate-pulse" />
@@ -42,7 +42,7 @@ export function DashboardHeader() {
   const userInitials = user ? getUserInitials(user) : "?";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm">
       <div className="flex h-16 items-center justify-between px-6">
         {/* Logo or Title */}
         <div className="flex items-center gap-4">

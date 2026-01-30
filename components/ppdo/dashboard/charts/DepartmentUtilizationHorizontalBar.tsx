@@ -16,7 +16,9 @@ import { useAccentColor } from "@/contexts/AccentColorContext";
 
 interface UtilizationData {
     department: string;
-    rate: number;
+    utilized: number;
+    obligated: number; // unutilized part
+    balance: number; // unobligated part
 }
 
 interface DepartmentUtilizationHorizontalBarProps {
@@ -25,7 +27,7 @@ interface DepartmentUtilizationHorizontalBarProps {
 }
 
 // Helper function to truncate text with ellipsis
-function truncateText(text: string, maxLength: number = 12): string {
+function truncateText(text: string, maxLength: number = 15): string {
     if (text.length <= maxLength) return text;
     return text.slice(0, maxLength) + "...";
 }
@@ -38,7 +40,7 @@ export function DepartmentUtilizationHorizontalBar({
 
     if (isLoading) {
         return (
-            <DashboardChartCard title="Department Utilization" height={300}>
+            <DashboardChartCard title="Department Budget" height={380}>
                 <div className="w-full h-full flex items-center justify-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderBottomColor: accentColorValue }}></div>
                 </div>
@@ -46,20 +48,34 @@ export function DepartmentUtilizationHorizontalBar({
         );
     }
 
+    // Format currency for tooltips
+    const formatCurrency = (value: number) =>
+        new Intl.NumberFormat("en-PH", {
+            style: "currency",
+            currency: "PHP",
+            notation: "compact",
+        }).format(value);
+
     return (
         <DashboardChartCard
-            title="Department Budget Utilization"
-            subtitle="Utilization rate (%) by implementing office"
-            height={300}
+            title="Department Budget Composition"
+            subtitle="Budget distribution by implementing office"
+            height={380}
         >
             <div className="flex flex-col h-full">
-                {/* Scale Header Row */}
-                <div className="flex items-center mb-2 text-xs text-zinc-500 dark:text-zinc-400 font-medium">
-                    <div style={{ width: 100 }}></div>
-                    <div className="flex-1 flex justify-between px-1">
-                        <span>0%</span>
-                        <span>50%</span>
-                        <span>100%</span>
+                {/* Legend Header */}
+                <div className="flex items-center gap-4 mb-4 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                        <span>Utilized</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                        <span>Obligated</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-zinc-400" />
+                        <span>Balance</span>
                     </div>
                 </div>
 
@@ -69,11 +85,11 @@ export function DepartmentUtilizationHorizontalBar({
                         <BarChart
                             layout="vertical"
                             data={data}
-                            margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
+                            margin={{ top: 0, right: 30, left: 20, bottom: 0 }}
+                            stackOffset="expand"
                         >
                             <XAxis
                                 type="number"
-                                domain={[0, 100]}
                                 hide
                             />
                             <YAxis
@@ -81,34 +97,37 @@ export function DepartmentUtilizationHorizontalBar({
                                 type="category"
                                 axisLine={false}
                                 tickLine={false}
-                                tick={{ fill: "#52525b", fontSize: 11, fontWeight: 500 }}
-                                className="dark:fill-zinc-300"
-                                width={100}
-                                tickFormatter={(value) => truncateText(value, 12)}
+                                tick={{ fill: "#71717a", fontSize: 10, fontWeight: 700 }}
+                                width={120}
+                                tickFormatter={(value) => truncateText(value, 20)}
                             />
                             <Tooltip
-                                cursor={{ fill: "rgba(0,0,0,0.02)" }}
-                                formatter={(value: number | undefined) => [
-                                    value !== undefined ? `${value.toFixed(1)}%` : "0.0%",
-                                    "Utilization",
-                                ]}
-                                labelFormatter={(label) => label}
-                                contentStyle={{
-                                    backgroundColor: "#FFF",
-                                    borderRadius: "10px",
-                                    border: "none",
-                                    boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                                    fontSize: "13px",
+                                cursor={{ fill: "rgba(0,0,0,0.04)" }}
+                                content={({ active, payload, label }) => {
+                                    if (active && payload && payload.length) {
+                                        return (
+                                            <div className="bg-white dark:bg-zinc-900 p-3 rounded-xl shadow-xl border border-zinc-100 dark:border-zinc-800 backdrop-blur-md">
+                                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">{label}</p>
+                                                <div className="space-y-1.5">
+                                                    {payload.map((entry: any, index: number) => (
+                                                        <div key={index} className="flex justify-between items-center gap-8">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                                                                <span className="text-xs font-bold text-zinc-600 dark:text-zinc-300">{entry.name}</span>
+                                                            </div>
+                                                            <span className="text-xs font-black text-zinc-800 dark:text-zinc-100">{formatCurrency(entry.value)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    }
+                                    return null;
                                 }}
-                                wrapperClassName="dark:[&>div]:!bg-zinc-800 dark:[&>div]:!text-zinc-50"
                             />
-                            {/* Reference lines for visual scale */}
-                            <ReferenceLine x={50} stroke="#e4e4e7" strokeDasharray="3 3" />
-                            <Bar dataKey="rate" fill={accentColorValue} radius={[0, 4, 4, 0]} barSize={24}>
-                                {data.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={accentColorValue} fillOpacity={1 - (index * 0.05)} />
-                                ))}
-                            </Bar>
+                            <Bar dataKey="utilized" name="Utilized" stackId="a" fill="#10B981" radius={[0, 0, 0, 0]} barSize={20} />
+                            <Bar dataKey="obligated" name="Obligated" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="balance" name="Balance" stackId="a" fill="#94a3b8" radius={[0, 4, 4, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>

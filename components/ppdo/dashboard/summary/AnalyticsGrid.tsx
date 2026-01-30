@@ -14,7 +14,9 @@ interface AnalyticsGridProps {
   pieChartData: DashboardPieChartData;
   utilizationData: Array<{
     department: string;
-    rate: number;
+    utilized: number;
+    obligated: number;
+    balance: number;
   }>;
   budgetDistributionData: Array<{
     label: string;

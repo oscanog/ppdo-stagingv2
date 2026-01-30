@@ -78,7 +78,7 @@ export function Header({ onSearchChange, searchQuery }: HeaderProps) {
   // Show loading state while fetching user data
   if (isLoading) {
     return (
-      <header className="sticky top-0 z-30 bg-[#f8f8f8]/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800">
+      <header className="sticky top-0 z-50 bg-[#f8f8f8]/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 py-4">
             <div className="flex items-center gap-4 flex-1">
@@ -104,7 +104,7 @@ export function Header({ onSearchChange, searchQuery }: HeaderProps) {
   // If no user data, show minimal header
   if (!user) {
     return (
-      <header className="sticky top-0 z-30 bg-[#f8f8f8]/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800">
+      <header className="sticky top-0 z-50 bg-[#f8f8f8]/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 py-4">
             <div className="flex items-center gap-4 flex-1">
@@ -150,7 +150,7 @@ export function Header({ onSearchChange, searchQuery }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 bg-[#f8f8f8]/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800">
+      <header className="sticky top-0 z-50 bg-[#f8f8f8]/95 dark:bg-zinc-900/95 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-800">
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 py-4">
             {/* Left section - Sidebar Toggle, Welcome and User Name */}

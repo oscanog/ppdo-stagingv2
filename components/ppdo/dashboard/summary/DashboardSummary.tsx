@@ -65,9 +65,9 @@ export function DashboardSummary({ year }: { year: number }) {
       { name: "Budget", value: 0, color: "#6B7280" } // Fallback for required type
     ],
     budget: [
-      { name: "Disbursed", value: analytics.chartData.budgetOverview.disbursed, color: "#10B981" },
+      { name: "Utilized", value: analytics.chartData.budgetOverview.disbursed, color: "#10B981" },
       { name: "Obligated", value: Math.max(0, analytics.chartData.budgetOverview.obligated - analytics.chartData.budgetOverview.disbursed), color: "#F59E0B" },
-      { name: "Remaining", value: analytics.chartData.budgetOverview.remaining, color: "#6B7280" },
+      { name: "Balance", value: analytics.chartData.budgetOverview.remaining, color: "#6B7280" },
     ],
     sector: (analytics.chartData.categoryDistribution || []).map((cat: any, i: number) => ({
       name: cat.name,
@@ -77,6 +77,8 @@ export function DashboardSummary({ year }: { year: number }) {
     finance: [
       { name: "Allocated", value: analytics.chartData.budgetOverview.allocated, color: "#3B82F6" },
       { name: "Utilized", value: analytics.chartData.budgetOverview.disbursed, color: "#10B981" },
+      { name: "Obligated", value: analytics.chartData.budgetOverview.obligated, color: "#F59E0B" },
+      { name: "Balance", value: analytics.chartData.budgetOverview.remaining, color: "#6B7280" },
     ],
     department: (analytics.departmentBreakdown || []).map((d: any, i: number) => ({
       name: d.code || d.name,
@@ -87,7 +89,9 @@ export function DashboardSummary({ year }: { year: number }) {
 
   const utilizationData = (analytics.departmentBreakdown || []).map((d: any) => ({
     department: d.code || d.name,
-    rate: d.utilizationRate
+    utilized: d.utilized,
+    obligated: Math.max(0, d.obligated - d.utilized),
+    balance: Math.max(0, d.allocated - d.obligated),
   }));
 
   const budgetDistributionData = (analytics.topCategories || []).map((c: any) => ({

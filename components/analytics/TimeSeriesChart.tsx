@@ -24,7 +24,7 @@ interface TimeSeriesChartProps {
 
 export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
     const [view, setView] = useState<"monthly" | "quarterly">("monthly");
-    const [metric, setMetric] = useState<"budget" | "projects" | "obligations" | "disbursements">("budget");
+    const [metric, setMetric] = useState<"budget" | "projects">("budget");
 
     const chartData = data[view].map((item) => ({
         ...item,
@@ -58,8 +58,6 @@ export function TimeSeriesChart({ data }: TimeSeriesChartProps) {
                     <TabsList>
                         <TabsTrigger value="budget">Budget</TabsTrigger>
                         <TabsTrigger value="projects">Projects</TabsTrigger>
-                        <TabsTrigger value="obligations">Obligations</TabsTrigger>
-                        <TabsTrigger value="disbursements">Disbursements</TabsTrigger>
                     </TabsList>
                 </Tabs>
 
