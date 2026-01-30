@@ -18,7 +18,7 @@ import { OnboardingConfig } from "@/convex/config/onboardingConfig";
 import { useRouter } from "next/navigation";
 
 export function OnboardingModal() {
-  const status = useQuery(api.auth.getOnboardingStatus);
+  const status = useQuery(api.auth.getOnboardingStatus, {});
   const completeOnboarding = useMutation(api.auth.completeInitialOnboarding);
   const completeBugReportOnboarding = useMutation(api.auth.completeBugReportOnboarding);
   const generateUploadUrl = useMutation(api.media.generateUploadUrl);

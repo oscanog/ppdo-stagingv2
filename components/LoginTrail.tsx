@@ -12,7 +12,7 @@ import { Import } from "lucide-react";
 import { PersonalKPICard } from "./PersonalKPICard";
 
 export function LoginTrail() {
-  const currentUser = useQuery(api.auth.getCurrentUser);
+  const currentUser = useQuery(api.auth.getCurrentUser, {});
   // Updated to include inspector role check
   const isAdmin = currentUser?.role === "super_admin" || currentUser?.role === "admin";
   const [activeTab, setActiveTab] = useState<string>("logintrail");

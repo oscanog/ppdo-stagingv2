@@ -55,7 +55,7 @@ export function FundsTable<T extends BaseFund>({
     const updateStatus = useMutation(apiEndpoint.updateStatus);
 
     // Current user for permissions
-    const currentUser = useQuery(api.users.current);
+    const currentUser = useQuery(api.users.current, {});
 
     // Modal States
     const [showAddModal, setShowAddModal] = useState(false);

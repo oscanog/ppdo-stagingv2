@@ -20,7 +20,7 @@ interface StatusDropdownProps {
 }
 
 export function StatusDropdown({ itemId, itemType, currentStatus }: StatusDropdownProps) {
-    const currentUser = useQuery(api.users.current);
+    const currentUser = useQuery(api.users.current, {});
     const isSuperAdmin = currentUser?.role === "super_admin";
 
     const updateBugStatus = useMutation(api.bugReports.updateStatus);

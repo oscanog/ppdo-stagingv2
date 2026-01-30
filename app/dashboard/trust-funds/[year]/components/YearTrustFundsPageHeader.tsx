@@ -12,10 +12,10 @@ interface YearTrustFundsPageHeaderProps {
   onToggleDetails: () => void;
 }
 
-export function YearTrustFundsPageHeader({ 
+export function YearTrustFundsPageHeader({
   year,
-  showDetails, 
-  onToggleDetails 
+  showDetails,
+  onToggleDetails
 }: YearTrustFundsPageHeaderProps) {
   return (
     <div className="mb-6 no-print">
@@ -28,7 +28,7 @@ export function YearTrustFundsPageHeader({
             Trust Funds {year}
           </h1>
           <p className="text-zinc-600 dark:text-zinc-400 mt-1">
-            Monitor fund allocation, utilization, and project status for fiscal year {year}
+            Monitor fund allocation, utilization, and project status for year {year}
           </p>
         </div>
 

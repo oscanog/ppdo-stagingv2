@@ -42,7 +42,7 @@ export function useTableSettings(options: UseTableSettingsOptions = {}) {
   const saveSettings = useMutation(api.tableSettings.saveSettings);
 
   // Check user permissions
-  const currentUser = useQuery(api.users.current);
+  const currentUser = useQuery(api.users.current, {});
   const canEditLayout = currentUser?.role === "super_admin" || currentUser?.role === "admin";
 
   // Load settings when they change

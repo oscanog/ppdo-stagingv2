@@ -72,7 +72,7 @@ export function TwentyPercentDFTable({
     const searchInputRef = useRef<HTMLInputElement>(null);
 
     // ==================== QUERIES & MUTATIONS ====================
-    const currentUser = useQuery(api.users.current);
+    const currentUser = useQuery(api.users.current, {});
     const allCategories = useQuery(api.projectCategories.list, {});
     const pendingParticularRequests = useQuery(
         api.accessRequests.getParticularPendingCount,

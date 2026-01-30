@@ -109,11 +109,11 @@ export default function ProjectDashboardLanding() {
 
     try {
       await deleteFiscalYear({ id: yearToDelete.id });
-      toast.success(`Fiscal Year ${yearToDelete.year} deleted successfully`);
+      toast.success(`Year ${yearToDelete.year} deleted successfully`);
       setDeleteDialogOpen(false);
       setYearToDelete(null);
     } catch (error) {
-      toast.error("Failed to delete fiscal year");
+      toast.error("Failed to delete year");
       console.error(error);
     }
   };

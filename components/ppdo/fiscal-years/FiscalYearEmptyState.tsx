@@ -19,7 +19,7 @@ export function FiscalYearEmptyState({
                 <Calendar className="w-8 h-8" style={{ color: accentColor }} />
             </div>
             <p className="text-zinc-600 dark:text-zinc-400 mb-4">
-                No fiscal years created yet.
+                No years created yet.
             </p>
             <Button
                 onClick={onCreateFirst}
@@ -27,7 +27,7 @@ export function FiscalYearEmptyState({
                 style={{ backgroundColor: accentColor }}
             >
                 <Plus className="w-4 h-4" />
-                Create First Fiscal Year
+                Create First Year
             </Button>
         </div>
     );

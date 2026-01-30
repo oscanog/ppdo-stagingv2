@@ -1,175 +1,150 @@
-// components/ppdo/dashboard/summary/DashboardSummary.tsx
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useMemo, useState, useEffect } from "react";
-import { ArrowLeft, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { BetaBanner } from "@/components/ui/beta-banner";
-import { useAccentColor } from "@/contexts/AccentColorContext";
-import { KPICardsRow } from "./KPICardsRow";
+import { useDashboardFilters } from "@/hooks/useDashboardFilters";
+import { DashboardFilters } from "@/components/analytics/DashboardFilters";
+import { DashboardSkeleton } from "@/components/analytics/DashboardSkeleton";
+import { KPICard } from "@/components/KPICard";
+import { motion } from "framer-motion";
 import { AnalyticsGrid } from "./AnalyticsGrid";
-import { LoginTrailDialog } from "@/components/LoginTrailDialog";
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
-
-interface DashboardSummaryProps {
-  year: number;
-}
+import { FolderOpen, CheckCircle2, Clock, TrendingUp } from "lucide-react";
 
 /**
- * DashboardSummary Component
- *
- * Year-specific analytics dashboard showing:
- * - KPI cards for the selected year
- * - All analytics charts filtered by year
- * - Budget utilization metrics
- * - Project status distribution
+ * Animation variants for the KPI cards container
  */
-export function DashboardSummary({ year }: DashboardSummaryProps) {
-  const router = useRouter();
-  const { accentColorValue } = useAccentColor();
-  const { user } = useCurrentUser();
-  const [isMounted, setIsMounted] = useState(false);
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+export function DashboardSummary({ year }: { year: number }) {
+  const { filters, updateFilter, resetFilters } = useDashboardFilters();
 
-  // Fetch optimized dashboard data
-  const dashboardData = useQuery(api.dashboard.getSummaryData, {
-    includeInactive: false,
-  });
+  // Get fiscal year ID
+  const fiscalYears = useQuery(api.fiscalYears.list, {});
+  const fiscalYear = fiscalYears?.find(fy => fy.year === year);
 
-  // Get year-specific analytics data
-  const analyticsData = useMemo(() => {
-    if (!dashboardData) {
-      return {
-        kpiData: { totalProjects: 0, ongoing: 0, completed: 0, delayed: 0 },
-        timelineData: {},
-        pieChartData: { sector: [], finance: [], status: [], department: [], budget: [] },
-        utilizationData: [],
-        budgetDistributionData: [],
-      };
-    }
+  // Destructure to separate flat date fields from the rest
+  const { startDate, endDate, ...otherFilters } = filters;
 
-    const yearStats = dashboardData.yearStats[year.toString()] || {
-      projectCount: 0,
-      ongoingCount: 0,
-      completedCount: 0,
-      delayedCount: 0,
-      totalBudgetAllocated: 0,
-      totalBudgetUtilized: 0,
-      utilizationRate: 0,
-      breakdownCount: 0,
-    };
+  // Fetch analytics with filters
+  const analytics = useQuery(
+    api.dashboard.getDashboardAnalytics,
+    fiscalYear ? {
+      ...otherFilters,
+      fiscalYearId: fiscalYear._id,
+      dateRange: (startDate && endDate) ? { start: startDate, end: endDate } : undefined,
+    } : "skip"
+  );
 
-    // Build analytics from the year data
-    const trendData = [
-      {
-        label: year.toString(),
-        allocated: yearStats.totalBudgetAllocated,
-        utilized: yearStats.totalBudgetUtilized,
-      },
-    ];
-
-    const statusData = [
-      { status: "ongoing" as const, count: yearStats.ongoingCount },
-      { status: "completed" as const, count: yearStats.completedCount },
-      { status: "delayed" as const, count: yearStats.delayedCount },
-    ];
-
-    // Get year-specific utilization data
-    const yearUtilization = dashboardData.utilizationByYear[year.toString()] || [];
-    const budgetDistribution = dashboardData.budgetDistributionByYear[year.toString()] || [];
-    const heatmapData = dashboardData.heatmapDataByYear[year.toString()] || [];
-
-    return {
-      kpiData: {
-        totalProjects: yearStats.projectCount,
-        ongoing: yearStats.ongoingCount,
-        completed: yearStats.completedCount,
-        delayed: yearStats.delayedCount,
-      },
-      timelineData: dashboardData.timelineData || {},
-      pieChartData: dashboardData.pieChartData || { sector: [], finance: [], status: [], department: [], budget: [] },
-      utilizationData: yearUtilization,
-      budgetDistributionData: budgetDistribution,
-    };
-  }, [dashboardData, year]);
-
-  if (!isMounted) return null;
-
-  if (dashboardData === undefined) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-zinc-300 border-t-transparent dark:border-zinc-700 dark:border-t-transparent mb-4"></div>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Loading analytics...
-          </p>
-        </div>
-      </div>
-    );
+  if (!analytics) {
+    return <DashboardSkeleton />;
   }
 
+  // Transform Convex data for AnalyticsGrid components
+  const timelineData = {
+    [year.toString()]: analytics.timeSeriesData.monthly.map((m: any) => m.projects)
+  };
+
+  const colors = ["#10B981", "#3B82F6", "#F59E0B", "#EF4444", "#8B5CF6", "#6366F1", "#EC4899"];
+
+  const pieChartData = {
+    status: [
+      { name: "Ongoing", value: analytics.chartData.statusDistribution.ongoing, color: "#3B82F6" },
+      { name: "Completed", value: analytics.chartData.statusDistribution.completed, color: "#10B981" },
+      { name: "Delayed", value: analytics.chartData.statusDistribution.delayed, color: "#EF4444" },
+      { name: "Finance", value: 0, color: "#6B7280" }, // Fallback for required type
+      { name: "Sector", value: 0, color: "#6B7280" }, // Fallback for required type
+      { name: "Department", value: 0, color: "#6B7280" }, // Fallback for required type
+      { name: "Budget", value: 0, color: "#6B7280" } // Fallback for required type
+    ],
+    budget: [
+      { name: "Disbursed", value: analytics.chartData.budgetOverview.disbursed, color: "#10B981" },
+      { name: "Obligated", value: Math.max(0, analytics.chartData.budgetOverview.obligated - analytics.chartData.budgetOverview.disbursed), color: "#F59E0B" },
+      { name: "Remaining", value: analytics.chartData.budgetOverview.remaining, color: "#6B7280" },
+    ],
+    sector: (analytics.chartData.categoryDistribution || []).map((cat: any, i: number) => ({
+      name: cat.name,
+      value: cat.value,
+      color: colors[i % colors.length]
+    })),
+    finance: [
+      { name: "Allocated", value: analytics.chartData.budgetOverview.allocated, color: "#3B82F6" },
+      { name: "Utilized", value: analytics.chartData.budgetOverview.disbursed, color: "#10B981" },
+    ],
+    department: (analytics.departmentBreakdown || []).map((d: any, i: number) => ({
+      name: d.code || d.name,
+      value: d.allocated,
+      color: colors[i % colors.length]
+    }))
+  };
+
+  const utilizationData = (analytics.departmentBreakdown || []).map((d: any) => ({
+    department: d.code || d.name,
+    rate: d.utilizationRate
+  }));
+
+  const budgetDistributionData = (analytics.topCategories || []).map((c: any) => ({
+    label: c.category,
+    value: c.allocated,
+    subValue: `₱${c.utilized.toLocaleString()}`,
+    percentage: c.allocated > 0 ? (c.utilized / c.allocated) * 100 : 0
+  }));
+
   return (
-    <div className="space-y-8">
-      {/* Beta Banner */}
-      <BetaBanner
-        featureName="Dashboard"
-        message="The new dashboard with year filtering is in beta. We're actively improving the experience."
-        variant="info"
-        storageKey="dashboard-beta-banner-dismissed"
-        userRole={user?.role}
+    <div className="space-y-6">
+      {/* Header with Filters */}
+      <DashboardFilters
+        filters={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
       />
 
-      {/* Header with Back Button */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <div className="flex items-center gap-2">
-              <Calendar
-                className="w-6 h-6"
-                style={{ color: accentColorValue }}
-              />
-              <h1 className="text-3xl font-bold text-zinc-900 dark:text-zinc-50">
-                {year} Summary
-              </h1>
-            </div>
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
-              Detailed analytics and performance metrics for this fiscal year
-            </p>
-          </div>
-        </div>
-        <div className="ml-auto">
-          <LoginTrailDialog />
-        </div>
-      </div>
+      {/* Enhanced KPI Cards with Trends */}
+      <motion.div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        <KPICard
+          title="Total Projects"
+          value={analytics.metrics.totalProjects}
+          trend={{ value: 12.5, isPositive: true }}
+          icon={<FolderOpen className="w-6 h-6" />}
+        />
+        <KPICard
+          title="Ongoing"
+          value={analytics.metrics.ongoingProjects}
+          trend={{ value: 5.2, isPositive: true }}
+          icon={<Clock className="w-6 h-6" />}
+        />
+        <KPICard
+          title="Completed"
+          value={analytics.metrics.completedProjects}
+          trend={{ value: 8.1, isPositive: true }}
+          icon={<CheckCircle2 className="w-6 h-6" />}
+        />
+        <KPICard
+          title="Utilization Rate"
+          value={`${analytics.metrics.utilizationRate.toFixed(1)}%`}
+          trend={{ value: 2.4, isPositive: true }}
+          icon={<TrendingUp className="w-6 h-6" />}
+        />
+      </motion.div>
 
-      {/* KPI Cards */}
-      <KPICardsRow
-        totalProjects={analyticsData.kpiData.totalProjects}
-        ongoing={analyticsData.kpiData.ongoing}
-        completed={analyticsData.kpiData.completed}
-        delayed={analyticsData.kpiData.delayed}
-        accentColor={accentColorValue}
-      />
-
-      {/* Analytics Grid */}
+      {/* Enhanced Charts */}
       <AnalyticsGrid
-        timelineData={analyticsData.timelineData}
-        pieChartData={analyticsData.pieChartData}
-        utilizationData={analyticsData.utilizationData}
-        budgetDistributionData={analyticsData.budgetDistributionData}
+        timelineData={timelineData}
+        pieChartData={pieChartData}
+        utilizationData={utilizationData}
+        budgetDistributionData={budgetDistributionData}
       />
     </div>
   );

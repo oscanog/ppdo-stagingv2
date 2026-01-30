@@ -1,30 +1,35 @@
-// app/dashboard/[year]/page.tsx
-/**
- * Dynamic Dashboard Year Summary Page
- *
- * Route: /dashboard/[year]
- * Shows year-specific analytics and KPIs when user selects a fiscal year.
- */
-
+// NEW - With advanced filters
 "use client";
 
-import { DashboardSummary } from "@/components/ppdo/dashboard/summary";
-import { useParams } from "next/navigation";
+import { Suspense } from "react";
+import { DashboardFilters } from "@/components/analytics/DashboardFilters";
+import { DashboardContent } from "@/components/analytics/DashboardContent";
+import { useDashboardFilters } from "@/hooks/useDashboardFilters";
+import { DashboardSkeleton } from "@/components/analytics/DashboardSkeleton";
+import { PrintableDashboard } from "@/components/print/PrintableDashboard";
 
-export default function DashboardYearPage() {
-  const params = useParams();
-  const year = parseInt(params.year as string, 10);
+import { use } from "react";
 
-  if (isNaN(year)) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-red-500 font-semibold">Invalid year</p>
-        <p className="text-zinc-600 dark:text-zinc-400 text-sm mt-2">
-          Please select a valid year from the dashboard
-        </p>
-      </div>
-    );
-  }
+export default function AnalyticsPage({ params }: { params: Promise<{ year: string }> }) {
+  const { year } = use(params);
+  const { filters, updateFilter, resetFilters } = useDashboardFilters();
 
-  return <DashboardSummary year={year} />;
+  return (
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
+      {/* Sticky Filter Bar */}
+      <DashboardFilters
+        filters={filters}
+        onChange={updateFilter}
+        onReset={resetFilters}
+      />
+
+      {/* Main Content with Suspense */}
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardContent filters={filters} year={year} />
+      </Suspense>
+
+      {/* Print Component */}
+      <PrintableDashboard filters={filters} />
+    </div>
+  );
 }

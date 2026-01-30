@@ -26,7 +26,7 @@ export function KPICardsRow({
       label: "Total Projects",
       value: totalProjects,
       color: "text-zinc-900 dark:text-zinc-50",
-      tooltip: "All projects across all statuses for the selected fiscal year",
+      tooltip: "All projects across all statuses for the selected year",
     },
     {
       label: "Ongoing",

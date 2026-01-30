@@ -199,7 +199,7 @@ export function Header({ onSearchChange, searchQuery }: HeaderProps) {
               </div>
 
               {/* Report Bug Button & Toggle */}
-              <div className="ml-4 flex items-center gap-2">
+              <div className="hidden ml-4 flex items-center gap-2">
                 {showBugReport && (
                   <Button
                     variant="outline"

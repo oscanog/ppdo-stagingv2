@@ -46,7 +46,7 @@ interface Filters {
 }
 
 export function LoginTrailTable() {
-  const currentUser = useQuery(api.auth.getCurrentUser);
+  const currentUser = useQuery(api.auth.getCurrentUser, {});
   const isAdmin = currentUser?.role === "super_admin" || currentUser?.role === "admin";
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -384,10 +384,10 @@ export function LoginTrailTable() {
             <div
               key={event.id}
               className={`flex items-start gap-4 p-3 sm:p-4 rounded-lg hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all border ${event.isPinned
-                  ? "shadow-md shadow-yellow-200/50 dark:shadow-yellow-950/30 border-yellow-300 dark:border-yellow-800 bg-yellow-50/30 dark:bg-yellow-950/10"
-                  : event.status === "suspicious" || event.status === "failed"
-                    ? "border-yellow-200 dark:border-yellow-900/50 bg-yellow-50/50 dark:bg-yellow-950/20"
-                    : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50"
+                ? "shadow-md shadow-yellow-200/50 dark:shadow-yellow-950/30 border-yellow-300 dark:border-yellow-800 bg-yellow-50/30 dark:bg-yellow-950/10"
+                : event.status === "suspicious" || event.status === "failed"
+                  ? "border-yellow-200 dark:border-yellow-900/50 bg-yellow-50/50 dark:bg-yellow-950/20"
+                  : "border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900/50"
                 }`}
             >
               {/* Status Icon */}
