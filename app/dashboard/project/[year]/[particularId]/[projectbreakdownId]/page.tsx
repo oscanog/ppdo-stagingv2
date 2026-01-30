@@ -277,6 +277,7 @@ export default function ProjectBreakdownPage() {
             onEdit={handleEdit}
             onDelete={handleDelete}
             onOpenTrash={() => setShowTrashModal(true)}
+            entityName={project?.particulars}
           />
         )}
       </div>

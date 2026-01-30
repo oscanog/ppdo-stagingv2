@@ -308,6 +308,7 @@ export default function SpecialHealthFundBreakdownPage({ params }: PageProps) {
                         onStatusChange={handleStatusChange}
                         onOpenTrash={() => setShowTrashModal(true)}
                         entityType="specialhealthfund"
+                        entityName={fund?.projectTitle}
                     />
                 )}
             </div>

@@ -62,6 +62,8 @@ export interface BreakdownHistoryTableProps {
   entityType?: "project" | "trustfund" | "specialeducationfund" | "specialhealthfund" | "twentyPercentDF";
   /** Navigation params for building detail paths */
   navigationParams?: NavigationParams;
+  /** Name of the entity (project name, fund title, etc.) for print preview */
+  entityName?: string;
 }
 
 export interface RowHeights {

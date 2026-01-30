@@ -299,6 +299,7 @@ export default function TwentyPercentDFBreakdownPage({ params }: PageProps) {
                         onStatusChange={handleStatusChange}
                         onOpenTrash={() => setShowTrashModal(true)}
                         entityType="twentyPercentDF"
+                        entityName={fund?.particulars}
                     />
                 )}
             </div>

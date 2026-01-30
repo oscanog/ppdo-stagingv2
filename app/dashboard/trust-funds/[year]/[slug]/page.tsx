@@ -322,6 +322,7 @@ export default function TrustFundBreakdownPage() {
             onStatusChange={handleStatusChange}
             onOpenTrash={() => setShowTrashModal(true)}
             entityType="trustfund"
+            entityName={trustFund?.projectTitle}
           />
         )}
       </div>

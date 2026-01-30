@@ -47,18 +47,21 @@ export const getBreakdown = query({
  */
 export const getBreakdowns = query({
   args: {
-    trustFundId: v.id("trustFunds"),
+    trustFundId: v.optional(v.id("trustFunds")),
     status: v.optional(v.string()),
     municipality: v.optional(v.string()),
     implementingOffice: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let query = ctx.db
-      .query("trustFundBreakdowns")
-      .withIndex("trustFundId", (q) => q.eq("trustFundId", args.trustFundId))
-      .filter((q) => q.neq(q.field("isDeleted"), true));
+    const baseQuery = args.trustFundId
+      ? ctx.db
+        .query("trustFundBreakdowns")
+        .withIndex("trustFundId", (q) => q.eq("trustFundId", args.trustFundId!))
+      : ctx.db.query("trustFundBreakdowns");
 
-    const breakdowns = await query.collect();
+    const breakdowns = await baseQuery
+      .filter((q) => q.neq(q.field("isDeleted"), true))
+      .collect();
 
     // Apply optional filters
     let filtered = breakdowns;

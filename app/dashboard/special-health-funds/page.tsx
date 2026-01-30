@@ -28,6 +28,9 @@ export default function SpecialHealthFundsLanding() {
     // Fetch all special health funds
     const allSpecialHealthFunds = useQuery(api.specialHealthFunds.list);
 
+    // Fetch all special health fund breakdowns
+    const allBreakdowns = useQuery(api.specialHealthFundBreakdowns.getBreakdowns, {});
+
     // Delete mutation
     const deleteFiscalYear = useMutation(api.fiscalYears.remove);
 
@@ -36,10 +39,12 @@ export default function SpecialHealthFundsLanding() {
 
     // Calculate statistics per year
     const yearsWithStats = useMemo(() => {
-        if (!fiscalYears || !allSpecialHealthFunds) return [];
+        if (!fiscalYears || !allSpecialHealthFunds || !allBreakdowns) return [];
 
         return fiscalYears.map((fiscalYear) => {
             const yearFunds = allSpecialHealthFunds.filter(fund => fund.year === fiscalYear.year);
+            const yearFundIds = new Set(yearFunds.map(f => f._id));
+            const yearBreakdowns = allBreakdowns.filter(b => yearFundIds.has(b.specialHealthFundId));
 
             const totalReceived = yearFunds.reduce((sum, fund) => sum + fund.received, 0);
             const totalUtilized = yearFunds.reduce((sum, fund) => sum + fund.utilized, 0);
@@ -49,9 +54,7 @@ export default function SpecialHealthFundsLanding() {
                 : 0;
 
             // Calculate total items (grandchildren breakdown items)
-            const totalItems = yearFunds.reduce((sum, fund) => {
-                return sum + (fund.projectCompleted || 0) + (fund.projectDelayed || 0) + (fund.projectsOngoing || 0);
-            }, 0);
+            const totalItems = yearBreakdowns.length;
 
             return {
                 ...fiscalYear,
@@ -65,7 +68,7 @@ export default function SpecialHealthFundsLanding() {
                 },
             };
         });
-    }, [fiscalYears, allSpecialHealthFunds]);
+    }, [fiscalYears, allSpecialHealthFunds, allBreakdowns]);
 
     const sortedYears = useMemo(() => {
         return [...yearsWithStats].sort((a, b) => b.year - a.year);

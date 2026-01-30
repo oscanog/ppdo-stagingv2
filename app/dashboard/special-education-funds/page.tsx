@@ -28,6 +28,9 @@ export default function SpecialEducationFundsLanding() {
     // Fetch all special education funds
     const allSpecialEducationFunds = useQuery(api.specialEducationFunds.list);
 
+    // Fetch all special education fund breakdowns
+    const allBreakdowns = useQuery(api.specialEducationFundBreakdowns.getBreakdowns, {});
+
     // Delete mutation
     const deleteFiscalYear = useMutation(api.fiscalYears.remove);
 
@@ -36,10 +39,12 @@ export default function SpecialEducationFundsLanding() {
 
     // Calculate statistics per year
     const yearsWithStats = useMemo(() => {
-        if (!fiscalYears || !allSpecialEducationFunds) return [];
+        if (!fiscalYears || !allSpecialEducationFunds || !allBreakdowns) return [];
 
         return fiscalYears.map((fiscalYear) => {
             const yearFunds = allSpecialEducationFunds.filter(fund => fund.year === fiscalYear.year);
+            const yearFundIds = new Set(yearFunds.map(f => f._id));
+            const yearBreakdowns = allBreakdowns.filter(b => yearFundIds.has(b.specialEducationFundId));
 
             const totalReceived = yearFunds.reduce((sum, fund) => sum + fund.received, 0);
             const totalUtilized = yearFunds.reduce((sum, fund) => sum + fund.utilized, 0);
@@ -49,9 +54,7 @@ export default function SpecialEducationFundsLanding() {
                 : 0;
 
             // Calculate total items (grandchildren breakdown items)
-            const totalItems = yearFunds.reduce((sum, fund) => {
-                return sum + (fund.projectCompleted || 0) + (fund.projectDelayed || 0) + (fund.projectsOngoing || 0);
-            }, 0);
+            const totalItems = yearBreakdowns.length;
 
             return {
                 ...fiscalYear,
@@ -65,7 +68,7 @@ export default function SpecialEducationFundsLanding() {
                 },
             };
         });
-    }, [fiscalYears, allSpecialEducationFunds]);
+    }, [fiscalYears, allSpecialEducationFunds, allBreakdowns]);
 
     const sortedYears = useMemo(() => {
         return [...yearsWithStats].sort((a, b) => b.year - a.year);

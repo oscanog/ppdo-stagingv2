@@ -47,18 +47,21 @@ export const getBreakdown = query({
  */
 export const getBreakdowns = query({
   args: {
-    specialHealthFundId: v.id("specialHealthFunds"),
+    specialHealthFundId: v.optional(v.id("specialHealthFunds")),
     status: v.optional(v.string()),
     municipality: v.optional(v.string()),
     implementingOffice: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let query = ctx.db
-      .query("specialHealthFundBreakdowns")
-      .withIndex("specialHealthFundId", (q) => q.eq("specialHealthFundId", args.specialHealthFundId))
-      .filter((q) => q.neq(q.field("isDeleted"), true));
+    const baseQuery = args.specialHealthFundId
+      ? ctx.db
+        .query("specialHealthFundBreakdowns")
+        .withIndex("specialHealthFundId", (q) => q.eq("specialHealthFundId", args.specialHealthFundId!))
+      : ctx.db.query("specialHealthFundBreakdowns");
 
-    const breakdowns = await query.collect();
+    const breakdowns = await baseQuery
+      .filter((q) => q.neq(q.field("isDeleted"), true))
+      .collect();
 
     // Apply optional filters
     let filtered = breakdowns;

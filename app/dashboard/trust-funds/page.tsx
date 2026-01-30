@@ -28,6 +28,9 @@ export default function TrustFundsLanding() {
   // Fetch all trust funds
   const allTrustFunds = useQuery(api.trustFunds.list);
 
+  // Fetch all trust fund breakdowns
+  const allBreakdowns = useQuery(api.trustFundBreakdowns.getBreakdowns, {});
+
   // Delete mutation
   const deleteFiscalYear = useMutation(api.fiscalYears.remove);
 
@@ -36,10 +39,12 @@ export default function TrustFundsLanding() {
 
   // Calculate statistics per year
   const yearsWithStats = useMemo(() => {
-    if (!fiscalYears || !allTrustFunds) return [];
+    if (!fiscalYears || !allTrustFunds || !allBreakdowns) return [];
 
     return fiscalYears.map((fiscalYear) => {
       const yearTrustFunds = allTrustFunds.filter(tf => tf.year === fiscalYear.year);
+      const yearFundIds = new Set(yearTrustFunds.map(f => f._id));
+      const yearBreakdowns = allBreakdowns.filter(b => yearFundIds.has(b.trustFundId));
 
       const totalReceived = yearTrustFunds.reduce((sum, tf) => sum + tf.received, 0);
       const totalUtilized = yearTrustFunds.reduce((sum, tf) => sum + tf.utilized, 0);
@@ -49,9 +54,7 @@ export default function TrustFundsLanding() {
         : 0;
 
       // Calculate total items (grandchildren breakdown items)
-      const totalItems = yearTrustFunds.reduce((sum, tf) => {
-        return sum + (tf.projectCompleted || 0) + (tf.projectDelayed || 0) + (tf.projectsOngoing || 0);
-      }, 0);
+      const totalItems = yearBreakdowns.length;
 
       return {
         ...fiscalYear,
@@ -65,7 +68,7 @@ export default function TrustFundsLanding() {
         },
       };
     });
-  }, [fiscalYears, allTrustFunds]);
+  }, [fiscalYears, allTrustFunds, allBreakdowns]);
 
   const sortedYears = useMemo(() => {
     return [...yearsWithStats].sort((a, b) => b.year - a.year);

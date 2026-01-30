@@ -12,8 +12,9 @@ export class BreakdownPrintAdapter implements PrintDataAdapter<Breakdown[]> {
   constructor(
     private breakdowns: Breakdown[],
     private breakdownId: string,
-    private columns?: ColumnConfig[]
-  ) {}
+    private columns?: ColumnConfig[],
+    private entityName?: string
+  ) { }
 
   /**
    * Convert breakdown items to printable format
@@ -26,8 +27,8 @@ export class BreakdownPrintAdapter implements PrintDataAdapter<Breakdown[]> {
       })),
       totals: this.calculateBreakdownTotals(),
       metadata: {
-        title: `Breakdown History`,
-        subtitle: `ID: ${this.breakdownId}`,
+        title: this.entityName || `Breakdown History`,
+        subtitle: this.entityName ? undefined : `ID: ${this.breakdownId}`,
         timestamp: Date.now(),
       },
     };

@@ -295,6 +295,7 @@ export default function SpecialEducationFundBreakdownPage({ params }: PageProps)
                         onStatusChange={handleStatusChange}
                         onOpenTrash={() => setShowTrashModal(true)}
                         entityType="specialeducationfund"
+                        entityName={fund?.projectTitle}
                     />
                 )}
             </div>

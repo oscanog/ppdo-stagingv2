@@ -78,6 +78,7 @@ export function BreakdownHistoryTable({
   entityType = "project",
   navigationParams,
   onStatusChange,
+  entityName,
 }: BreakdownHistoryTableProps) {
   const router = useRouter();
   const params = useParams();
@@ -250,7 +251,8 @@ export function BreakdownHistoryTable({
       const adapter = new BreakdownPrintAdapter(
         breakdowns,
         breakdownId,
-        columns
+        columns,
+        entityName
       );
       setPrintAdapter(adapter);
       setIsPrintPreviewOpen(true);
