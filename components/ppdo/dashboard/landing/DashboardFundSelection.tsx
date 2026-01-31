@@ -12,7 +12,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import ComingSoonPage from "@/components/ComingSoonPage";
+import { ComingSoonPage } from "@/components/shared/pages";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 

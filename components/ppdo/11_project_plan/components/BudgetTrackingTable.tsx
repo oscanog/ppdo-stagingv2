@@ -21,7 +21,7 @@ import { BudgetTableEmptyState } from "../table/BudgetTableEmptyState";
 import { BudgetContextMenu } from "../table/BudgetContextMenu";
 import { BudgetBulkToggleDialog } from "./BudgetBulkToggleDialog";
 import { PrintPreviewModal } from "@/components/ppdo/table/print-preview/PrintPreviewModal";
-import { TrashBinModal } from "@/components/TrashBinModal";
+import { TrashBinModal } from "@/components/modals";
 
 // Hooks
 import { useBudgetTableState } from "../hooks/useBudgetTableState";

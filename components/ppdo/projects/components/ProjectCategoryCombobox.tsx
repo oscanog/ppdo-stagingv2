@@ -24,7 +24,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
-import { useDebounce } from "@/app/hooks/use-debounce";
+import { useDebounce } from "@/hooks/use-debounce";
 
 interface ProjectCategoryComboboxProps {
     value?: Id<"projectCategories">;

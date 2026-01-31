@@ -542,4 +542,4 @@ ComponentName/
 ## Related Documentation
 
 - [Architecture Overview](./01-architecture-overview.md)
-- [Development Guide](../../app/dashboard/docs/10-development-guide.md)
+- [Development Guide](../../app/dashboard/_docs/10-development-guide.md)

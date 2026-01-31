@@ -3,7 +3,7 @@
 "use client";
 
 import { useState } from "react";
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { ProfileDetailsTab } from "./ProfileDetailsTab";
 
 interface AccountModalProps {

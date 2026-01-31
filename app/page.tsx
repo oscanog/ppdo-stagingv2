@@ -1,7 +1,7 @@
 // app/page.tsx
 
 
-import Home from "./landing-page/page";
+import Home from "./(public)/landing-page/page";
 
 const Page = () => {
   return (

@@ -63,7 +63,7 @@ import { TableHeader } from "./TableHeader";
 import { TableRow } from "./TableRow";
 import { TableTotalsRow } from "./TableTotalsRow";
 import { EmptyState } from "./EmptyState";
-import { GenericPrintPreviewModal } from "@/app/dashboard/components/print/GenericPrintPreviewModal";
+import { GenericPrintPreviewModal } from "@/components/ppdo/print";
 
 // Import print adapter
 import { BreakdownPrintAdapter } from "../lib/print-adapters/BreakdownPrintAdapter";

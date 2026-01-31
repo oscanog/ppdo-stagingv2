@@ -3,9 +3,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ThemeToggle } from "../ThemeToggle";
+import { ThemeToggle } from "@/components/shared";
 import { useAccentColor } from "../../contexts/AccentColorContext";
-import SignOutButton from "@/components/SignOutButton";
+import { SignOutButton } from "@/components/auth";
 import { getDisplayName, getUserInitials } from "@/lib/utils";
 
 interface User {

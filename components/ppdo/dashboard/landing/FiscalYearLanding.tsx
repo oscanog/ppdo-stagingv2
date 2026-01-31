@@ -15,7 +15,7 @@ import { useAccentColor } from "@/contexts/AccentColorContext";
 import { FiscalYearLandingCard } from "./FiscalYearLandingCard";
 import { Id } from "@/convex/_generated/dataModel";
 import { toast } from "sonner";
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 /**
  * FiscalYearLanding Component

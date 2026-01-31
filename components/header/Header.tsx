@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useSidebar } from "../../contexts/SidebarContext";
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";

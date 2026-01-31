@@ -5,7 +5,7 @@ import { api } from "@/convex/_generated/api";
 import { useDashboardFilters } from "@/hooks/useDashboardFilters";
 import { DashboardFilters } from "@/components/analytics/DashboardFilters";
 import { DashboardSkeleton } from "@/components/analytics/DashboardSkeleton";
-import { KPICard } from "@/components/KPICard";
+import { KPICard } from "@/components/shared/cards";
 import { motion } from "framer-motion";
 import { AnalyticsGrid } from "./AnalyticsGrid";
 import { FolderOpen, CheckCircle2, Clock, TrendingUp } from "lucide-react";

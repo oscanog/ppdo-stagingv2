@@ -14,7 +14,7 @@ import {
 import { LogOut, Settings, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getDisplayName, getUserInitials } from "@/lib/utils";
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { RoleBadge } from "./RoleBadge";
 
 export function DashboardHeader() {

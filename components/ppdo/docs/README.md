@@ -158,7 +158,7 @@ Canvas-based print preview with:
 
 ## Related Documentation
 
-- [Dashboard Docs](../../app/dashboard/docs/README.md)
+- [Dashboard Docs](../../app/dashboard/_docs/README.md)
 - [Project README](../../../README.md)
 
 ---

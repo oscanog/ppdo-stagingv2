@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BlockModal } from "./BlockModal";
+import { BlockModal } from "@/components/modals";
 import { toast } from "sonner";
 import { Pin, PinOff, Filter, RotateCcw, MoreVertical } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
