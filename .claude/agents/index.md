@@ -14,6 +14,7 @@
 | [QA & Testing Agent](#6-qa--testing-agent) | Quality | Testing, coverage, bug prevention |
 | [Print & Export Specialist](#7-print--export-specialist) | Documents | PDF generation, media, canvas |
 | [DevOps & Performance Agent](#8-devops--performance-agent) | Operations | Deployment, CI/CD, monitoring |
+| [Product & Documentation Lead](#9-product--documentation-lead) | Product Mgmt | Requirements, docs, PPDO domain |
 
 ---
 
@@ -43,6 +44,12 @@
 │  │  & Testing  │◄──►│ & Perform.  │                            │
 │  │    Agent    │    │    Agent    │                            │
 │  └─────────────┘    └─────────────┘                            │
+│                                                                 │
+│              ┌─────────────────────────┐                        │
+│              │  Product & Documentation │                       │
+│              │         Lead            │                       │
+│              │   (Team Coordinator)    │                       │
+│              └─────────────────────────┘                        │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -269,6 +276,32 @@ lib/monitoring/               # Monitoring utils
 
 ---
 
+### 9. Product & Documentation Lead
+**File:** [`product-documentation-lead.md`](./product-documentation-lead.md)
+
+**Expertise:**
+- Product requirements and PRD creation
+- Technical and user documentation
+- PPDO domain knowledge and government workflows
+- Compliance and audit documentation
+- Stakeholder coordination
+
+**Key Areas:**
+```
+.guide_md/                    # Process guides and standards
+DOCS/                         # Project documentation
+├── requirements/             # PRDs, BRDs, user stories
+├── architecture/             # System documentation
+├── user-guides/              # End-user manuals
+└── processes/                # SOPs and workflows
+
+*.md                          # Root documentation files
+```
+
+**When to Use:** Defining requirements, creating documentation, coordinating features, PPDO domain questions.
+
+---
+
 ## Agent Collaboration Matrix
 
 Shows which agents commonly work together:
@@ -283,6 +316,8 @@ Shows which agents commonly work together:
 | PDF export feature | Print Specialist | Frontend, Data Engineer |
 | Write tests | QA Agent | All agents |
 | Deploy to production | DevOps Agent | All agents |
+| Define requirements | Product Lead | All agents |
+| Create documentation | Product Lead | QA Agent |
 
 ---
 
@@ -362,5 +397,5 @@ npm test -- --coverage   # With coverage report
 ---
 
 *Last updated: January 2025*
-*Team size: 8 specialized agents*
+*Team size: 9 specialized agents*
 *Project: PPDO Next.js + Convex*

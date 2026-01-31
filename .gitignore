@@ -43,3 +43,5 @@ next-env.d.ts
 
 # automaker
 /.automaker/
+
+copy.txt
