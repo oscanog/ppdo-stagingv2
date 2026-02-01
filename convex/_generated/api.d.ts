@@ -59,6 +59,7 @@ import type * as lib_twentyPercentDFActivityLogger from "../lib/twentyPercentDFA
 import type * as lib_twentyPercentDFAggregation from "../lib/twentyPercentDFAggregation.js";
 import type * as loginTrail from "../loginTrail.js";
 import type * as media from "../media.js";
+import type * as migrations from "../migrations.js";
 import type * as myFunctions from "../myFunctions.js";
 import type * as obligations from "../obligations.js";
 import type * as passwordReset from "../passwordReset.js";
@@ -129,6 +130,7 @@ import type * as specialHealthFundBreakdowns from "../specialHealthFundBreakdown
 import type * as specialHealthFunds from "../specialHealthFunds.js";
 import type * as suggestions from "../suggestions.js";
 import type * as tableSettings from "../tableSettings.js";
+import type * as trash from "../trash.js";
 import type * as trustFundAccess from "../trustFundAccess.js";
 import type * as trustFundActivities from "../trustFundActivities.js";
 import type * as trustFundBreakdowns from "../trustFundBreakdowns.js";
@@ -198,6 +200,7 @@ declare const fullApi: ApiFromModules<{
   "lib/twentyPercentDFAggregation": typeof lib_twentyPercentDFAggregation;
   loginTrail: typeof loginTrail;
   media: typeof media;
+  migrations: typeof migrations;
   myFunctions: typeof myFunctions;
   obligations: typeof obligations;
   passwordReset: typeof passwordReset;
@@ -268,6 +271,7 @@ declare const fullApi: ApiFromModules<{
   specialHealthFunds: typeof specialHealthFunds;
   suggestions: typeof suggestions;
   tableSettings: typeof tableSettings;
+  trash: typeof trash;
   trustFundAccess: typeof trustFundAccess;
   trustFundActivities: typeof trustFundActivities;
   trustFundBreakdowns: typeof trustFundBreakdowns;

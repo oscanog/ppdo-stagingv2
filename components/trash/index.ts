@@ -1,0 +1,1 @@
+export { TrashSummaryCard } from "./TrashSummaryCard";

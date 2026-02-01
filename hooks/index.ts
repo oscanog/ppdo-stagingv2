@@ -32,3 +32,10 @@ export {
   type UseTableColumnVisibilityOptions,
   type UseTableColumnVisibilityReturn,
 } from "./useTableColumnVisibility";
+
+// Migration hooks
+export { useMigration } from "./useMigration";
+
+// Trash hooks
+export { useTrashConfirmation } from "./useTrashConfirmation";
+export type { PendingTrashItem, TrashPreviewResult } from "./useTrashConfirmation";
