@@ -32,7 +32,7 @@ export function DashboardChartCard({
                 )}
             </div>
 
-            <div className="flex-1 w-full" style={{ height: `${height}px` }}>
+            <div className="flex-1 w-full overflow-visible" style={{ height: `${height}px` }}>
                 {children}
             </div>
         </div>

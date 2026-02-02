@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { Scrypt } from "lucia";
 
 /**
  * Update password reset request status (admin only)
@@ -360,32 +361,14 @@ export const cleanupOldRequests = mutation({
 });
 
 /**
- * Hash password securely using Web Crypto API
- * This replicates Convex Auth's password hashing mechanism
+ * Hash password using Scrypt (must match Convex Auth's algorithm)
+ * 
+ * SECURITY NOTE:
+ * - Convex Auth uses Lucia's Scrypt for password hashing
+ * - This function ensures password hashes are compatible with Convex Auth's verifySecret
+ * - Scrypt is a memory-hard KDF, making it resistant to brute-force attacks
+ * - NEVER use fast hashes like SHA-256 for password storage
  */
 async function hashPassword(password: string): Promise<string> {
-  // Generate a random salt (16 bytes)
-  const saltBytes = new Uint8Array(16);
-  crypto.getRandomValues(saltBytes);
-  
-  // Convert password to bytes
-  const encoder = new TextEncoder();
-  const passwordBytes = encoder.encode(password);
-  
-  // Combine salt and password
-  const combined = new Uint8Array(saltBytes.length + passwordBytes.length);
-  combined.set(saltBytes);
-  combined.set(passwordBytes, saltBytes.length);
-  
-  // Hash using SHA-256
-  const hashBuffer = await crypto.subtle.digest('SHA-256', combined);
-  const hashArray = new Uint8Array(hashBuffer);
-  
-  // Combine salt and hash for storage
-  const result = new Uint8Array(saltBytes.length + hashArray.length);
-  result.set(saltBytes);
-  result.set(hashArray, saltBytes.length);
-  
-  // Convert to base64 for storage
-  return btoa(String.fromCharCode(...result));
+  return await new Scrypt().hash(password);
 }

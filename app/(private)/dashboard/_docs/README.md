@@ -18,6 +18,7 @@
 8. [Data Flow & Convex](./08-data-flow.md)
 9. [Access Control & RBAC](./09-access-control.md)
 10. [Development Guide](./10-development-guide.md)
+11. [Performance Over Time Chart](./11-performance-over-time.md)
 
 ---
 

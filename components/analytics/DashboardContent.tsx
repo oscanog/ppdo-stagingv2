@@ -6,7 +6,7 @@ import { DashboardFilters } from "@/hooks/useDashboardFilters";
 import { DashboardSkeleton } from "@/components/analytics/DashboardSkeleton";
 import { KPICardsRow } from "@/components/ppdo/dashboard/summary/KPICardsRow";
 import { EnhancedBudgetChart } from "@/components/analytics/EnhancedBudgetChart";
-import { TimeSeriesChart } from "@/components/analytics/TimeSeriesChart";
+import { EnhancedTimeSeriesChart } from "@/components/analytics/EnhancedTimeSeriesChart";
 import { DepartmentBreakdownChart } from "@/components/analytics/DepartmentBreakdownChart";
 import { StatusDistributionChart } from "@/components/analytics/StatusDistributionChart";
 import { motion, Variants } from "framer-motion";
@@ -50,7 +50,7 @@ export function DashboardContent({ filters, year }: DashboardContentProps) {
         return <DashboardSkeleton />;
     }
 
-    const { metrics, chartData, timeSeriesData, departmentBreakdown } = analytics;
+    const { metrics, chartData, enhancedTimeSeriesData, departmentBreakdown } = analytics;
 
     const containerVariants: Variants = {
         hidden: { opacity: 0 },
@@ -96,7 +96,11 @@ export function DashboardContent({ filters, year }: DashboardContentProps) {
             {/* Top Row: Budget & Time Series */}
             <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <EnhancedBudgetChart data={chartData.budgetOverview} />
-                <TimeSeriesChart data={timeSeriesData} />
+                <EnhancedTimeSeriesChart 
+                    data={enhancedTimeSeriesData} 
+                    year={parseInt(year || new Date().getFullYear().toString())}
+                    filters={filters}
+                />
             </motion.div>
 
             {/* Bottom Row: Department Breakdown & Categories */}

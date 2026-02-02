@@ -184,6 +184,74 @@ interface NormalizedBudgetItem {
     totalBudgetUtilized: number;
 }
 
+// Breakdown normalization interface
+interface NormalizedBreakdown {
+    _id: string;
+    createdAt: number;
+    projectId: string;
+    description: string;
+    allocatedBudget: number;
+    inspections?: any[];
+}
+
+// Enhanced Time Series Types
+interface TimeSeriesMetrics {
+    budget: {
+        allocated: number;
+        obligated: number;
+        utilized: number;
+    };
+    projects: {
+        total: number;
+        ongoing: number;
+        completed: number;
+        delayed: number;
+        draft: number;
+    };
+    breakdowns: {
+        total: number;
+        withInspections: number;
+        pending: number;
+        totalBudget: number;
+    };
+}
+
+interface TimeSeriesDetails {
+    budgetItems: Array<{
+        _id: string;
+        particulars: string;
+        allocated: number;
+        obligated: number;
+        utilized: number;
+    }>;
+    projects: Array<{
+        _id: string;
+        particulars: string;
+        status?: string;
+        implementingOffice?: string;
+        totalBudgetAllocated: number;
+    }>;
+    breakdowns: Array<{
+        _id: string;
+        projectId: string;
+        description: string;
+        hasInspection: boolean;
+    }>;
+}
+
+interface TimeSeriesPoint {
+    month?: number;
+    quarter?: number;
+    label: string;
+    metrics: TimeSeriesMetrics;
+    details: TimeSeriesDetails;
+}
+
+interface EnhancedTimeSeriesData {
+    monthly: TimeSeriesPoint[];
+    quarterly: TimeSeriesPoint[];
+}
+
 /**
  * Main Analytics Dashboard Query
  * Returns filtered and aggregated data for dashboard display
@@ -367,10 +435,28 @@ export const getDashboardAnalytics = query({
         // Calculate breakdown by office (implementing agency)
         const officeBreakdown = calculateOfficeBreakdown(allProjects);
 
-        // Calculate time-series data
+        // Calculate time-series data (legacy)
         const timeSeriesData = calculateTimeSeries(
             allProjects,
             allBudgetItems,
+            filters
+        );
+
+        // Normalize breakdowns for enhanced time series
+        const normalizedBreakdowns: NormalizedBreakdown[] = allBreakdowns.map(b => ({
+            _id: b._id,
+            createdAt: b.createdAt,
+            projectId: b.projectId,
+            description: b.description || b.workDescription || "Unnamed Breakdown",
+            allocatedBudget: b.allocatedBudget || 0,
+            inspections: b.inspections || [],
+        }));
+
+        // Calculate enhanced time-series data with full details
+        const enhancedTimeSeriesData = calculateEnhancedTimeSeries(
+            allProjects,
+            allBudgetItems,
+            normalizedBreakdowns,
             filters
         );
 
@@ -393,6 +479,7 @@ export const getDashboardAnalytics = query({
             departmentBreakdown,
             officeBreakdown,
             timeSeriesData,
+            enhancedTimeSeriesData,
             recentActivities,
             chartData,
             topCategories,
@@ -962,6 +1049,139 @@ function calculateTimeSeries(projects: any[], budgetItems: any[], filters: Filte
         series.quarterly[quarter].budget += b.totalBudgetAllocated || 0;
         series.quarterly[quarter].obligations += b.obligatedBudget || 0;
         series.quarterly[quarter].disbursements += b.totalBudgetUtilized || 0;
+    });
+
+    return series;
+}
+
+/**
+ * Enhanced Time Series Calculation
+ * Calculates comprehensive time series data including budget, projects, and breakdowns
+ * with full detail information for rich tooltips
+ */
+function calculateEnhancedTimeSeries(
+    projects: NormalizedProject[],
+    budgetItems: NormalizedBudgetItem[],
+    breakdowns: NormalizedBreakdown[],
+    filters: FilterCriteria
+): EnhancedTimeSeriesData {
+    // Initialize 12 months and 4 quarters with full structure
+    const series: EnhancedTimeSeriesData = {
+        monthly: Array(12).fill(0).map((_, i) => ({
+            month: i + 1,
+            label: new Date(2024, i).toLocaleString("default", { month: "short" }),
+            metrics: {
+                budget: { allocated: 0, obligated: 0, utilized: 0 },
+                projects: { total: 0, ongoing: 0, completed: 0, delayed: 0, draft: 0 },
+                breakdowns: { total: 0, withInspections: 0, pending: 0, totalBudget: 0 },
+            },
+            details: {
+                budgetItems: [],
+                projects: [],
+                breakdowns: [],
+            },
+        })),
+        quarterly: Array(4).fill(0).map((_, i) => ({
+            quarter: i + 1,
+            label: `Q${i + 1}`,
+            metrics: {
+                budget: { allocated: 0, obligated: 0, utilized: 0 },
+                projects: { total: 0, ongoing: 0, completed: 0, delayed: 0, draft: 0 },
+                breakdowns: { total: 0, withInspections: 0, pending: 0, totalBudget: 0 },
+            },
+            details: {
+                budgetItems: [],
+                projects: [],
+                breakdowns: [],
+            },
+        })),
+    };
+
+    // Aggregate budget items
+    budgetItems.forEach(item => {
+        const date = new Date(item.createdAt);
+        const month = date.getMonth();           // 0-11
+        const quarter = Math.floor(month / 3);   // 0-3
+
+        // Monthly aggregation
+        const m = series.monthly[month];
+        m.metrics.budget.allocated += item.totalBudgetAllocated || 0;
+        m.metrics.budget.obligated += item.obligatedBudget || 0;
+        m.metrics.budget.utilized += item.totalBudgetUtilized || 0;
+        m.details.budgetItems.push({
+            _id: item._id,
+            particulars: item.particulars,
+            allocated: item.totalBudgetAllocated || 0,
+            obligated: item.obligatedBudget || 0,
+            utilized: item.totalBudgetUtilized || 0,
+        });
+
+        // Quarterly aggregation
+        const q = series.quarterly[quarter];
+        q.metrics.budget.allocated += item.totalBudgetAllocated || 0;
+        q.metrics.budget.obligated += item.obligatedBudget || 0;
+        q.metrics.budget.utilized += item.totalBudgetUtilized || 0;
+    });
+
+    // Aggregate projects with status breakdown
+    projects.forEach(project => {
+        const date = new Date(project.createdAt);
+        const month = date.getMonth();
+        const quarter = Math.floor(month / 3);
+
+        const status = project.status?.toLowerCase();
+
+        // Monthly
+        const m = series.monthly[month];
+        m.metrics.projects.total++;
+        if (status === 'ongoing') m.metrics.projects.ongoing++;
+        if (status === 'completed') m.metrics.projects.completed++;
+        if (status === 'delayed') m.metrics.projects.delayed++;
+        if (status === 'draft') m.metrics.projects.draft++;
+        m.details.projects.push({
+            _id: project._id,
+            particulars: project.particulars,
+            status: project.status,
+            implementingOffice: project.implementingOffice,
+            totalBudgetAllocated: project.totalBudgetAllocated,
+        });
+
+        // Quarterly
+        const q = series.quarterly[quarter];
+        q.metrics.projects.total++;
+        if (status === 'ongoing') q.metrics.projects.ongoing++;
+        if (status === 'completed') q.metrics.projects.completed++;
+        if (status === 'delayed') q.metrics.projects.delayed++;
+        if (status === 'draft') q.metrics.projects.draft++;
+    });
+
+    // Aggregate breakdowns with inspection status
+    breakdowns.forEach(breakdown => {
+        const date = new Date(breakdown.createdAt);
+        const month = date.getMonth();
+        const quarter = Math.floor(month / 3);
+
+        const hasInspection = !!(breakdown.inspections && breakdown.inspections.length > 0);
+
+        // Monthly
+        const m = series.monthly[month];
+        m.metrics.breakdowns.total++;
+        if (hasInspection) m.metrics.breakdowns.withInspections++;
+        else m.metrics.breakdowns.pending++;
+        m.metrics.breakdowns.totalBudget += breakdown.allocatedBudget || 0;
+        m.details.breakdowns.push({
+            _id: breakdown._id,
+            projectId: breakdown.projectId,
+            description: breakdown.description,
+            hasInspection: hasInspection,
+        });
+
+        // Quarterly
+        const q = series.quarterly[quarter];
+        q.metrics.breakdowns.total++;
+        if (hasInspection) q.metrics.breakdowns.withInspections++;
+        else q.metrics.breakdowns.pending++;
+        q.metrics.breakdowns.totalBudget += breakdown.allocatedBudget || 0;
     });
 
     return series;
