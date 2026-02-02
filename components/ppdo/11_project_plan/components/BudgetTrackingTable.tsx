@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -21,7 +21,7 @@ import { BudgetTableEmptyState } from "../table/BudgetTableEmptyState";
 import { BudgetContextMenu } from "../table/BudgetContextMenu";
 import { BudgetBulkToggleDialog } from "./BudgetBulkToggleDialog";
 import { PrintPreviewModal } from "@/components/ppdo/table/print-preview/PrintPreviewModal";
-import { TrashBinModal } from "@/components/modals";
+import { TrashBinModal, TrashConfirmationModal } from "@/components/modals";
 
 // Hooks
 import { useBudgetTableState } from "../hooks/useBudgetTableState";
@@ -67,6 +67,16 @@ export function BudgetTrackingTable({
   const isAdmin =
     accessCheck?.user?.role === "admin" ||
     accessCheck?.user?.role === "super_admin";
+
+  // ============================================================================
+  // TRASH CONFIRMATION STATE
+  // ============================================================================
+  
+  const [showTrashConfirmModal, setShowTrashConfirmModal] = useState(false);
+  const [trashTargetItems, setTrashTargetItems] = useState<BudgetItem[]>([]);
+  const [isBulkTrash, setIsBulkTrash] = useState(false);
+  const [trashPreviewData, setTrashPreviewData] = useState<any>(null);
+  const [isTrashPreviewLoading, setIsTrashPreviewLoading] = useState(false);
 
   // ============================================================================
   // CUSTOM HOOKS - State Management
@@ -157,6 +167,64 @@ export function BudgetTrackingTable({
   } = useBudgetTableSelection(filteredAndSortedItems);
 
   // ============================================================================
+  // TRASH CONFIRMATION HANDLERS
+  // ============================================================================
+
+  /**
+   * Show trash confirmation modal with selected items
+   */
+  const handleShowTrashConfirmation = useCallback((items: BudgetItem[], isBulk: boolean) => {
+    setTrashTargetItems(items);
+    setIsBulkTrash(isBulk);
+    setShowTrashConfirmModal(true);
+    
+    // For single item, fetch preview data from API
+    if (items.length === 1) {
+      setIsTrashPreviewLoading(true);
+      // Preview data will be loaded by the component using Convex query
+      // For now, we'll set a flag and the useEffect below will handle it
+    }
+  }, []);
+
+  /**
+   * Handle confirmed trash (single or bulk)
+   */
+  const handleConfirmTrash = useCallback(async (reason?: string) => {
+    if (isBulkTrash && trashTargetItems.length > 0) {
+      // Bulk delete using the onDelete callback for each item
+      for (const item of trashTargetItems) {
+        if (onDelete) {
+          await onDelete(item.id);
+        }
+      }
+      setSelectedIds(new Set());
+    } else if (trashTargetItems.length === 1) {
+      // Single delete
+      if (onDelete) {
+        await onDelete(trashTargetItems[0].id);
+      }
+    }
+    
+    // Reset state
+    setShowTrashConfirmModal(false);
+    setTrashTargetItems([]);
+    setIsBulkTrash(false);
+    setTrashPreviewData(null);
+    setSelectedItem(null);
+  }, [isBulkTrash, trashTargetItems, onDelete, setSelectedIds, setSelectedItem]);
+
+  /**
+   * Handle cancel trash
+   */
+  const handleCancelTrash = useCallback(() => {
+    setShowTrashConfirmModal(false);
+    setTrashTargetItems([]);
+    setIsBulkTrash(false);
+    setTrashPreviewData(null);
+    setSelectedItem(null);
+  }, [setSelectedItem]);
+
+  // ============================================================================
   // ACTION HOOKS
   // ============================================================================
 
@@ -167,20 +235,22 @@ export function BudgetTrackingTable({
     handleRowClick,
     handleContextMenu,
     handleEdit,
-    handleDelete,
     handlePin,
     handleToggleAutoCalculate,
     handleBulkTrash,
     handleOpenBulkToggleDialog,
     handleBulkToggleAutoCalculate,
     isBulkToggling,
+    executeDelete,
+    executeBulkDelete,
   } = useBudgetTableActions(
     selectedIds,
     setSelectedIds,
     setSelectedItem,
     setShowEditModal,
-    setShowDeleteModal,
-    setShowBulkToggleDialog
+    setShowBulkToggleDialog,
+    filteredAndSortedItems,
+    handleShowTrashConfirmation
   );
 
   // ============================================================================
@@ -249,6 +319,59 @@ export function BudgetTrackingTable({
     // For now, we'll handle this in the component
     setShowHideAllWarning(false);
   };
+
+  // ============================================================================
+  // BUILD PREVIEW DATA FOR MODAL
+  // ============================================================================
+  
+  // Query for single item preview
+  const singlePreviewQuery = useQuery(
+    api.trash.getTrashPreview,
+    showTrashConfirmModal && trashTargetItems.length === 1
+      ? { 
+          entityType: "budgetItem", 
+          entityId: trashTargetItems[0]?.id 
+        }
+      : "skip"
+  );
+
+  // Update preview data when query resolves
+  useMemo(() => {
+    if (showTrashConfirmModal && trashTargetItems.length === 1) {
+      if (singlePreviewQuery !== undefined) {
+        setTrashPreviewData(singlePreviewQuery);
+        setIsTrashPreviewLoading(false);
+      } else {
+        setIsTrashPreviewLoading(true);
+      }
+    } else if (showTrashConfirmModal && trashTargetItems.length > 1) {
+      // For bulk, construct aggregated preview data
+      setTrashPreviewData({
+        targetItem: {
+          id: "bulk",
+          name: `${trashTargetItems.length} Budget Items`,
+          type: "budgetItem",
+        },
+        cascadeCounts: {
+          projects: trashTargetItems.reduce((sum, item) => sum + (item.projectsOngoing || 0), 0),
+          breakdowns: 0, // Would need to calculate from API
+          inspections: 0, // Would need to calculate from API
+          totalFinancialImpact: {
+            allocated: trashTargetItems.reduce((sum, item) => sum + (item.totalBudgetAllocated || 0), 0),
+            utilized: trashTargetItems.reduce((sum, item) => sum + (item.totalBudgetUtilized || 0), 0),
+            obligated: trashTargetItems.reduce((sum, item) => sum + (item.obligatedBudget || 0), 0),
+          },
+        },
+        affectedItems: {
+          projects: [],
+          breakdowns: [],
+        },
+        warnings: [`This will move ${trashTargetItems.length} budget items to trash.`],
+        canDelete: true,
+      });
+      setIsTrashPreviewLoading(false);
+    }
+  }, [showTrashConfirmModal, trashTargetItems, singlePreviewQuery]);
 
   // ============================================================================
   // RENDER
@@ -359,7 +482,7 @@ export function BudgetTrackingTable({
           canDelete={!!onDelete}
           onPin={handlePin}
           onEdit={handleEdit}
-          onDelete={handleDelete}
+          onDelete={(item) => handleShowTrashConfirmation([item], false)}
           onToggleAutoCalculate={handleToggleAutoCalculate}
           isTogglingAutoCalculate={isTogglingAutoCalculate}
         />
@@ -407,6 +530,7 @@ export function BudgetTrackingTable({
         </Modal>
       )}
 
+      {/* Old delete modal - kept for backwards compatibility */}
       {modalStates.showDeleteModal && selectedItem && (
         <ConfirmationModal
           isOpen={modalStates.showDeleteModal}
@@ -422,6 +546,16 @@ export function BudgetTrackingTable({
           variant="danger"
         />
       )}
+
+      {/* New Trash Confirmation Modal */}
+      <TrashConfirmationModal
+        open={showTrashConfirmModal}
+        onOpenChange={setShowTrashConfirmModal}
+        onConfirm={handleConfirmTrash}
+        onCancel={handleCancelTrash}
+        previewData={trashPreviewData}
+        isLoading={isTrashPreviewLoading}
+      />
 
       {modalStates.showShareModal && (
         <BudgetShareModal

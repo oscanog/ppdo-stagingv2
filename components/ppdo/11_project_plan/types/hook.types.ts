@@ -86,10 +86,13 @@ export interface UseBudgetTableActionsReturn {
   handleDelete: (item: BudgetItem) => void;
   handlePin: (item: BudgetItem) => Promise<void>;
   handleToggleAutoCalculate: (item: BudgetItem, newValue: boolean) => Promise<void>;
-  handleBulkTrash: () => Promise<void>;
+  handleBulkTrash: () => void;
   handleOpenBulkToggleDialog: () => void;
   handleBulkToggleAutoCalculate: (autoCalculate: boolean, reason?: string) => Promise<void>;
   isBulkToggling: boolean;
+  // NEW: Execute delete after confirmation (called by parent after TrashConfirmationModal confirms)
+  executeDelete: (itemId: string) => Promise<void>;
+  executeBulkDelete: (itemIds: string[]) => Promise<void>;
 }
 
 /**

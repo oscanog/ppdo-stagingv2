@@ -12,7 +12,7 @@
 "use client";
 
 import { AutoCalcConfirmationModal } from "@/components/ppdo/breakdown/shared/AutoCalcConfirmationModal";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { toast } from "sonner";
@@ -37,7 +37,7 @@ import {
 // Shared Components
 import { TrashBinModal } from "@/components/modals";
 import { Modal } from "@/components/ppdo/11_project_plan";
-import { ConfirmationModal } from "@/components/ppdo/11_project_plan";
+import { TrashConfirmationModal } from "@/components/modals/TrashConfirmationModal";
 
 // Shared Hooks
 import { useEntityStats, useEntityMetadata } from "@/lib/hooks/useEntityStats";
@@ -76,6 +76,7 @@ export default function TrustFundBreakdownPage() {
   const [selectedBreakdown, setSelectedBreakdown] = useState<Breakdown | null>(null);
   const [showHeader, setShowHeader] = useState(false);
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [showTrashConfirmModal, setShowTrashConfirmModal] = useState(false);
 
   // Queries
   const trustFund = useQuery(
@@ -89,6 +90,21 @@ export default function TrustFundBreakdownPage() {
   );
 
   const departments = useQuery(api.departments.list, { includeInactive: false });
+
+  // Trash Preview Query
+  const trashPreviewArgs = useMemo(() => {
+    if (!selectedBreakdown) return "skip" as const;
+    return {
+      entityType: "breakdown" as const,
+      entityId: selectedBreakdown._id,
+    };
+  }, [selectedBreakdown]);
+
+  const trashPreviewData = useQuery(
+    api.trash.getTrashPreview,
+    trashPreviewArgs === "skip" ? "skip" : trashPreviewArgs
+  );
+  const isTrashPreviewLoading = trashPreviewArgs !== "skip" && trashPreviewData === undefined;
 
   // Hooks - Using shared hooks for statistics
   const stats = useEntityStats(breakdownHistory as Breakdown[] | undefined);
@@ -188,19 +204,24 @@ export default function TrustFundBreakdownPage() {
     }
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async (reason?: string) => {
     try {
       if (!selectedBreakdown) return;
       await deleteBreakdown({
         id: selectedBreakdown._id as Id<"trustFundBreakdowns">,
-        reason: "Moved to trash via dashboard confirmation",
+        reason: reason || "Moved to trash via dashboard confirmation",
       });
       toast.success("Breakdown record moved to trash!");
-      setShowDeleteModal(false);
+      setShowTrashConfirmModal(false);
       setSelectedBreakdown(null);
     } catch (error) {
       toast.error("Failed to move breakdown record to trash");
     }
+  };
+
+  const handleCancelDelete = () => {
+    setShowTrashConfirmModal(false);
+    setSelectedBreakdown(null);
   };
 
   const handleEdit = (breakdown: Breakdown) => {
@@ -212,7 +233,7 @@ export default function TrustFundBreakdownPage() {
     const breakdown = breakdownHistory?.find((b) => b._id === id);
     if (breakdown) {
       setSelectedBreakdown(breakdown as Breakdown);
-      setShowDeleteModal(true);
+      setShowTrashConfirmModal(true);
     }
   };
 
@@ -369,20 +390,15 @@ export default function TrustFundBreakdownPage() {
         </Modal>
       )}
 
-      {showDeleteModal && selectedBreakdown && (
-        <ConfirmationModal
-          isOpen={showDeleteModal}
-          onClose={() => {
-            setShowDeleteModal(false);
-            setSelectedBreakdown(null);
-          }}
-          onConfirm={handleConfirmDelete}
-          title="Move to Trash"
-          message={`Are you sure you want to move this breakdown record for ${selectedBreakdown.implementingOffice} to trash?`}
-          confirmText="Move to Trash"
-          variant="danger"
-        />
-      )}
+      {/* Trash Confirmation Modal */}
+      <TrashConfirmationModal
+        open={showTrashConfirmModal}
+        onOpenChange={setShowTrashConfirmModal}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+        previewData={trashPreviewData}
+        isLoading={isTrashPreviewLoading}
+      />
 
       <TrashBinModal
         isOpen={showTrashModal}

@@ -161,13 +161,27 @@ export const getTrashPreview = query({
       v.literal("project"),
       v.literal("breakdown")
     ),
-    entityId: v.string(),
+    entityId: v.optional(v.string()),
+    entityIds: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args): Promise<TrashPreviewResult> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Not authenticated");
 
-    const { entityType, entityId } = args;
+    const { entityType, entityId, entityIds } = args;
+    
+    // Handle bulk preview for multiple entities
+    if (entityIds && entityIds.length > 0) {
+      if (entityType === "project") {
+        return await getBulkProjectTrashPreview(ctx, entityIds);
+      }
+      throw new Error(`Bulk preview not supported for entity type: ${entityType}`);
+    }
+    
+    if (!entityId) {
+      throw new Error("Either entityId or entityIds must be provided");
+    }
+    
     const warnings: string[] = [];
 
     // Handle budgetItem preview
@@ -579,6 +593,116 @@ export const moveToTrashWithConfirmation = mutation({
     throw new Error(`Invalid entity type: ${entityType}`);
   },
 });
+
+// =============================================================================
+// BULK TRASH PREVIEW HELPER
+// =============================================================================
+
+/**
+ * Helper function to get trash preview for multiple projects (bulk operation)
+ */
+async function getBulkProjectTrashPreview(
+  ctx: any,
+  projectIds: string[]
+): Promise<TrashPreviewResult> {
+  const warnings: string[] = [];
+  let totalBreakdowns = 0;
+  let totalInspections = 0;
+  let totalAllocated = 0;
+  let totalUtilized = 0;
+  let totalObligated = 0;
+
+  const projectItems: Array<{
+    id: string;
+    name: string;
+    type: "project";
+    financials: { allocated: number; utilized: number; obligated?: number };
+  }> = [];
+  const breakdownItems: Array<{
+    id: string;
+    name: string;
+    type: "breakdown";
+    parentId: string;
+    financials: { allocated?: number; utilized?: number };
+  }> = [];
+
+  // Fetch all projects
+  for (const projectId of projectIds) {
+    const project = await ctx.db.get(projectId as Id<"projects">);
+    if (!project || project.isDeleted) continue;
+
+    const breakdowns = await getActiveBreakdownsForProject(ctx, projectId as Id<"projects">);
+    const inspectionCount = await countInspectionsForProject(ctx, projectId as Id<"projects">);
+
+    totalBreakdowns += breakdowns.length;
+    totalInspections += inspectionCount;
+    totalAllocated += project.totalBudgetAllocated || 0;
+    totalUtilized += project.totalBudgetUtilized || 0;
+    totalObligated += project.obligatedBudget || 0;
+
+    projectItems.push({
+      id: projectId,
+      name: project.particulars,
+      type: "project",
+      financials: {
+        allocated: project.totalBudgetAllocated || 0,
+        utilized: project.totalBudgetUtilized || 0,
+        obligated: project.obligatedBudget || 0,
+      },
+    });
+
+    for (const b of breakdowns) {
+      breakdownItems.push({
+        id: b._id,
+        name: b.projectName,
+        type: "breakdown",
+        parentId: projectId,
+        financials: {
+          allocated: b.allocatedBudget,
+          utilized: b.budgetUtilized,
+        },
+      });
+    }
+  }
+
+  // Generate warnings
+  if (projectIds.length > 1) {
+    warnings.push(`This will move ${projectIds.length} projects to trash`);
+  }
+  if (totalBreakdowns > 0) {
+    warnings.push(`Total ${totalBreakdowns} breakdown(s) will be moved to trash`);
+  }
+  if (totalInspections > 0) {
+    warnings.push(`${totalInspections} inspection(s) will remain active`);
+  }
+  if (totalAllocated > 0) {
+    warnings.push(`Total allocated budget impact: ₱${totalAllocated.toLocaleString()}`);
+  }
+
+  return {
+    targetItem: {
+      id: projectIds[0],
+      name: `${projectIds.length} Projects`,
+      type: "project",
+    },
+    cascadeCounts: {
+      projects: projectItems.length,
+      breakdowns: totalBreakdowns,
+      inspections: totalInspections,
+      totalFinancialImpact: {
+        allocated: totalAllocated,
+        utilized: totalUtilized,
+        obligated: totalObligated,
+      },
+    },
+    affectedItems: {
+      projects: projectItems,
+      breakdowns: breakdownItems,
+    },
+    warnings,
+    canDelete: true,
+  };
+}
 
 // =============================================================================
 // GET RESTORE PREVIEW QUERY

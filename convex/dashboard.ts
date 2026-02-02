@@ -29,12 +29,21 @@ export const getSummaryData = query({
             return { yearStats: {} };
         }
 
-        // Fetch all necessary data
+        // Fetch all necessary data (excluding trashed items)
         // Note: In a production environment with massive data, this should be optimized
         // to use indexes or pre-calculated aggregations. For now, fetching all is acceptable.
-        const projects = await ctx.db.query("projects").collect();
-        const budgetItems = await ctx.db.query("budgetItems").collect();
-        const breakdowns = await ctx.db.query("govtProjectBreakdowns").collect();
+        const projects = await ctx.db
+            .query("projects")
+            .filter((q) => q.neq(q.field("isDeleted"), true))
+            .collect();
+        const budgetItems = await ctx.db
+            .query("budgetItems")
+            .filter((q) => q.neq(q.field("isDeleted"), true))
+            .collect();
+        const breakdowns = await ctx.db
+            .query("govtProjectBreakdowns")
+            .filter((q) => q.neq(q.field("isDeleted"), true))
+            .collect();
 
         // Aggregate by year
         const yearStats: Record<string, any> = {};
@@ -201,7 +210,10 @@ export const getDashboardAnalytics = query({
 
         if (fundType === "trust") {
             // Trust Funds -> Treat as "Projects"
-            const trustFunds = await ctx.db.query("trustFunds").collect();
+            const trustFunds = await ctx.db
+                .query("trustFunds")
+                .filter((q) => q.neq(q.field("isDeleted"), true))
+                .collect();
             // Trust funds don't have separate "budget items" table usually, 
             // the fund itself acts as both project and budget source.
             // We map it to both or just projects? 
@@ -213,27 +225,45 @@ export const getDashboardAnalytics = query({
 
             // Adjust mappings for specific fields later if needed
         } else if (fundType === "twenty-percent-df") {
-            const dfProjects = await ctx.db.query("twentyPercentDF").collect();
+            const dfProjects = await ctx.db
+                .query("twentyPercentDF")
+                .filter((q) => q.neq(q.field("isDeleted"), true))
+                .collect();
             rawProjects = dfProjects;
             rawBudgetItems = dfProjects;
         } else if (fundType === "education") {
-            const sefProjects = await ctx.db.query("specialEducationFunds").collect();
+            const sefProjects = await ctx.db
+                .query("specialEducationFunds")
+                .filter((q) => q.neq(q.field("isDeleted"), true))
+                .collect();
             rawProjects = sefProjects;
             rawBudgetItems = sefProjects;
         } else if (fundType === "health") {
-            const shfProjects = await ctx.db.query("specialHealthFunds").collect();
+            const shfProjects = await ctx.db
+                .query("specialHealthFunds")
+                .filter((q) => q.neq(q.field("isDeleted"), true))
+                .collect();
             rawProjects = shfProjects;
             rawBudgetItems = shfProjects;
         } else {
             // Default "budget"
-            rawProjects = await ctx.db.query("projects").collect();
-            rawBudgetItems = await ctx.db.query("budgetItems").collect();
+            rawProjects = await ctx.db
+                .query("projects")
+                .filter((q) => q.neq(q.field("isDeleted"), true))
+                .collect();
+            rawBudgetItems = await ctx.db
+                .query("budgetItems")
+                .filter((q) => q.neq(q.field("isDeleted"), true))
+                .collect();
         }
 
         const allDepartments = await ctx.db.query("departments").collect();
         const allCategories = await ctx.db.query("projectCategories").collect();
         // Breakdowns might not exist for all types yet
-        allBreakdowns = await ctx.db.query("govtProjectBreakdowns").collect();
+        allBreakdowns = await ctx.db
+            .query("govtProjectBreakdowns")
+            .filter((q) => q.neq(q.field("isDeleted"), true))
+            .collect();
 
         // NORMALIZE DATA
         let allProjects: NormalizedProject[] = [];
@@ -399,8 +429,11 @@ export const getDepartmentHierarchy = query({
             .filter(q => q.eq(q.field("isActive"), true))
             .collect();
 
-        // Get budget data for totals
-        let budgetItems = await ctx.db.query("budgetItems").collect();
+        // Get budget data for totals (excluding trashed items)
+        let budgetItems = await ctx.db
+            .query("budgetItems")
+            .filter((q) => q.neq(q.field("isDeleted"), true))
+            .collect();
 
         if (args.fiscalYearId) {
             const fy = await ctx.db.get(args.fiscalYearId);
@@ -509,15 +542,17 @@ export const getTimeSeriesData = query({
         const fiscalYear = await ctx.db.get(args.fiscalYearId);
         if (!fiscalYear) throw new Error("Year not found");
 
-        // Fetch relevant data
+        // Fetch relevant data (excluding trashed items)
         let projects = await ctx.db
             .query("projects")
-            .filter(q => q.eq(q.field("year"), fiscalYear.year))
+            .withIndex("year", q => q.eq("year", fiscalYear.year))
+            .filter((q) => q.neq(q.field("isDeleted"), true))
             .collect();
 
         let budgetItems = await ctx.db
             .query("budgetItems")
-            .filter(q => q.eq(q.field("year"), fiscalYear.year))
+            .withIndex("year", q => q.eq("year", fiscalYear.year))
+            .filter((q) => q.neq(q.field("isDeleted"), true))
             .collect();
 
         // Apply department filter if provided
@@ -641,7 +676,10 @@ export const searchAutocomplete = query({
 
         // Search projects
         if (args.types.includes("projects")) {
-            const projects = await ctx.db.query("projects").collect();
+            const projects = await ctx.db
+                .query("projects")
+                .filter((q) => q.neq(q.field("isDeleted"), true))
+                .collect();
             const matches = projects
                 .filter(p =>
                     p.particulars.toLowerCase().includes(searchLower)
@@ -659,7 +697,10 @@ export const searchAutocomplete = query({
 
         // Search budget items
         if (args.types.includes("budgets")) {
-            const budgets = await ctx.db.query("budgetItems").collect();
+            const budgets = await ctx.db
+                .query("budgetItems")
+                .filter((q) => q.neq(q.field("isDeleted"), true))
+                .collect();
             const matches = budgets
                 .filter(b =>
                     b.particulars.toLowerCase().includes(searchLower)

@@ -13,6 +13,7 @@ import { useAccentColor } from "@/contexts/AccentColorContext";
 import { Modal } from "./Modal";
 import { ConfirmationModal } from "./ConfirmationModal";
 import { ActivityLogSheet } from "@/components/ActivityLogSheet";
+import { TrashConfirmationModal } from "@/components/modals/TrashConfirmationModal";
 
 // Local Components
 import { ProjectForm } from "./ProjectForm";
@@ -92,6 +93,7 @@ export function ProjectsTable({
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showTrashConfirmModal, setShowTrashConfirmModal] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [showBulkCategoryConfirmModal, setShowBulkCategoryConfirmModal] = useState(false);
     const [showSingleCategoryModal, setShowSingleCategoryModal] = useState(false);
@@ -123,8 +125,31 @@ export function ProjectsTable({
     const [contextMenu, setContextMenu] = useState<ProjectContextMenuState | null>(null);
     const [logSheetOpen, setLogSheetOpen] = useState(false);
     const [selectedLogProject, setSelectedLogProject] = useState<Project | null>(null);
+    const [trashTargetItems, setTrashTargetItems] = useState<Project[]>([]);
+    const [isBulkTrash, setIsBulkTrash] = useState(false);
     const [expandedRemarks, setExpandedRemarks] = useState<Set<string>>(new Set());
     const [isTogglingAutoCalculate, setIsTogglingAutoCalculate] = useState(false);
+
+    // ==================== TRASH PREVIEW QUERY ====================
+    const trashPreviewArgs = useMemo(() => {
+        if (trashTargetItems.length === 0) return "skip" as const;
+        if (isBulkTrash && trashTargetItems.length > 1) {
+            return {
+                entityType: "project" as const,
+                entityIds: trashTargetItems.map(p => p.id),
+            };
+        }
+        return {
+            entityType: "project" as const,
+            entityId: trashTargetItems[0]?.id,
+        };
+    }, [trashTargetItems, isBulkTrash]);
+
+    const trashPreviewData = useQuery(
+        api.trash.getTrashPreview,
+        trashPreviewArgs === "skip" ? "skip" : trashPreviewArgs
+    );
+    const isTrashPreviewLoading = trashPreviewArgs !== "skip" && trashPreviewData === undefined;
 
     // ==================== COMPUTED VALUES ====================
     const canManageBulkActions = useMemo(() => {
@@ -602,8 +627,50 @@ export function ProjectsTable({
 
     const handleDeleteProject = () => {
         if (!contextMenu) return;
-        setSelectedProject(contextMenu.entity);
-        setShowDeleteModal(true);
+        setTrashTargetItems([contextMenu.entity]);
+        setIsBulkTrash(false);
+        setShowTrashConfirmModal(true);
+        setContextMenu(null);
+    };
+
+    const handleBulkTrashClick = () => {
+        if (selectedIds.size === 0) return;
+        const selectedProjects = projects.filter(p => selectedIds.has(p.id));
+        setTrashTargetItems(selectedProjects);
+        setIsBulkTrash(true);
+        setShowTrashConfirmModal(true);
+    };
+
+    const handleConfirmTrash = async () => {
+        try {
+            const toastId = toast.loading(`Moving ${trashTargetItems.length} project(s) to trash...`);
+
+            if (isBulkTrash && trashTargetItems.length > 1) {
+                await bulkMoveToTrash({
+                    ids: trashTargetItems.map(p => p.id) as Id<"projects">[]
+                });
+            } else {
+                const projectId = trashTargetItems[0]?.id;
+                if (projectId && onDelete) {
+                    await onDelete(projectId);
+                }
+            }
+
+            toast.dismiss(toastId);
+            toast.success(`Successfully moved ${trashTargetItems.length} project(s) to trash`);
+            setSelectedIds(new Set());
+            setShowTrashConfirmModal(false);
+            setTrashTargetItems([]);
+        } catch (error) {
+            toast.error("Failed to move projects to trash");
+            console.error(error);
+        }
+    };
+
+    const handleCancelTrash = () => {
+        setShowTrashConfirmModal(false);
+        setTrashTargetItems([]);
+        setIsBulkTrash(false);
     };
 
     const handleToggleRemarks = (projectId: string, e: React.MouseEvent) => {
@@ -638,7 +705,7 @@ export function ProjectsTable({
                     onExportCSV={handleExportCSV}
                     onOpenPrintPreview={handleOpenPrintPreview}
                     onOpenTrash={onOpenTrash}
-                    onBulkTrash={handleBulkTrash}
+                    onBulkTrash={handleBulkTrashClick}
                     isAdmin={canManageBulkActions}
                     pendingRequestsCount={pendingParticularRequests}
                     onOpenShare={() => setShowShareModal(true)}
@@ -791,26 +858,15 @@ export function ProjectsTable({
             )}
 
             {/* Delete Confirmation Modal */}
-            {showDeleteModal && selectedProject && (
-                <ConfirmationModal
-                    isOpen={showDeleteModal}
-                    onClose={() => {
-                        setShowDeleteModal(false);
-                        setSelectedProject(null);
-                    }}
-                    onConfirm={() => {
-                        if (onDelete && selectedProject) {
-                            onDelete(selectedProject.id);
-                        }
-                        setShowDeleteModal(false);
-                        setSelectedProject(null);
-                    }}
-                    title="Move Project to Trash"
-                    message={`Are you sure you want to move "${selectedProject.particulars}" to trash? You can restore it later from the trash.`}
-                    confirmText="Yes, move to trash"
-                    variant="danger"
-                />
-            )}
+            {/* Trash Confirmation Modal */}
+            <TrashConfirmationModal
+                open={showTrashConfirmModal}
+                onOpenChange={setShowTrashConfirmModal}
+                onConfirm={handleConfirmTrash}
+                onCancel={handleCancelTrash}
+                previewData={trashPreviewData}
+                isLoading={isTrashPreviewLoading}
+            />
 
             {/* Share Modal */}
             {showShareModal && (

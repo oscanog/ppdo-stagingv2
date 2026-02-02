@@ -30,45 +30,47 @@ import {
   Loader2,
 } from "lucide-react";
 
+interface TrashPreviewData {
+  targetItem: {
+    id: string;
+    name: string;
+    type: "budgetItem" | "project" | "breakdown";
+  };
+  cascadeCounts: {
+    projects: number;
+    breakdowns: number;
+    inspections: number;
+    totalFinancialImpact: {
+      allocated: number;
+      utilized: number;
+      obligated: number;
+    };
+  };
+  affectedItems: {
+    projects: Array<{
+      id: string;
+      name: string;
+      type: "project";
+      financials: { allocated: number; utilized: number; obligated?: number };
+    }>;
+    breakdowns: Array<{
+      id: string;
+      name: string;
+      type: "breakdown";
+      parentId: string;
+      financials: { allocated?: number; utilized?: number };
+    }>;
+  };
+  warnings: string[];
+  canDelete: boolean;
+}
+
 interface TrashConfirmationModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (reason?: string) => void;
   onCancel: () => void;
-  previewData: {
-    targetItem: {
-      id: string;
-      name: string;
-      type: "budgetItem" | "project" | "breakdown";
-    };
-    cascadeCounts: {
-      projects: number;
-      breakdowns: number;
-      inspections: number;
-      totalFinancialImpact: {
-        allocated: number;
-        utilized: number;
-        obligated: number;
-      };
-    };
-    affectedItems: {
-      projects: Array<{
-        id: string;
-        name: string;
-        type: "project";
-        financials: { allocated: number; utilized: number; obligated?: number };
-      }>;
-      breakdowns: Array<{
-        id: string;
-        name: string;
-        type: "breakdown";
-        parentId: string;
-        financials: { allocated?: number; utilized?: number };
-      }>;
-    };
-    warnings: string[];
-    canDelete: boolean;
-  } | null;
+  previewData: TrashPreviewData | null | undefined;
   isLoading: boolean;
 }
 

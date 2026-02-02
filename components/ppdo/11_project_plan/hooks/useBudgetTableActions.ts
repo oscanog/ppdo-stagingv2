@@ -19,8 +19,11 @@ export function useBudgetTableActions(
   setSelectedIds: (ids: Set<string>) => void,
   setSelectedItem: (item: BudgetItem | null) => void,
   setShowEditModal: (show: boolean) => void,
-  setShowDeleteModal: (show: boolean) => void,
-  setShowBulkToggleDialog: (show: boolean) => void
+  setShowBulkToggleDialog: (show: boolean) => void,
+  // NEW: All items for looking up selected items
+  allItems: BudgetItem[],
+  // NEW: Callback for trash confirmation (parent handles modal)
+  onShowTrashConfirmation: (items: BudgetItem[], isBulk: boolean) => void
 ): UseBudgetTableActionsReturn {
   const router = useRouter();
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -101,13 +104,14 @@ export function useBudgetTableActions(
   }, [setSelectedItem, setShowEditModal]);
 
   /**
-   * Handle delete action
+   * Handle delete action - triggers external trash confirmation modal
    */
   const handleDelete = useCallback((item: BudgetItem) => {
     setSelectedItem(item);
-    setShowDeleteModal(true);
     setContextMenu(null);
-  }, [setSelectedItem, setShowDeleteModal]);
+    // Parent component will handle showing the modal
+    onShowTrashConfirmation([item], false);
+  }, [setSelectedItem, onShowTrashConfirmation]);
 
   /**
    * Handle pin/unpin action
@@ -157,29 +161,57 @@ export function useBudgetTableActions(
   }, [toggleAutoCalculate]);
 
   /**
-   * Handle bulk trash
+   * Handle bulk trash - triggers external trash confirmation modal
    */
-  const handleBulkTrash = useCallback(async () => {
+  const handleBulkTrash = useCallback(() => {
     if (selectedIds.size === 0) {
       toast.error("No items selected");
       return;
     }
     
+    // Get the full items from selected IDs
+    const selectedItems = allItems.filter(item => selectedIds.has(item.id));
+    
+    // Parent component will handle showing the modal
+    onShowTrashConfirmation(selectedItems, true);
+  }, [selectedIds, allItems, onShowTrashConfirmation]);
+
+  /**
+   * Execute actual delete after confirmation (called by parent)
+   */
+  const executeDelete = useCallback(async (itemId: string) => {
     await withMutationHandling(
       () =>
         bulkMoveToTrash({
-          ids: Array.from(selectedIds) as Id<"budgetItems">[],
+          ids: [itemId as Id<"budgetItems">],
         }),
       {
-        loadingMessage: `Moving ${selectedIds.size} item(s) to trash...`,
-        successMessage: `Successfully moved ${selectedIds.size} item(s) to trash`,
+        loadingMessage: "Moving item to trash...",
+        successMessage: "Successfully moved item to trash",
+        errorMessage: "Failed to move item to trash",
+      }
+    );
+  }, [bulkMoveToTrash]);
+
+  /**
+   * Execute bulk delete after confirmation (called by parent)
+   */
+  const executeBulkDelete = useCallback(async (itemIds: string[]) => {
+    await withMutationHandling(
+      () =>
+        bulkMoveToTrash({
+          ids: itemIds as Id<"budgetItems">[],
+        }),
+      {
+        loadingMessage: `Moving ${itemIds.length} item(s) to trash...`,
+        successMessage: `Successfully moved ${itemIds.length} item(s) to trash`,
         errorMessage: "Failed to move items to trash",
         onSuccess: () => {
           setSelectedIds(new Set());
         },
       }
     );
-  }, [selectedIds, bulkMoveToTrash, setSelectedIds]);
+  }, [bulkMoveToTrash, setSelectedIds]);
 
   /**
    * Open bulk auto-calculate toggle dialog
@@ -237,5 +269,7 @@ export function useBudgetTableActions(
     handleOpenBulkToggleDialog,
     handleBulkToggleAutoCalculate,
     isBulkToggling,
+    executeDelete,
+    executeBulkDelete,
   };
 }

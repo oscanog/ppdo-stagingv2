@@ -10,10 +10,10 @@ import { UserDropdown } from "./UserDropdown";
 import { NotificationsDropdown } from "./NotificationsDropdown";
 import { EmailDropdown } from "./EmailDropdown";
 import { getDisplayName } from "@/lib/utils";
-// import domToImage from "dom-to-image-more"; 
+import domToImage from "dom-to-image-more";
 import { ConcernModal } from "./ConcernModal";
 import { ScreenshotZoom } from "./ScreenshotZoom";
-import { MigrationContainer } from "@/components/migration/MigrationContainer";
+// import { MigrationContainer } from "@/components/migration/MigrationContainer";
 
 interface HeaderProps {
   onSearchChange?: (query: string) => void;
@@ -200,7 +200,7 @@ export function Header({ onSearchChange, searchQuery }: HeaderProps) {
               </div>
 
               {/* Report Bug Button & Toggle */}
-              <div className="hidden ml-4 flex items-center gap-2">
+              <div className="ml-4 flex items-center gap-2">
                 {showBugReport && (
                   <Button
                     variant="outline"
@@ -227,9 +227,9 @@ export function Header({ onSearchChange, searchQuery }: HeaderProps) {
               </div>
 
               {/* Migration Button - Admin only */}
-              <div className="hidden sm:flex ml-2">
+              {/* <div className="hidden sm:flex ml-2">
                 <MigrationContainer />
-              </div>
+              </div> */}
             </div>
 
             {/* Right section - Actions */}
