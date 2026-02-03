@@ -29,6 +29,7 @@ import type * as http from "../http.js";
 import type * as implementingAgencies from "../implementingAgencies.js";
 import type * as init_clearSeededData from "../init/clearSeededData.js";
 import type * as init_seedBudgetParticulars from "../init/seedBudgetParticulars.js";
+import type * as init_seedLocalData from "../init/seedLocalData.js";
 import type * as init_seedMockData from "../init/seedMockData.js";
 import type * as init_seedProjectCategories from "../init/seedProjectCategories.js";
 import type * as init_seedProjectParticulars from "../init/seedProjectParticulars.js";
@@ -171,6 +172,7 @@ declare const fullApi: ApiFromModules<{
   implementingAgencies: typeof implementingAgencies;
   "init/clearSeededData": typeof init_clearSeededData;
   "init/seedBudgetParticulars": typeof init_seedBudgetParticulars;
+  "init/seedLocalData": typeof init_seedLocalData;
   "init/seedMockData": typeof init_seedMockData;
   "init/seedProjectCategories": typeof init_seedProjectCategories;
   "init/seedProjectParticulars": typeof init_seedProjectParticulars;

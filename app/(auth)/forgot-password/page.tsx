@@ -38,13 +38,21 @@ function parseErrorMessage(error: any): { title: string; message: string; type: 
     ? error 
     : error.message || error.toString();
 
-  // Extract clean message from Convex error format
-  // Format: [CONVEX M(...)] [Request ID: ...] Server Error Uncaught Error: ACTUAL_MESSAGE
-  const convexMatch = errorMessage.match(/Server Error Uncaught Error:\s*(.+?)(?:\s*at\s+handler|$)/);
+  // Extract clean message from Convex error formats
+  // Examples:
+  // [CONVEX M(...)] [Request ID: ...] Server Error: ACTUAL_MESSAGE
+  // [CONVEX M(...)] [Request ID: ...] Server Error Uncaught Error: ACTUAL_MESSAGE
+  const convexMatch =
+    errorMessage.match(/Server Error(?:\s+Uncaught Error)?:\s*(.+?)(?:\s*at\s+handler|$)/) ||
+    errorMessage.match(/Error:\s*(.+?)(?:\s*at\s+handler|$)/);
   const cleanMessage = convexMatch ? convexMatch[1].trim() : errorMessage;
 
   // Known error patterns
-  if (cleanMessage.includes("pending password reset request") || cleanMessage.includes("already have a pending")) {
+  if (
+    cleanMessage.includes("pending password reset request") ||
+    cleanMessage.includes("already have a pending") ||
+    errorMessage.includes("pending password reset request")
+  ) {
     return {
       title: "Request Already Pending",
       message: "You already have a password reset request waiting for admin review. Please wait for it to be processed before submitting a new one.",
@@ -52,7 +60,10 @@ function parseErrorMessage(error: any): { title: string; message: string; type: 
     };
   }
 
-  if (cleanMessage.includes("maximum number of password reset requests") || cleanMessage.includes("maximum requests reached")) {
+  if (
+    cleanMessage.includes("maximum number of password reset requests") ||
+    cleanMessage.includes("maximum requests reached")
+  ) {
     return {
       title: "Daily Limit Reached",
       message: "You've used all 3 password reset attempts for today. Please try again tomorrow.",
@@ -120,12 +131,25 @@ export default function ForgotPassword() {
   const [clientIP, setClientIP] = useState<string>("Unknown");
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [locationLoading, setLocationLoading] = useState(true);
+  const [displayRemainingSeconds, setDisplayRemainingSeconds] = useState(0);
 
   const submitResetRequest = useMutation(api.passwordReset.submitPasswordResetRequest);
   const resetStatus = useQuery(
     api.passwordReset.checkResetRequestStatus,
     email ? { email: email.toLowerCase().trim() } : "skip"
   );
+
+  useEffect(() => {
+    setDisplayRemainingSeconds(resetStatus?.remainingSeconds ?? 0);
+  }, [resetStatus?.remainingSeconds]);
+
+  useEffect(() => {
+    if (displayRemainingSeconds <= 0) return;
+    const intervalId = setInterval(() => {
+      setDisplayRemainingSeconds((current) => (current > 0 ? current - 1 : 0));
+    }, 1000);
+    return () => clearInterval(intervalId);
+  }, [displayRemainingSeconds]);
 
   // Fetch location data on mount
   useEffect(() => {
@@ -263,16 +287,17 @@ export default function ForgotPassword() {
       return;
     }
 
-    if (!resetStatus) {
-      toast.error("Loading status... Please try again in a moment.");
-      return;
-    }
+    const effectiveRemainingSeconds = displayRemainingSeconds;
+    const attemptsRemaining = resetStatus?.attemptsRemaining ?? 3;
+    const canSubmit = resetStatus
+      ? attemptsRemaining > 0 && effectiveRemainingSeconds === 0
+      : true;
 
-    if (!resetStatus.canSubmit) {
-      if (resetStatus.attemptsRemaining === 0) {
+    if (!canSubmit) {
+      if (attemptsRemaining === 0) {
         toast.error("You have reached the maximum number of password reset requests for today. Please try again tomorrow.");
-      } else if (resetStatus.remainingSeconds && resetStatus.remainingSeconds > 0) {
-        toast.error(`Please wait ${resetStatus.remainingSeconds} seconds before submitting another request.`);
+      } else if (effectiveRemainingSeconds > 0) {
+        toast.error(`Please wait ${effectiveRemainingSeconds} seconds before submitting another request.`);
       }
       return;
     }
@@ -286,18 +311,29 @@ export default function ForgotPassword() {
         locationString = `${locationData.city}, ${locationData.region}, ${locationData.country}`;
       }
 
-      const result = await submitResetRequest({
-        email: email.trim(),
-        message: message.trim() || undefined,
-        ipAddress: clientIP,
-        userAgent: userAgent,
-        geoLocation: locationData ? JSON.stringify({
-          city: locationData.city,
-          region: locationData.region,
-          country: locationData.country,
-          coordinates: locationData.coordinates
-        }) : undefined,
+      const timeoutMs = 15000;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        const id = setTimeout(() => {
+          clearTimeout(id);
+          reject(new Error("Request timeout"));
+        }, timeoutMs);
       });
+
+      const result = await Promise.race([
+        submitResetRequest({
+          email: email.trim(),
+          message: message.trim() || undefined,
+          ipAddress: clientIP,
+          userAgent: userAgent,
+          geoLocation: locationData ? JSON.stringify({
+            city: locationData.city,
+            region: locationData.region,
+            country: locationData.country,
+            coordinates: locationData.coordinates
+          }) : undefined,
+        }),
+        timeoutPromise,
+      ]);
 
       toast.success(result.message || "Password reset request submitted successfully!");
       setEmail("");
@@ -540,9 +576,9 @@ export default function ForgotPassword() {
                       </p>
                     )}
                     
-                    {resetStatus.remainingSeconds > 0 && (
+                    {displayRemainingSeconds > 0 && (
                       <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
-                        Rate limit active. Wait <span className="font-semibold">{resetStatus.remainingSeconds}s</span>
+                        Rate limit active. Wait <span className="font-semibold">{displayRemainingSeconds}s</span>
                       </p>
                     )}
                   </div>
@@ -567,7 +603,7 @@ export default function ForgotPassword() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  disabled={loading || locationLoading}
+                  disabled={loading}
                   className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#15803d] focus:border-[#15803d] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   placeholder="you@example.com"
                 />
@@ -586,7 +622,7 @@ export default function ForgotPassword() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={4}
-                  disabled={loading || locationLoading}
+                  disabled={loading}
                   className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#15803d] focus:border-[#15803d] transition-all disabled:opacity-50 disabled:cursor-not-allowed resize-none"
                   placeholder="Tell us why you need to reset your password (optional)"
                 />
@@ -600,9 +636,8 @@ export default function ForgotPassword() {
                 type="submit"
                 disabled={
                   loading ||
-                  locationLoading ||
-                  !resetStatus ||
-                  !resetStatus.canSubmit ||
+                  (resetStatus ? resetStatus.attemptsRemaining === 0 : false) ||
+                  (resetStatus ? displayRemainingSeconds > 0 : false) ||
                   !email
                 }
                 className="w-full py-3 rounded-xl bg-[#15803d] hover:bg-[#16a34a] text-white font-medium transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed relative overflow-hidden"
@@ -610,11 +645,9 @@ export default function ForgotPassword() {
                 <span className="relative z-10">
                   {loading
                     ? "Submitting..."
-                    : locationLoading
-                      ? "Detecting location..."
-                      : resetStatus && resetStatus.remainingSeconds > 0
-                        ? `Wait ${resetStatus.remainingSeconds}s`
-                        : "Request Password Reset"}
+                    : resetStatus && displayRemainingSeconds > 0
+                      ? `Wait ${displayRemainingSeconds}s`
+                      : "Request Password Reset"}
                 </span>
               </button>
             </form>

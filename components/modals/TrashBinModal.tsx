@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAccentColor } from "@/contexts/AccentColorContext";
+import { PinCodeModal } from "./PinCodeModal";
 
 // ✅ FIXED: Added twentyPercentDF to type union
 type EntityType = "budget" | "project" | "breakdown" | "trustFund" | "specialEducationFund" | "specialHealthFund" | "twentyPercentDF";
@@ -39,6 +40,8 @@ export function TrashBinModal({ isOpen, onClose, type }: TrashBinModalProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pendingDeleteIds, setPendingDeleteIds] = useState<string[]>([]);
 
   // ✅ FIXED: Added twentyPercentDF queries
   const trashItems = useQuery(
@@ -142,10 +145,14 @@ export function TrashBinModal({ isOpen, onClose, type }: TrashBinModalProps) {
     }
   };
 
-  const handleDeleteForever = async (ids: string[]) => {
+  const handleDeleteForever = (ids: string[]) => {
     if (!ids.length) return;
-    if (!confirm("Are you sure? This action is irreversible.")) return;
+    // Open PIN modal instead of using confirm()
+    setPendingDeleteIds(ids);
+    setIsPinModalOpen(true);
+  };
 
+  const executeDelete = async (ids: string[]) => {
     setIsProcessing(true);
     try {
       await Promise.all(ids.map(id => {
@@ -343,6 +350,22 @@ export function TrashBinModal({ isOpen, onClose, type }: TrashBinModalProps) {
           )}
         </div>
       </DialogContent>
+
+      {/* PIN Code Modal for Permanent Delete */}
+      <PinCodeModal
+        isOpen={isPinModalOpen}
+        onClose={() => {
+          setIsPinModalOpen(false);
+          setPendingDeleteIds([]);
+        }}
+        onSuccess={() => {
+          setIsPinModalOpen(false);
+          executeDelete(pendingDeleteIds);
+          setPendingDeleteIds([]);
+        }}
+        title="Permanently Delete Items"
+        description={`Enter your 6-digit PIN to permanently delete ${pendingDeleteIds.length} item(s). This action cannot be undone.`}
+      />
     </Dialog>
   );
 }
