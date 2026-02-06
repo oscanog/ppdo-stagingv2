@@ -11,6 +11,7 @@
 import type * as accessRequests from "../accessRequests.js";
 import type * as auth from "../auth.js";
 import type * as blockedManagement from "../blockedManagement.js";
+import type * as breakdownSharedAccess from "../breakdownSharedAccess.js";
 import type * as budgetAccess from "../budgetAccess.js";
 import type * as budgetItemActivities from "../budgetItemActivities.js";
 import type * as budgetItems from "../budgetItems.js";
@@ -21,6 +22,7 @@ import type * as bugReports from "../bugReports.js";
 import type * as config from "../config.js";
 import type * as config_onboardingConfig from "../config/onboardingConfig.js";
 import type * as dashboard from "../dashboard.js";
+import type * as dashboardSearch from "../dashboardSearch.js";
 import type * as departments from "../departments.js";
 import type * as fiscalYears from "../fiscalYears.js";
 import type * as govtProjectActivities from "../govtProjectActivities.js";
@@ -62,6 +64,7 @@ import type * as lib_twentyPercentDFAggregation from "../lib/twentyPercentDFAggr
 import type * as loginTrail from "../loginTrail.js";
 import type * as media from "../media.js";
 import type * as migrations from "../migrations.js";
+import type * as migrations_migrateInspectionsV2 from "../migrations/migrateInspectionsV2.js";
 import type * as myFunctions from "../myFunctions.js";
 import type * as obligations from "../obligations.js";
 import type * as passwordReset from "../passwordReset.js";
@@ -76,6 +79,7 @@ import type * as schema_accessRequests from "../schema/accessRequests.js";
 import type * as schema_aggregations from "../schema/aggregations.js";
 import type * as schema_audit from "../schema/audit.js";
 import type * as schema_auth from "../schema/auth.js";
+import type * as schema_breakdownSharedAccess from "../schema/breakdownSharedAccess.js";
 import type * as schema_budgetItemActivities from "../schema/budgetItemActivities.js";
 import type * as schema_budgetParticularSharedAccess from "../schema/budgetParticularSharedAccess.js";
 import type * as schema_budgetParticulars from "../schema/budgetParticulars.js";
@@ -106,6 +110,7 @@ import type * as schema_specialEducationFunds from "../schema/specialEducationFu
 import type * as schema_specialHealthFundActivities from "../schema/specialHealthFundActivities.js";
 import type * as schema_specialHealthFundBreakdownActivities from "../schema/specialHealthFundBreakdownActivities.js";
 import type * as schema_specialHealthFundBreakdowns from "../schema/specialHealthFundBreakdowns.js";
+import type * as schema_specialHealthFundSharedAccess from "../schema/specialHealthFundSharedAccess.js";
 import type * as schema_specialHealthFunds from "../schema/specialHealthFunds.js";
 import type * as schema_suggestions from "../schema/suggestions.js";
 import type * as schema_tableSettings from "../schema/tableSettings.js";
@@ -126,9 +131,11 @@ import type * as specialEducationFundBreakdownActivities from "../specialEducati
 import type * as specialEducationFundBreakdowns from "../specialEducationFundBreakdowns.js";
 import type * as specialEducationFundSharedAccess from "../specialEducationFundSharedAccess.js";
 import type * as specialEducationFunds from "../specialEducationFunds.js";
+import type * as specialHealthFundAccess from "../specialHealthFundAccess.js";
 import type * as specialHealthFundActivities from "../specialHealthFundActivities.js";
 import type * as specialHealthFundBreakdownActivities from "../specialHealthFundBreakdownActivities.js";
 import type * as specialHealthFundBreakdowns from "../specialHealthFundBreakdowns.js";
+import type * as specialHealthFundSharedAccess from "../specialHealthFundSharedAccess.js";
 import type * as specialHealthFunds from "../specialHealthFunds.js";
 import type * as suggestions from "../suggestions.js";
 import type * as tableSettings from "../tableSettings.js";
@@ -142,6 +149,7 @@ import type * as twentyPercentDF from "../twentyPercentDF.js";
 import type * as twentyPercentDFActivities from "../twentyPercentDFActivities.js";
 import type * as twentyPercentDFBreakdowns from "../twentyPercentDFBreakdowns.js";
 import type * as userManagement from "../userManagement.js";
+import type * as userPin from "../userPin.js";
 import type * as users from "../users.js";
 
 import type {
@@ -154,6 +162,7 @@ declare const fullApi: ApiFromModules<{
   accessRequests: typeof accessRequests;
   auth: typeof auth;
   blockedManagement: typeof blockedManagement;
+  breakdownSharedAccess: typeof breakdownSharedAccess;
   budgetAccess: typeof budgetAccess;
   budgetItemActivities: typeof budgetItemActivities;
   budgetItems: typeof budgetItems;
@@ -164,6 +173,7 @@ declare const fullApi: ApiFromModules<{
   config: typeof config;
   "config/onboardingConfig": typeof config_onboardingConfig;
   dashboard: typeof dashboard;
+  dashboardSearch: typeof dashboardSearch;
   departments: typeof departments;
   fiscalYears: typeof fiscalYears;
   govtProjectActivities: typeof govtProjectActivities;
@@ -205,6 +215,7 @@ declare const fullApi: ApiFromModules<{
   loginTrail: typeof loginTrail;
   media: typeof media;
   migrations: typeof migrations;
+  "migrations/migrateInspectionsV2": typeof migrations_migrateInspectionsV2;
   myFunctions: typeof myFunctions;
   obligations: typeof obligations;
   passwordReset: typeof passwordReset;
@@ -219,6 +230,7 @@ declare const fullApi: ApiFromModules<{
   "schema/aggregations": typeof schema_aggregations;
   "schema/audit": typeof schema_audit;
   "schema/auth": typeof schema_auth;
+  "schema/breakdownSharedAccess": typeof schema_breakdownSharedAccess;
   "schema/budgetItemActivities": typeof schema_budgetItemActivities;
   "schema/budgetParticularSharedAccess": typeof schema_budgetParticularSharedAccess;
   "schema/budgetParticulars": typeof schema_budgetParticulars;
@@ -249,6 +261,7 @@ declare const fullApi: ApiFromModules<{
   "schema/specialHealthFundActivities": typeof schema_specialHealthFundActivities;
   "schema/specialHealthFundBreakdownActivities": typeof schema_specialHealthFundBreakdownActivities;
   "schema/specialHealthFundBreakdowns": typeof schema_specialHealthFundBreakdowns;
+  "schema/specialHealthFundSharedAccess": typeof schema_specialHealthFundSharedAccess;
   "schema/specialHealthFunds": typeof schema_specialHealthFunds;
   "schema/suggestions": typeof schema_suggestions;
   "schema/tableSettings": typeof schema_tableSettings;
@@ -269,9 +282,11 @@ declare const fullApi: ApiFromModules<{
   specialEducationFundBreakdowns: typeof specialEducationFundBreakdowns;
   specialEducationFundSharedAccess: typeof specialEducationFundSharedAccess;
   specialEducationFunds: typeof specialEducationFunds;
+  specialHealthFundAccess: typeof specialHealthFundAccess;
   specialHealthFundActivities: typeof specialHealthFundActivities;
   specialHealthFundBreakdownActivities: typeof specialHealthFundBreakdownActivities;
   specialHealthFundBreakdowns: typeof specialHealthFundBreakdowns;
+  specialHealthFundSharedAccess: typeof specialHealthFundSharedAccess;
   specialHealthFunds: typeof specialHealthFunds;
   suggestions: typeof suggestions;
   tableSettings: typeof tableSettings;
@@ -285,6 +300,7 @@ declare const fullApi: ApiFromModules<{
   twentyPercentDFActivities: typeof twentyPercentDFActivities;
   twentyPercentDFBreakdowns: typeof twentyPercentDFBreakdowns;
   userManagement: typeof userManagement;
+  userPin: typeof userPin;
   users: typeof users;
 }>;
 

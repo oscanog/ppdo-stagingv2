@@ -769,6 +769,76 @@ export const moveToTrash = mutation({
 });
 
 /**
+ * Bulk move breakdowns to trash
+ */
+export const bulkMoveToTrash = mutation({
+  args: {
+    ids: v.array(v.id("govtProjectBreakdowns")),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
+
+    let parentProjectId: Id<"projects"> | null = null;
+
+    // Process each breakdown
+    for (const id of args.ids) {
+      try {
+        const breakdown = await ctx.db.get(id);
+        if (!breakdown) {
+          results.failed++;
+          results.errors.push(`Breakdown ${id} not found`);
+          continue;
+        }
+
+        // Track parent for recalculation
+        if (!parentProjectId && breakdown.projectId) {
+          parentProjectId = breakdown.projectId;
+        }
+
+        // Soft delete
+        await softDeleteBreakdown(
+          ctx,
+          "govtProjectBreakdowns",
+          id,
+          userId,
+          args.reason || "Bulk trash operation"
+        );
+
+        // Log Activity
+        await logGovtProjectActivity(ctx, userId, {
+          action: "updated",
+          breakdownId: id,
+          previousValues: breakdown,
+          newValues: { ...breakdown, isDeleted: true },
+          source: "web_ui",
+          reason: args.reason || "Bulk trash operation",
+        });
+
+        results.success++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push(`Failed to trash ${id}: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }
+
+    // Recalculate parent project once after all deletions
+    if (parentProjectId && results.success > 0) {
+      await recalculateProjectMetrics(ctx, parentProjectId, userId);
+    }
+
+    return results;
+  },
+});
+
+/**
  * Restore Breakdown from Trash
  */
 export const restoreFromTrash = mutation({

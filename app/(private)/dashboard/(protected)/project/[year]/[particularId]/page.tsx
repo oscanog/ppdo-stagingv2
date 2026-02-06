@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Expand } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import AccessDeniedPage from "@/components/AccessDeniedPage";
-import { TrashBinModal } from "@/components/modals";
+import AccessDeniedPage from "@/components/shared/pages/AccessDeniedPage";
+import { TrashBinModal } from "@/components/shared/modals";
 
 // Import from reusable component library
 // Note: We use relative imports if we are inside the same feature folder structure, 
@@ -15,7 +15,6 @@ import { TrashBinModal } from "@/components/modals";
 import {
   ProjectsTable,
   ParticularPageHeader,
-  StatusInfoCard,
   ProjectSummaryStats,
   ProjectLoadingState,
   ProjectExpandModal,
@@ -24,7 +23,7 @@ import {
   useParticularAccess,
   getParticularFullName,
   calculateProjectStats
-} from "@/components/ppdo/projects";
+} from "@/components/features/ppdo/odpp/table-pages/projects";
 
 export default function ParticularProjectsPage() {
   const params = useParams();
@@ -80,6 +79,23 @@ export default function ParticularProjectsPage() {
   const particularFullName = getParticularFullName(particular);
   const stats = calculateProjectStats(projects);
 
+  // Calculate status counts from projects
+  const statusCounts = projects.reduce(
+    (acc, project) => {
+      if (project.status === "completed") acc.completed++;
+      else if (project.status === "ongoing") acc.ongoing++;
+      else if (project.status === "delayed") acc.delayed++;
+      return acc;
+    },
+    { completed: 0, ongoing: 0, delayed: 0 }
+  );
+
+  // Calculate total obligated budget
+  const totalObligated = projects.reduce(
+    (sum, project) => sum + (project.obligatedBudget || 0),
+    0
+  );
+
   // ============================================================================
   // LOADING STATE - Checking Access
   // ============================================================================
@@ -132,23 +148,14 @@ export default function ParticularProjectsPage() {
         onRecalculate={handleRecalculate}
       />
 
-      {showDetails && budgetItem && (
-        <StatusInfoCard
-          budgetStatus={budgetItem.status}
-          totalProjects={projects.length}
-          projectCompleted={budgetItem.projectCompleted}
-          projectDelayed={budgetItem.projectDelayed}
-          projectsOngoing={budgetItem.projectsOngoing || 0}
-          totalBreakdowns={breakdownStats?.totalBreakdowns || 0}
-        />
-      )}
-
       {showDetails && (
         <ProjectSummaryStats
           totalAllocated={stats.totalAllocated}
           totalUtilized={stats.totalUtilized}
+          totalObligated={totalObligated}
           avgUtilizationRate={stats.avgUtilizationRate}
           totalProjects={projects.length}
+          statusCounts={statusCounts}
         />
       )}
 

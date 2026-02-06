@@ -18,7 +18,6 @@ import {
   Globe,
   User,
   Pause,
-  ClipboardList,
   Loader2,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/shared"
@@ -69,8 +68,7 @@ export default function AgencyDetailPage() {
   // Filter projects from the unified list
   const ongoingProjects = agency.projects.filter((p) => p.status === "ongoing")
   const completedProjects = agency.projects.filter((p) => p.status === "completed")
-  const plannedProjects = agency.projects.filter((p) => p.status === "planned")
-  const onHoldProjects = agency.projects.filter((p) => p.status === "on-hold" || p.status === "delayed")
+  const delayedProjects = agency.projects.filter((p) => p.status === "delayed")
 
   // Use calculated stats from backend
   const stats = {
@@ -290,36 +288,18 @@ export default function AgencyDetailPage() {
             </div>
           )}
 
-          {/* Planned Projects */}
-          {plannedProjects.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <ClipboardList className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                <h4 className="text-xl font-cinzel font-semibold">Planned Projects</h4>
-                <Badge variant="outline" className="border-amber-500/20 text-amber-600 dark:text-amber-400">
-                  {plannedProjects.length}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {plannedProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project as ProjectItem} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* On-Hold Projects */}
-          {onHoldProjects.length > 0 && (
+          {/* Delayed Projects */}
+          {delayedProjects.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <Pause className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                <h4 className="text-xl font-cinzel font-semibold">On-Hold / Delayed Projects</h4>
+                <h4 className="text-xl font-cinzel font-semibold">Delayed Projects</h4>
                 <Badge variant="outline" className="border-gray-500/20 text-gray-600 dark:text-gray-400">
-                  {onHoldProjects.length}
+                  {delayedProjects.length}
                 </Badge>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {onHoldProjects.map((project) => (
+                {delayedProjects.map((project) => (
                   <ProjectCard key={project.id} project={project as ProjectItem} />
                 ))}
               </div>

@@ -7,16 +7,17 @@ import { useRouter, usePathname } from "next/navigation";
 import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
-import { Header } from "../../../components/header/Header";
-import { Breadcrumbs } from "@/components/navigation";
+import { Header } from "@/components/layout/header/Header";
+import { Breadcrumbs } from "@/components/layout/navigation";
 import { TimeLocation } from "@/components/shared";
 import { SearchProvider } from "../../../contexts/SearchContext";
 import { SidebarProvider } from "../../../contexts/SidebarContext";
 import { AccentColorProvider } from "../../../contexts/AccentColorContext";
 import { BreadcrumbProvider } from "../../../contexts/BreadcrumbContext";
-import { OnboardingModal } from "@/components/modals/OnboardingModal";
-import { Sidebar } from "../../../components/sidebar/Sidebar";
+import { OnboardingModal } from "@/components/shared/modals/OnboardingModal";
+import { Sidebar } from "@/components/layout/sidebar/Sidebar";
 import { BetaBanner } from "@/components/ui/beta-banner";
+import { PinReminderProvider } from "@/components/shared/providers/PinReminderProvider";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -115,7 +116,9 @@ export default function DashboardLayout({
       <SidebarProvider>
         <AccentColorProvider>
           <BreadcrumbProvider>
-            <DashboardContent>{children}</DashboardContent>
+            <PinReminderProvider>
+              <DashboardContent>{children}</DashboardContent>
+            </PinReminderProvider>
           </BreadcrumbProvider>
         </AccentColorProvider>
       </SidebarProvider>

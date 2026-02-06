@@ -216,6 +216,27 @@ export const userTables = {
      * Last failed login timestamp
      */
     lastFailedLogin: v.optional(v.number()),
+
+    // ============================================================================
+    // DELETE PROTECTION PIN
+    // ============================================================================
+    
+    /**
+     * User's delete protection PIN (hashed)
+     * Used for verifying permanent delete actions in trash
+     */
+    deleteProtectionPin: v.optional(v.string()),
+    
+    /**
+     * Whether user has changed from default PIN
+     * Used to show reminder modal for better security
+     */
+    hasCustomDeletePin: v.optional(v.boolean()),
+    
+    /**
+     * Timestamp when PIN was last changed
+     */
+    deletePinUpdatedAt: v.optional(v.number()),
   })
     .index("email", ["email"])
     .index("phone", ["phone"])

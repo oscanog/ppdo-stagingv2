@@ -738,6 +738,47 @@ export const togglePin = mutation({
 });
 
 /**
+ * Quick update status only (for Kanban drag-drop)
+ */
+export const updateStatus = mutation({
+  args: {
+    id: v.id("budgetItems"),
+    status: v.union(
+      v.literal("ongoing"),
+      v.literal("completed"),
+      v.literal("delayed")
+    ),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not authenticated");
+
+    const existing = await ctx.db.get(args.id);
+    if (!existing) throw new Error("Budget item not found");
+
+    const now = Date.now();
+
+    await ctx.db.patch(args.id, {
+      status: args.status,
+      updatedAt: now,
+      updatedBy: userId,
+    });
+
+    // Log activity
+    await logBudgetActivity(ctx, userId, {
+      action: "updated",
+      budgetItemId: args.id,
+      previousValues: existing,
+      newValues: { ...existing, status: args.status, updatedAt: now, updatedBy: userId },
+      reason: args.reason || `Status changed to ${args.status}`
+    });
+
+    return args.id;
+  },
+});
+
+/**
  * INTERNAL: Recalculate metrics for a specific budget item
  */
 export const recalculateMetrics = internalMutation({

@@ -17,21 +17,17 @@ import { useBreadcrumb } from "@/contexts/BreadcrumbContext";
 // Centralized Breakdown Components
 import {
   BreakdownHeader,
-  EntityOverviewCards,
-  BreakdownStatsAccordion,
   BreakdownHistoryTable,
   BreakdownForm,
   Breakdown,
-} from "@/components/ppdo/breakdown";
-
-// Local Components (Project-specific)
-import { StatusChainCard } from "./_components/StatusChainCard";
+  BreakdownStatistics,
+} from "@/components/features/ppdo/odpp/table-pages/breakdown";
 
 // Shared Components
-import { TrashBinModal } from "@/components/modals";
-import { TrashConfirmationModal } from "@/components/modals/TrashConfirmationModal";
-import { Modal } from "@/components/ppdo/11_project_plan";
-import { ConfirmationModal } from "@/components/ppdo/11_project_plan";
+import { TrashBinModal } from "@/components/shared/modals";
+import { TrashConfirmationModal } from "@/components/shared/modals/TrashConfirmationModal";
+import { Modal } from "@/components/features/ppdo/odpp/table-pages/11_project_plan";
+import { ConfirmationModal } from "@/components/features/ppdo/odpp/table-pages/11_project_plan";
 
 // Shared Hooks
 import { useEntityStats, useEntityMetadata } from "@/lib/hooks/useEntityStats";
@@ -40,6 +36,7 @@ import { useEntityStats, useEntityMetadata } from "@/lib/hooks/useEntityStats";
 import { extractIdFromSlug, getParticularFullName, extractCleanNameFromSlug, decodeLabel, formatYearLabel } from "@/lib/utils/breadcrumb-utils";
 import { getStatusColor } from "./_lib/page-helpers";
 import { useDashboardBreadcrumbs } from "@/lib/hooks/useDashboardBreadcrumbs";
+import { Folder } from "lucide-react";
 
 export default function ProjectBreakdownPage() {
   const params = useParams();
@@ -57,7 +54,7 @@ export default function ProjectBreakdownPage() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showTrashConfirmModal, setShowTrashConfirmModal] = useState(false);
   const [selectedBreakdown, setSelectedBreakdown] = useState<Breakdown | null>(null);
-  const [showHeader, setShowHeader] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
 
   // Trash Preview Query
@@ -230,60 +227,31 @@ export default function ProjectBreakdownPage() {
       <BreakdownHeader
         backUrl={`/dashboard/project/${year}/${encodeURIComponent(particularId)}`}
         backLabel="Back to Projects"
+        icon={Folder}
+        iconBgClass="bg-blue-100 dark:bg-blue-900/30"
+        iconTextClass="text-blue-700 dark:text-blue-300"
         entityName={project?.particulars}
         entityType="project"
         implementingOffice={project?.implementingOffice}
         year={year}
         subtitle={`Historical breakdown and progress tracking for ${year}`}
-        showHeader={showHeader}
-        setShowHeader={setShowHeader}
+        showHeader={showDetails}
+        setShowHeader={setShowDetails}
         showRecalculateButton={true}
         isRecalculating={isRecalculating}
         onRecalculate={handleRecalculate}
         showActivityLog={true}
       />
 
-      {showHeader && project && parentBudgetItem && (
-        <StatusChainCard
-          breakdownCount={breakdownHistory?.length || 0}
-          stats={stats}
-          projectStatus={project.status}
-          parentStatus={parentBudgetItem.status}
-        />
-      )}
-
-      {/* Shared Entity Overview Cards */}
-      {showHeader && project && (
-        <EntityOverviewCards
-          entityType="project"
-          implementingOffice={project.implementingOffice}
-          totalBudget={project.totalBudgetAllocated}
-          statusText={project.status}
-          statusColor={getStatusColor(project.status)}
-          year={year}
-          remarks={project.remarks}
-          breakdownCounts={
-            stats
-              ? {
-                completed: stats.statusCounts.completed,
-                delayed: stats.statusCounts.delayed,
-                ongoing: stats.statusCounts.ongoing,
-              }
-              : undefined
-          }
-        />
-      )}
-
-      {/* Shared Statistics Accordion */}
-      {showHeader && stats && (
-        <BreakdownStatsAccordion
-          stats={stats}
-          entityType="project"
-          uniqueOffices={metadata.uniqueOffices}
-          uniqueLocations={metadata.uniqueLocations}
-          getStatusColor={getStatusColor}
-        />
-      )}
+      <BreakdownStatistics
+        showDetails={showDetails}
+        totalAllocated={project?.totalBudgetAllocated || 0}
+        totalUtilized={stats?.totalUtilizedBudget || 0}
+        totalObligated={project?.obligatedBudget || 0}
+        averageUtilizationRate={stats?.averageUtilizationRate || 0}
+        totalBreakdowns={breakdownHistory?.length || 0}
+        statusCounts={stats?.statusCounts || { completed: 0, ongoing: 0, delayed: 0 }}
+      />
 
       <div className="mb-6">
         {breakdownHistory === undefined ? (

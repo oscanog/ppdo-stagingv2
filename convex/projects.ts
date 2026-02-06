@@ -1087,3 +1087,52 @@ export const bulkUpdateCategory = mutation({
     return { success: true, count: successCount };
   },
 });
+
+/**
+ * Update project status (for Kanban drag-drop)
+ * Status can be: completed, ongoing, delayed
+ */
+export const updateStatus = mutation({
+  args: {
+    id: v.id("projects"),
+    status: v.union(
+      v.literal("ongoing"),
+      v.literal("completed"),
+      v.literal("delayed")
+    ),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const existing = await ctx.db.get(args.id);
+    if (!existing) throw new Error("Project not found");
+
+    const now = Date.now();
+
+    await ctx.db.patch(args.id, {
+      status: args.status,
+      updatedAt: now,
+      updatedBy: userId,
+    });
+
+    const updatedProject = await ctx.db.get(args.id);
+
+    // Log the status change
+    await logProjectActivity(ctx, userId, {
+      action: "updated",
+      projectId: args.id,
+      previousValues: existing,
+      newValues: updatedProject,
+      reason: args.reason || `Status changed to ${args.status}`,
+    });
+
+    // Update parent budget item's metrics if exists
+    if (existing.budgetItemId) {
+      await recalculateBudgetItemMetrics(ctx, existing.budgetItemId, userId);
+    }
+
+    return { success: true, status: args.status };
+  },
+});

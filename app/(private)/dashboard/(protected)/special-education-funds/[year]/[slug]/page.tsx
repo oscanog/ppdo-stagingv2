@@ -3,7 +3,6 @@
 "use client";
 
 import { useState, use, useMemo } from "react";
-import { AutoCalcConfirmationModal } from "@/components/ppdo/breakdown/shared/AutoCalcConfirmationModal";
 import { useQuery, useMutation } from "convex/react";
 import { toast } from "sonner";
 
@@ -17,23 +16,23 @@ import { useDashboardBreadcrumbs } from "@/lib/hooks/useDashboardBreadcrumbs";
 // Centralized Breakdown Components
 import {
     BreakdownHeader,
-    EntityOverviewCards,
-    BreakdownStatsAccordion,
     BreakdownHistoryTable,
     BreakdownForm,
     Breakdown,
-} from "@/components/ppdo/breakdown";
+    BreakdownStatistics,
+} from "@/components/features/ppdo/odpp/table-pages/breakdown";
 
 // Shared Components
-import { TrashBinModal } from "@/components/modals";
-import { Modal } from "@/components/ppdo/11_project_plan";
-import { TrashConfirmationModal } from "@/components/modals/TrashConfirmationModal";
+import { TrashBinModal } from "@/components/shared/modals";
+import { Modal } from "@/components/features/ppdo/odpp/table-pages/11_project_plan";
+import { TrashConfirmationModal } from "@/components/shared/modals/TrashConfirmationModal";
 
 // Shared Hooks
 import { useEntityStats, useEntityMetadata } from "@/lib/hooks/useEntityStats";
 
 // Utils
 import { extractIdFromSlug, formatYearLabel } from "@/lib/utils/breadcrumb-utils";
+import { GraduationCap } from "lucide-react";
 
 // Utility function to get status color
 function getStatusColor(status?: string): string {
@@ -66,8 +65,7 @@ export default function SpecialEducationFundBreakdownPage({ params }: PageProps)
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedBreakdown, setSelectedBreakdown] = useState<Breakdown | null>(null);
-    const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
-    const [showHeader, setShowHeader] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
     const [showTrashConfirmModal, setShowTrashConfirmModal] = useState(false);
 
     // Queries
@@ -246,57 +244,35 @@ export default function SpecialEducationFundBreakdownPage({ params }: PageProps)
             <BreakdownHeader
                 backUrl={`/dashboard/special-education-funds/${year}`}
                 backLabel="Back to Special Education Funds"
+                icon={GraduationCap}
+                iconBgClass="bg-indigo-100 dark:bg-indigo-900/30"
+                iconTextClass="text-indigo-700 dark:text-indigo-300"
                 entityName={fund?.projectTitle}
                 entityType="specialeducationfund"
                 implementingOffice={fund?.officeInCharge}
                 year={year}
                 subtitle={`Historical breakdown and progress tracking for ${year}`}
-                showHeader={showHeader}
-                setShowHeader={setShowHeader}
+                showHeader={showDetails}
+                setShowHeader={setShowDetails}
                 showRecalculateButton={false}
                 showActivityLog={true}
                 isAutoCalculate={fund?.autoCalculateFinancials}
                 onToggleAutoCalculate={async () => {
                     if (!fund) return;
                     await toggleAutoCalculate({ id: fundId as Id<"specialEducationFunds"> });
-                    setIsConfirmationOpen(true);
                     toast.success("Auto-calculation settings updated");
                 }}
             />
 
-            {fund && (
-                <EntityOverviewCards
-                    entityType="specialeducationfund"
-                    implementingOffice={fund.officeInCharge}
-                    totalBudget={fund.received}
-                    obligated={fund.obligatedPR}
-                    utilized={fund.utilized}
-                    balance={fund.balance}
-                    statusText={fund.status}
-                    statusColor={getStatusColor(fund.status)}
-                    year={year}
-                    remarks={fund.remarks}
-                    breakdownCounts={
-                        stats
-                            ? {
-                                completed: stats.statusCounts.completed,
-                                delayed: stats.statusCounts.delayed,
-                                ongoing: stats.statusCounts.ongoing,
-                            }
-                            : undefined
-                    }
-                />
-            )}
-
-            {showHeader && stats && (
-                <BreakdownStatsAccordion
-                    stats={stats}
-                    entityType="specialeducationfund"
-                    uniqueOffices={metadata.uniqueOffices}
-                    uniqueLocations={metadata.uniqueLocations}
-                    getStatusColor={getStatusColor}
-                />
-            )}
+            <BreakdownStatistics
+                showDetails={showDetails}
+                totalAllocated={fund?.received || 0}
+                totalUtilized={stats?.totalUtilizedBudget || 0}
+                totalObligated={fund?.obligatedPR || 0}
+                averageUtilizationRate={stats?.averageUtilizationRate || 0}
+                totalBreakdowns={breakdownHistory?.length || 0}
+                statusCounts={stats?.statusCounts || { completed: 0, ongoing: 0, delayed: 0 }}
+            />
 
             <div className="mb-6">
                 {breakdownHistory === undefined ? (
@@ -377,18 +353,6 @@ export default function SpecialEducationFundBreakdownPage({ params }: PageProps)
                 onClose={() => setShowTrashModal(false)}
                 type="breakdown"
             />
-            {fund && (
-                <AutoCalcConfirmationModal
-                    isOpen={isConfirmationOpen}
-                    onClose={() => setIsConfirmationOpen(false)}
-                    isAutoCalculate={fund.autoCalculateFinancials ?? false}
-                    data={{
-                        obligated: fund.obligatedPR ?? 0,
-                        utilized: fund.utilized ?? 0,
-                        balance: fund.balance ?? 0,
-                    }}
-                />
-            )}
         </>
     );
 }

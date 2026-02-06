@@ -55,6 +55,7 @@ export {
   createBudgetExportConfig,
   createProjectExportConfig,
   createTwentyPercentDFExportConfig,
+  createBreakdownExportConfig,
   type CSVExportConfig,
 } from "./export/csvExport";
 

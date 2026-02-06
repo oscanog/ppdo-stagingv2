@@ -19,18 +19,25 @@ This folder contains comprehensive documentation for the PPDO table system, focu
 
 ### Toolbar Components Location
 
-| Component | Path |
-|-----------|------|
-| Unified TableToolbar | `components/ppdo/table/toolbar/TableToolbar.tsx` |
-| BudgetTableToolbar (Adapter) | `components/ppdo/table/toolbar/adapters/BudgetTableToolbar.tsx` |
-| ProjectsTableToolbar (Adapter) | `components/ppdo/table/toolbar/adapters/ProjectsTableToolbar.tsx` |
-| FundsTableToolbar (Adapter) | `components/ppdo/table/toolbar/adapters/FundsTableToolbar.tsx` |
-| ProjectsTableToolbar (Standalone) | `components/ppdo/projects/components/ProjectsTable/ProjectsTableToolbar.tsx` |
-| FundsTableToolbar (Standalone) | `components/ppdo/funds/components/toolbar/FundsTableToolbar.tsx` |
-| TwentyPercentDFTableToolbar | `components/ppdo/twenty-percent-df/components/TwentyPercentDFTable/TwentyPercentDFTableToolbar.tsx` |
-| TrustFundTableToolbar | `app/(private)/dashboard/(protected)/trust-funds/[year]/components/TrustFundTableToolbar.tsx` |
-| PrintPreviewToolbar | `components/ppdo/table/print-preview/PrintPreviewToolbar.tsx` |
-| BudgetTableToolbar (11_project_plan) | `components/ppdo/11_project_plan/table/BudgetTableToolbar.tsx` |
+| Component | Path | Status |
+|-----------|------|--------|
+| Unified TableToolbar | `components/ppdo/table/toolbar/TableToolbar.tsx` | Core |
+| BudgetTableToolbar (Adapter) | `components/ppdo/table/toolbar/adapters/BudgetTableToolbar.tsx` | Adapter |
+| ProjectsTableToolbar (Adapter) | `components/ppdo/table/toolbar/adapters/ProjectsTableToolbar.tsx` | Adapter |
+| FundsTableToolbar (Adapter) | `components/ppdo/table/toolbar/adapters/FundsTableToolbar.tsx` | Adapter |
+| TwentyPercentDFTableToolbar (Adapter) | `components/ppdo/table/toolbar/adapters/TwentyPercentDFTableToolbar.tsx` | Adapter |
+| TrustFundTableToolbar (Adapter) | `components/ppdo/table/toolbar/adapters/TrustFundTableToolbar.tsx` | Adapter |
+| PrintPreviewToolbar | `components/ppdo/table/print-preview/PrintPreviewToolbar.tsx` | Standalone |
+
+### Re-export Files (Backward Compatibility)
+
+| File | Re-exports From |
+|------|-----------------|
+| `components/ppdo/projects/components/ProjectsTable/ProjectsTableToolbar.tsx` | Adapter |
+| `components/ppdo/funds/components/toolbar/FundsTableToolbar.tsx` | Adapter |
+| `components/ppdo/twenty-percent-df/.../TwentyPercentDFTableToolbar.tsx` | Adapter |
+| `app/(private)/dashboard/(protected)/trust-funds/[year]/.../TrustFundTableToolbar.tsx` | Adapter |
+| `components/ppdo/11_project_plan/table/BudgetTableToolbar.tsx` | Adapter |
 
 ### Supporting Components
 
@@ -62,19 +69,24 @@ This folder contains comprehensive documentation for the PPDO table system, focu
 
 | Plan | Status | Description |
 |------|--------|-------------|
-| [Toolbar Centralization](./IMPLEMENTATION-PLAN-TOOLBAR-CENTRALIZATION.md) | **Pending** | Centralize all standalone toolbars to use unified TableToolbar |
+| [Toolbar Centralization](./IMPLEMENTATION-PLAN-TOOLBAR-CENTRALIZATION.md) | **Completed** | All toolbars now use unified TableToolbar via adapters |
 
 ---
 
-## Current Centralization Status
+## Centralization Status
 
-| Toolbar | Centralized? | Notes |
-|---------|:------------:|-------|
-| BudgetTableToolbar (Adapter) | Yes | Uses unified TableToolbar |
-| ProjectsTableToolbar (Adapter) | Yes | Uses unified TableToolbar |
-| FundsTableToolbar (Adapter) | Yes | Uses unified TableToolbar |
-| ProjectsTableToolbar (Standalone) | **No** | Needs migration |
-| FundsTableToolbar (Standalone) | **No** | Needs migration (has Kanban features) |
-| TwentyPercentDFTableToolbar | **No** | Needs migration |
-| TrustFundTableToolbar | **No** | Needs migration (missing features) |
-| BudgetTableToolbar (Legacy) | **No** | Needs migration |
+All table toolbars are now centralized using the unified `TableToolbar` component via adapters.
+
+| Toolbar | Status | Notes |
+|---------|:------:|-------|
+| BudgetTableToolbar | Yes | Adapter with auto-calculate bulk action |
+| ProjectsTableToolbar | Yes | Adapter with ProjectBulkActions component |
+| FundsTableToolbar | Yes | Adapter with Kanban support (status/field visibility) |
+| TwentyPercentDFTableToolbar | Yes | Adapter with TwentyPercentDFBulkActions component |
+| TrustFundTableToolbar | Yes | Adapter with enhanced features (column visibility, share) |
+
+### New Features Added to Unified TableToolbar
+
+- **bulkActionsComponent** - Custom component slot for domain-specific bulk actions
+- **Kanban View Support** - `visibleStatuses`, `onToggleStatus`, `visibleFields`, `onToggleField`
+- **Feature Toggles** - `showColumnVisibility`, `showExport`, `showShare`, `showPrintPreview`, `showDirectPrint`, `animatedSearch`

@@ -6,6 +6,7 @@ import { recalculateTwentyPercentDFMetrics } from "./lib/twentyPercentDFAggregat
 import { logTwentyPercentDFBreakdownActivity } from "./lib/twentyPercentDFActivityLogger";
 import { internal } from "./_generated/api";
 import { validateImplementingOffice } from "./lib/breakdownBase";
+import { Id } from "./_generated/dataModel";
 
 // Reusable status validator
 const statusValidator = v.union(
@@ -220,6 +221,75 @@ export const moveToTrash = mutation({
         });
 
         return { success: true };
+    },
+});
+
+/**
+ * Bulk move breakdowns to trash
+ */
+export const bulkMoveToTrash = mutation({
+    args: {
+        ids: v.array(v.id("twentyPercentDFBreakdowns")),
+        reason: v.optional(v.string()),
+    },
+    handler: async (ctx, args) => {
+        const userId = await getAuthUserId(ctx);
+        if (!userId) throw new Error("Not authenticated");
+
+        const results = {
+            success: 0,
+            failed: 0,
+            errors: [] as string[],
+        };
+
+        let parentId: Id<"twentyPercentDF"> | null = null;
+
+        // Process each breakdown
+        for (const id of args.ids) {
+            try {
+                const breakdown = await ctx.db.get(id);
+                if (!breakdown) {
+                    results.failed++;
+                    results.errors.push(`Breakdown ${id} not found`);
+                    continue;
+                }
+
+                // Track parent for recalculation
+                if (!parentId && breakdown.twentyPercentDFId) {
+                    parentId = breakdown.twentyPercentDFId;
+                }
+
+                const now = Date.now();
+                await ctx.db.patch(id, {
+                    isDeleted: true,
+                    deletedAt: now,
+                    deletedBy: userId,
+                });
+
+                await logTwentyPercentDFBreakdownActivity(ctx, userId, {
+                    action: "updated",
+                    breakdownId: id,
+                    projectName: breakdown.projectName,
+                    implementingOffice: breakdown.implementingOffice,
+                    previousValues: breakdown,
+                    newValues: { ...breakdown, isDeleted: true },
+                    source: "web_ui",
+                    reason: args.reason || "Bulk trash operation",
+                });
+
+                results.success++;
+            } catch (error) {
+                results.failed++;
+                results.errors.push(`Failed to trash ${id}: ${error instanceof Error ? error.message : "Unknown error"}`);
+            }
+        }
+
+        // Recalculate metrics once after all deletions
+        if (parentId && results.success > 0) {
+            await recalculateTwentyPercentDFMetrics(ctx, parentId, userId);
+        }
+
+        return results;
     },
 });
 

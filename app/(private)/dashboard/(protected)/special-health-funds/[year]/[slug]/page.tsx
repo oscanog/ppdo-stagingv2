@@ -16,24 +16,23 @@ import { useDashboardBreadcrumbs } from "@/lib/hooks/useDashboardBreadcrumbs";
 // Centralized Breakdown Components
 import {
     BreakdownHeader,
-    EntityOverviewCards,
-    BreakdownStatsAccordion,
     BreakdownHistoryTable,
     BreakdownForm,
     Breakdown,
-} from "@/components/ppdo/breakdown";
+    BreakdownStatistics,
+} from "@/components/features/ppdo/odpp/table-pages/breakdown";
 
 // Shared Components
-import { TrashBinModal } from "@/components/modals";
-import { Modal } from "@/components/ppdo/11_project_plan";
-import { TrashConfirmationModal } from "@/components/modals/TrashConfirmationModal";
-import { AutoCalcConfirmationModal } from "@/components/ppdo/breakdown/shared/AutoCalcConfirmationModal";
+import { TrashBinModal } from "@/components/shared/modals";
+import { Modal } from "@/components/features/ppdo/odpp/table-pages/11_project_plan";
+import { TrashConfirmationModal } from "@/components/shared/modals/TrashConfirmationModal";
 
 // Shared Hooks
 import { useEntityStats, useEntityMetadata } from "@/lib/hooks/useEntityStats";
 
 // Utils
 import { extractIdFromSlug, formatYearLabel } from "@/lib/utils/breadcrumb-utils";
+import { HeartPulse } from "lucide-react";
 
 // Utility function to get status color
 function getStatusColor(status?: string): string {
@@ -67,8 +66,7 @@ export default function SpecialHealthFundBreakdownPage({ params }: PageProps) {
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showTrashConfirmModal, setShowTrashConfirmModal] = useState(false);
     const [selectedBreakdown, setSelectedBreakdown] = useState<Breakdown | null>(null);
-    const [showHeader, setShowHeader] = useState(false);
-    const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
 
     // Queries
     const fund = useQuery(
@@ -246,70 +244,35 @@ export default function SpecialHealthFundBreakdownPage({ params }: PageProps) {
             <BreakdownHeader
                 backUrl={`/dashboard/special-health-funds/${year}`}
                 backLabel="Back to Special Health Funds"
+                icon={HeartPulse}
+                iconBgClass="bg-rose-100 dark:bg-rose-900/30"
+                iconTextClass="text-rose-700 dark:text-rose-300"
                 entityName={fund?.projectTitle}
                 entityType="specialhealthfund"
                 implementingOffice={fund?.officeInCharge}
                 year={year}
                 subtitle={`Historical breakdown and progress tracking for ${year}`}
-                showHeader={showHeader}
-                setShowHeader={setShowHeader}
+                showHeader={showDetails}
+                setShowHeader={setShowDetails}
                 showRecalculateButton={false}
                 showActivityLog={true}
                 isAutoCalculate={fund?.autoCalculateFinancials}
                 onToggleAutoCalculate={async () => {
                     if (!fund) return;
                     await toggleAutoCalculate({ id: fundId as Id<"specialHealthFunds"> });
-                    setIsConfirmationOpen(true);
                     toast.success("Auto-calculation settings updated");
                 }}
             />
 
-            {fund && (
-                <EntityOverviewCards
-                    entityType="specialhealthfund"
-                    implementingOffice={fund.officeInCharge}
-                    totalBudget={fund.received}
-                    obligated={fund.obligatedPR}
-                    utilized={fund.utilized}
-                    balance={fund.balance}
-                    statusText={fund.status}
-                    statusColor={getStatusColor(fund.status)}
-                    year={year}
-                    remarks={fund.remarks}
-                    breakdownCounts={
-                        stats
-                            ? {
-                                completed: stats.statusCounts.completed,
-                                delayed: stats.statusCounts.delayed,
-                                ongoing: stats.statusCounts.ongoing,
-                            }
-                            : undefined
-                    }
-                />
-            )}
-
-            {fund && (
-                <AutoCalcConfirmationModal
-                    isOpen={isConfirmationOpen}
-                    onClose={() => setIsConfirmationOpen(false)}
-                    isAutoCalculate={fund.autoCalculateFinancials ?? false}
-                    data={{
-                        obligated: fund.obligatedPR ?? 0,
-                        utilized: fund.utilized ?? 0,
-                        balance: fund.balance ?? 0,
-                    }}
-                />
-            )}
-
-            {showHeader && stats && (
-                <BreakdownStatsAccordion
-                    stats={stats}
-                    entityType="specialhealthfund"
-                    uniqueOffices={metadata.uniqueOffices}
-                    uniqueLocations={metadata.uniqueLocations}
-                    getStatusColor={getStatusColor}
-                />
-            )}
+            <BreakdownStatistics
+                showDetails={showDetails}
+                totalAllocated={fund?.received || 0}
+                totalUtilized={stats?.totalUtilizedBudget || 0}
+                totalObligated={fund?.obligatedPR || 0}
+                averageUtilizationRate={stats?.averageUtilizationRate || 0}
+                totalBreakdowns={breakdownHistory?.length || 0}
+                statusCounts={stats?.statusCounts || { completed: 0, ongoing: 0, delayed: 0 }}
+            />
 
             <div className="mb-6">
                 {breakdownHistory === undefined ? (

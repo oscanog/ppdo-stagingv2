@@ -549,6 +549,71 @@ export const moveToTrash = mutation({
 });
 
 /**
+ * Bulk move breakdowns to trash
+ */
+export const bulkMoveToTrash = mutation({
+  args: {
+    ids: v.array(v.id("specialHealthFundBreakdowns")),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated");
+
+    const results = {
+      success: 0,
+      failed: 0,
+      errors: [] as string[],
+    };
+
+    // Process each breakdown
+    for (const id of args.ids) {
+      try {
+        const breakdown = await ctx.db.get(id);
+        if (!breakdown) {
+          results.failed++;
+          results.errors.push(`Breakdown ${id} not found`);
+          continue;
+        }
+
+        // Soft delete
+        await softDeleteBreakdown(
+          ctx,
+          "specialHealthFundBreakdowns",
+          id,
+          userId,
+          args.reason || "Bulk trash operation"
+        );
+
+        // Log activity
+        await logspecialHealthFundBreakdownActivity(ctx, userId, {
+          action: "deleted",
+          breakdownId: id,
+          previousValues: breakdown,
+          reason: args.reason || "Bulk trash operation",
+          source: "web_ui",
+        });
+
+        results.success++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push(`Failed to trash ${id}: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }
+
+    // Recalculate SHF Metrics once after all deletions
+    if (results.success > 0 && args.ids.length > 0) {
+      const firstBreakdown = await ctx.db.get(args.ids[0]);
+      if (firstBreakdown) {
+        await recalculateFundMetrics(ctx, firstBreakdown.specialHealthFundId, "specialHealthFunds", userId);
+      }
+    }
+
+    return results;
+  },
+});
+
+/**
  * Restore a breakdown from trash
  */
 export const restoreFromTrash = mutation({

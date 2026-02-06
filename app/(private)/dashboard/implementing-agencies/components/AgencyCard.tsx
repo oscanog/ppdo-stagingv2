@@ -16,7 +16,7 @@ type EnrichedAgency = Doc<"implementingAgencies"> & {
   completedProjects: number
   totalBudget: number
   utilizedBudget: number
-  usageCount: number
+  usageCount?: number
 }
 
 interface AgencyCardProps {

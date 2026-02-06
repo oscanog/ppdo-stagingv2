@@ -8,21 +8,23 @@ The `TableToolbar` is the core, unified toolbar component used across all PPDO t
 
 ## Features
 
-- **Search filtering** with expanding animation
+- **Search filtering** with expanding animation (configurable)
 - **Column visibility** toggling
 - **Selection management** with count display
-- **Bulk actions** (pluggable)
+- **Bulk actions** (pluggable array-based + custom component slot)
+- **Kanban view support** (status/field visibility menus)
 - **Export/Print** capabilities
 - **Admin sharing** features
 - **Responsive design** (desktop/mobile layouts)
+- **Feature toggles** (show/hide specific features)
 
 ## Props Interface
 
 ```typescript
 interface TableToolbarProps {
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // CORE FEATURES (Required in all tables)
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   /** Current search input value */
   searchQuery: string;
@@ -57,9 +59,9 @@ interface TableToolbarProps {
   /** Callback to move selected items to trash */
   onBulkTrash: () => void;
 
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // UI CUSTOMIZATION
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   /** Table title (e.g., "Budget Items", "Projects", "Funds") */
   title?: string;
@@ -73,9 +75,9 @@ interface TableToolbarProps {
   /** Accent/primary color for buttons */
   accentColor: string;
 
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // EXPORT & PRINT OPTIONS (Optional)
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   /** Callback for exporting as CSV */
   onExportCSV?: () => void;
@@ -89,9 +91,9 @@ interface TableToolbarProps {
   /** Show draft indicator badge on print button */
   hasPrintDraft?: boolean;
 
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // SHARING & ADMIN FEATURES (Optional)
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   /** Is current user an admin */
   isAdmin?: boolean;
@@ -105,16 +107,60 @@ interface TableToolbarProps {
   /** Callback to open recycle bin modal */
   onOpenTrash?: () => void;
 
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // BULK ACTIONS (Optional, Pluggable)
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   /** Array of custom bulk actions */
   bulkActions?: BulkAction[];
 
-  // ═══════════════════════════════════════════════════════════
+  /** Custom bulk actions component slot (e.g., ProjectBulkActions) */
+  bulkActionsComponent?: React.ReactNode;
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // KANBAN VIEW SUPPORT (Optional)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+  /** Visible status IDs for Kanban view filtering */
+  visibleStatuses?: Set<string>;
+
+  /** Callback when user toggles status visibility */
+  onToggleStatus?: (statusId: string, isChecked: boolean) => void;
+
+  /** Visible field IDs for Kanban card display */
+  visibleFields?: Set<string>;
+
+  /** Callback when user toggles field visibility */
+  onToggleField?: (fieldId: string, isChecked: boolean) => void;
+
+  /** Available kanban fields configuration */
+  kanbanFields?: KanbanFieldConfig[];
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // FEATURE TOGGLES (Optional, defaults to true)
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+  /** Show/hide column visibility menu (default: true) */
+  showColumnVisibility?: boolean;
+
+  /** Show/hide export dropdown (default: true) */
+  showExport?: boolean;
+
+  /** Show/hide share button (default: true) */
+  showShare?: boolean;
+
+  /** Show/hide print preview in export menu (default: true) */
+  showPrintPreview?: boolean;
+
+  /** Show/hide direct print in export menu (default: true) */
+  showDirectPrint?: boolean;
+
+  /** Enable animated search expansion (default: true) */
+  animatedSearch?: boolean;
+
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // ADVANCED FEATURES (Optional)
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   /** Callback when search input receives focus */
   onSearchFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
@@ -128,9 +174,9 @@ interface TableToolbarProps {
   /** Add new item button handler */
   onAddNew?: () => void;
 
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // LEGACY SUPPORT (Deprecated)
-  // ═══════════════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   /** @deprecated Use bulkActions array instead */
   onBulkToggleAutoCalculate?: () => void;
@@ -146,7 +192,7 @@ interface TableToolbarProps {
 ## Basic Usage
 
 ```tsx
-import { TableToolbar } from "@/components/ppdo/table/toolbar";
+import { TableToolbar } from "@/components/features/ppdo/table/toolbar";
 
 <TableToolbar
   title="Budget Items"
@@ -177,14 +223,14 @@ import { TableToolbar } from "@/components/ppdo/table/toolbar";
 ## Layout Structure
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│ ┌───────────────┐                    ┌────────────────────────────┐ │
-│ │ Title/        │                    │        Actions Area        │ │
-│ │ Selection     │                    │                            │ │
-│ │ Badge         │                    │ [Search] [Cols] [Trash]    │ │
-│ │               │                    │ [Export] [Share] [+ Add]   │ │
-│ └───────────────┘                    └────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”                    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚ â”‚ Title/        â”‚                    â”‚        Actions Area        â”‚ â”‚
+â”‚ â”‚ Selection     â”‚                    â”‚                            â”‚ â”‚
+â”‚ â”‚ Badge         â”‚                    â”‚ [Search] [Cols] [Trash]    â”‚ â”‚
+â”‚ â”‚               â”‚                    â”‚ [Export] [Share] [+ Add]   â”‚ â”‚
+â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
      LEFT SIDE                                RIGHT SIDE
      (min-width: 200px)                       (flex-1, justify-end)
 ```

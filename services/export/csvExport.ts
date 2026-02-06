@@ -201,7 +201,7 @@ export function createTwentyPercentDFExportConfig(
 
 /**
  * Creates a project-specific CSV export config
- * 
+ *
  * @param hiddenColumns - Hidden column IDs
  * @returns CSVExportConfig for project items
  */
@@ -232,6 +232,66 @@ export function createProjectExportConfig(
       // Format status
       if (column.id === "status") {
         return val.charAt(0).toUpperCase() + val.slice(1);
+      }
+
+      // Escape strings
+      if (typeof val === "string") {
+        return `"${val.replace(/"/g, '""')}"`;
+      }
+
+      return String(val);
+    },
+  };
+}
+
+/**
+ * Creates a breakdown-specific CSV export config
+ *
+ * @param columns - Column definitions
+ * @param hiddenColumns - Hidden column keys
+ * @returns CSVExportConfig for breakdown items
+ */
+export function createBreakdownExportConfig(
+  columns: Array<{ key: string; label: string; type?: string }>,
+  hiddenColumns: Set<string>
+): CSVExportConfig {
+  // Convert breakdown columns to TableColumn format
+  const tableColumns = columns.map(col => ({
+    id: col.key,
+    label: col.label,
+  }));
+
+  return {
+    filename: "breakdown_export",
+    columns: tableColumns,
+    hiddenColumns,
+    includeTimestamp: true,
+    customTransform: (row: any, column: TableColumn) => {
+      const val = row[column.id];
+
+      if (val === undefined || val === null) return "";
+
+      // Format currency fields
+      if (column.id.includes("Budget") || column.id.includes("Allocated") || column.id.includes("Utilized") || column.id.includes("balance")) {
+        return `"₱${Number(val).toLocaleString()}"`;
+      }
+
+      // Format percentage fields
+      if (column.id.includes("Rate") || column.id.includes("utilizationRate")) {
+        return `${Number(val).toFixed(2)}%`;
+      }
+
+      // Format dates
+      if (column.id.includes("date") || column.id.includes("Date")) {
+        if (typeof val === 'number') {
+          return new Date(val).toLocaleDateString();
+        }
+        return String(val);
+      }
+
+      // Format status
+      if (column.id === "status") {
+        return String(val).charAt(0).toUpperCase() + String(val).slice(1);
       }
 
       // Escape strings

@@ -11,7 +11,6 @@
 
 "use client";
 
-import { AutoCalcConfirmationModal } from "@/components/ppdo/breakdown/shared/AutoCalcConfirmationModal";
 import { useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
@@ -27,23 +26,23 @@ import { useDashboardBreadcrumbs } from "@/lib/hooks/useDashboardBreadcrumbs";
 // Centralized Breakdown Components
 import {
   BreakdownHeader,
-  EntityOverviewCards,
-  BreakdownStatsAccordion,
   BreakdownHistoryTable,
   BreakdownForm,
   Breakdown,
-} from "@/components/ppdo/breakdown";
+  BreakdownStatistics,
+} from "@/components/features/ppdo/odpp/table-pages/breakdown";
 
 // Shared Components
-import { TrashBinModal } from "@/components/modals";
-import { Modal } from "@/components/ppdo/11_project_plan";
-import { TrashConfirmationModal } from "@/components/modals/TrashConfirmationModal";
+import { TrashBinModal } from "@/components/shared/modals";
+import { Modal } from "@/components/features/ppdo/odpp/table-pages/11_project_plan";
+import { TrashConfirmationModal } from "@/components/shared/modals/TrashConfirmationModal";
 
 // Shared Hooks
 import { useEntityStats, useEntityMetadata } from "@/lib/hooks/useEntityStats";
 
 // Utils
 import { extractIdFromSlug, formatYearLabel } from "@/lib/utils/breadcrumb-utils";
+import { Wallet } from "lucide-react";
 
 // Utility function to get status color
 function getStatusColor(status?: string): string {
@@ -74,8 +73,7 @@ export default function TrustFundBreakdownPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedBreakdown, setSelectedBreakdown] = useState<Breakdown | null>(null);
-  const [showHeader, setShowHeader] = useState(false);
-  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const [showTrashConfirmModal, setShowTrashConfirmModal] = useState(false);
 
   // Queries
@@ -257,72 +255,35 @@ export default function TrustFundBreakdownPage() {
       <BreakdownHeader
         backUrl={`/dashboard/trust-funds/${year}`}
         backLabel="Back to Trust Funds"
+        icon={Wallet}
+        iconBgClass="bg-emerald-100 dark:bg-emerald-900/30"
+        iconTextClass="text-emerald-700 dark:text-emerald-300"
         entityName={trustFund?.projectTitle}
         entityType="trustfund"
         implementingOffice={trustFund?.officeInCharge}
         year={year}
         subtitle={`Historical breakdown and progress tracking for ${year}`}
-        showHeader={showHeader}
-        setShowHeader={setShowHeader}
+        showHeader={showDetails}
+        setShowHeader={setShowDetails}
         showRecalculateButton={false} // Key difference from Projects
         showActivityLog={true}
         isAutoCalculate={trustFund?.autoCalculateFinancials}
         onToggleAutoCalculate={async () => {
           if (!trustFund) return;
           await toggleAutoCalculate({ id: trustFundId as Id<"trustFunds"> });
-          setIsConfirmationOpen(true);
           toast.success("Auto-calculation settings updated");
         }}
       />
 
-      {/* Shared Entity Overview Cards */}
-      {trustFund && (
-        <EntityOverviewCards
-          entityType="trustfund"
-          implementingOffice={trustFund.officeInCharge}
-          totalBudget={trustFund.received}
-          obligated={trustFund.obligatedPR}
-          utilized={trustFund.utilized}
-          balance={trustFund.balance}
-          statusText={trustFund.status}
-          statusColor={getStatusColor(trustFund.status)}
-          year={year}
-          remarks={trustFund.remarks}
-          breakdownCounts={
-            stats
-              ? {
-                completed: stats.statusCounts.completed,
-                delayed: stats.statusCounts.delayed,
-                ongoing: stats.statusCounts.ongoing,
-              }
-              : undefined
-          }
-        />
-      )}
-
-      {trustFund && (
-        <AutoCalcConfirmationModal
-          isOpen={isConfirmationOpen}
-          onClose={() => setIsConfirmationOpen(false)}
-          isAutoCalculate={trustFund.autoCalculateFinancials ?? false}
-          data={{
-            obligated: trustFund.obligatedPR ?? 0,
-            utilized: trustFund.utilized ?? 0,
-            balance: trustFund.balance ?? 0,
-          }}
-        />
-      )}
-
-      {/* Shared Statistics Accordion */}
-      {showHeader && stats && (
-        <BreakdownStatsAccordion
-          stats={stats}
-          entityType="trustfund"
-          uniqueOffices={metadata.uniqueOffices}
-          uniqueLocations={metadata.uniqueLocations}
-          getStatusColor={getStatusColor}
-        />
-      )}
+      <BreakdownStatistics
+        showDetails={showDetails}
+        totalAllocated={trustFund?.received || 0}
+        totalUtilized={stats?.totalUtilizedBudget || 0}
+        totalObligated={trustFund?.obligatedPR || 0}
+        averageUtilizationRate={stats?.averageUtilizationRate || 0}
+        totalBreakdowns={breakdownHistory?.length || 0}
+        statusCounts={stats?.statusCounts || { completed: 0, ongoing: 0, delayed: 0 }}
+      />
 
       {/* Breakdown Table - Reused from Project */}
       <div className="mb-6">

@@ -39,6 +39,7 @@ import { specialEducationFundBreakdownTables } from "./schema/specialEducationFu
 import { specialEducationFundBreakdownActivityTables } from "./schema/specialEducationFundBreakdownActivities";
 import { specialHealthFundTables } from "./schema/specialHealthFunds";
 import { specialHealthFundActivityTables } from "./schema/specialHealthFundActivities";
+import { specialHealthFundSharedAccessTables } from "./schema/specialHealthFundSharedAccess";
 import { specialHealthFundBreakdownTables } from "./schema/specialHealthFundBreakdowns";
 import { specialHealthFundBreakdownActivityTables } from "./schema/specialHealthFundBreakdownActivities";
 import { bugReportsTables } from "./schema/bugReports";
@@ -47,6 +48,7 @@ import { twentyPercentDFTables } from "./schema/twentyPercentDF";
 import { twentyPercentDFBreakdownTables } from "./schema/twentyPercentDFBreakdowns";
 import { twentyPercentDFActivityTables } from "./schema/twentyPercentDFActivities";
 import { twentyPercentDFSharedAccessTables } from "./schema/twentyPercentDFSharedAccess";
+import { breakdownSharedAccessTables } from "./schema/breakdownSharedAccess";
 
 export default defineSchema({
   ...authTables,
@@ -87,6 +89,7 @@ export default defineSchema({
   ...specialEducationFundBreakdownActivityTables,
   ...specialHealthFundTables,
   ...specialHealthFundActivityTables,
+  ...specialHealthFundSharedAccessTables,
   ...specialHealthFundBreakdownTables,
   ...specialHealthFundBreakdownActivityTables,
   ...bugReportsTables,
@@ -95,4 +98,5 @@ export default defineSchema({
   ...twentyPercentDFBreakdownTables,
   ...twentyPercentDFActivityTables,
   ...twentyPercentDFSharedAccessTables,
+  ...breakdownSharedAccessTables,
 });

@@ -1,7 +1,8 @@
+// app/dashboard/20_percent_df/[year]/[slug]/page.tsx
+
 "use client";
 
 import { useState, use, useMemo } from "react";
-import { AutoCalcConfirmationModal } from "@/components/ppdo/breakdown/shared/AutoCalcConfirmationModal";
 import { useQuery, useMutation } from "convex/react";
 import { toast } from "sonner";
 
@@ -15,23 +16,23 @@ import { useDashboardBreadcrumbs } from "@/lib/hooks/useDashboardBreadcrumbs";
 // Centralized Breakdown Components
 import {
     BreakdownHeader,
-    EntityOverviewCards,
-    BreakdownStatsAccordion,
     BreakdownHistoryTable,
     BreakdownForm,
     Breakdown,
-} from "@/components/ppdo/breakdown";
+    BreakdownStatistics,
+} from "@/components/features/ppdo/odpp/table-pages/breakdown";
 
 // Shared Components
-import { TrashBinModal } from "@/components/modals";
-import { Modal } from "@/components/ppdo/11_project_plan";
-import { TrashConfirmationModal } from "@/components/modals/TrashConfirmationModal";
+import { TrashBinModal } from "@/components/shared/modals";
+import { Modal } from "@/components/features/ppdo/odpp/table-pages/11_project_plan";
+import { TrashConfirmationModal } from "@/components/shared/modals/TrashConfirmationModal";
 
 // Shared Hooks
 import { useEntityStats, useEntityMetadata } from "@/lib/hooks/useEntityStats";
 
 // Utils
 import { extractIdFromSlug, formatYearLabel } from "@/lib/utils/breadcrumb-utils";
+import { PieChart } from "lucide-react";
 
 // Utility function to get status color
 function getStatusColor(status?: string): string {
@@ -64,8 +65,7 @@ export default function TwentyPercentDFBreakdownPage({ params }: PageProps) {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showTrashConfirmModal, setShowTrashConfirmModal] = useState(false);
     const [selectedBreakdown, setSelectedBreakdown] = useState<Breakdown | null>(null);
-    const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
-    const [showHeader, setShowHeader] = useState(false);
+    const [showDetails, setShowDetails] = useState(false);
 
     // Queries
     const fund = useQuery(
@@ -245,13 +245,16 @@ export default function TwentyPercentDFBreakdownPage({ params }: PageProps) {
             <BreakdownHeader
                 backUrl={`/dashboard/20_percent_df/${year}`}
                 backLabel="Back to 20% Development Fund"
+                icon={PieChart}
+                iconBgClass="bg-amber-100 dark:bg-amber-900/30"
+                iconTextClass="text-amber-700 dark:text-amber-300"
                 entityName={fund?.particulars}
                 entityType="twentyPercentDF"
                 implementingOffice={fund?.implementingOffice}
                 year={year}
                 subtitle={`Historical breakdown and progress tracking for ${year}`}
-                showHeader={showHeader}
-                setShowHeader={setShowHeader}
+                showHeader={showDetails}
+                setShowHeader={setShowDetails}
                 showRecalculateButton={false}
                 showActivityLog={true}
                 isAutoCalculate={fund?.autoCalculateBudgetUtilized}
@@ -262,44 +265,19 @@ export default function TwentyPercentDFBreakdownPage({ params }: PageProps) {
                         autoCalculate: !fund.autoCalculateBudgetUtilized,
                         reason: `Toggled to ${!fund.autoCalculateBudgetUtilized ? 'auto' : 'manual'} mode from header`
                     });
-                    setIsConfirmationOpen(true);
                     toast.success("Auto-calculation settings updated");
                 }}
             />
 
-            {fund && (
-                <EntityOverviewCards
-                    entityType="twentyPercentDF"
-                    implementingOffice={fund.implementingOffice}
-                    totalBudget={fund.totalBudgetAllocated}
-                    obligated={fund.obligatedBudget}
-                    utilized={fund.totalBudgetUtilized}
-                    balance={fund.totalBudgetAllocated - fund.totalBudgetUtilized}
-                    statusText={fund.status}
-                    statusColor={getStatusColor(fund.status)}
-                    year={year}
-                    remarks={fund.remarks}
-                    breakdownCounts={
-                        stats
-                            ? {
-                                completed: stats.statusCounts.completed,
-                                delayed: stats.statusCounts.delayed,
-                                ongoing: stats.statusCounts.ongoing,
-                            }
-                            : undefined
-                    }
-                />
-            )}
-
-            {showHeader && stats && (
-                <BreakdownStatsAccordion
-                    stats={stats}
-                    entityType="twentyPercentDF"
-                    uniqueOffices={metadata.uniqueOffices}
-                    uniqueLocations={metadata.uniqueLocations}
-                    getStatusColor={getStatusColor}
-                />
-            )}
+            <BreakdownStatistics
+                showDetails={showDetails}
+                totalAllocated={fund?.totalBudgetAllocated || 0}
+                totalUtilized={stats?.totalUtilizedBudget || 0}
+                totalObligated={fund?.obligatedBudget || 0}
+                averageUtilizationRate={stats?.averageUtilizationRate || 0}
+                totalBreakdowns={breakdownHistory?.length || 0}
+                statusCounts={stats?.statusCounts || { completed: 0, ongoing: 0, delayed: 0 }}
+            />
 
             <div className="mb-6">
                 {breakdownHistory === undefined ? (
@@ -380,18 +358,6 @@ export default function TwentyPercentDFBreakdownPage({ params }: PageProps) {
                 onClose={() => setShowTrashModal(false)}
                 type="breakdown"
             />
-            {fund && (
-                <AutoCalcConfirmationModal
-                    isOpen={isConfirmationOpen}
-                    onClose={() => setIsConfirmationOpen(false)}
-                    isAutoCalculate={fund.autoCalculateBudgetUtilized ?? false}
-                    data={{
-                        obligated: fund.obligatedBudget ?? 0,
-                        utilized: fund.totalBudgetUtilized ?? 0,
-                        balance: (fund.totalBudgetAllocated ?? 0) - (fund.totalBudgetUtilized ?? 0),
-                    }}
-                />
-            )}
         </>
     );
 }

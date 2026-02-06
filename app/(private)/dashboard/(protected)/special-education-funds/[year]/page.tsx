@@ -3,10 +3,13 @@
 "use client";
 
 import { use, useState, useMemo } from "react";
-import { useFundsData, useFundsMutations, FundsPageHeader, FundsStatistics, FundsTable, FundForm } from "@/components/ppdo/funds";
+import { useQuery } from "convex/react";
+import { useFundsData, useFundsMutations, FundsPageHeader, FundsStatistics, FundsTable, FundForm, FundsExpandModal, FundsShareModal } from "@/components/features/ppdo/odpp/table-pages/funds";
 import { api } from "@/convex/_generated/api";
-import { TrashBinModal } from "@/components/modals";
+import { TrashBinModal } from "@/components/shared/modals";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Expand } from "lucide-react";
 
 interface PageProps {
     params: Promise<{ year: string }>;
@@ -32,6 +35,11 @@ export default function YearSpecialEducationFundsPage({ params }: PageProps) {
 
     const [showTrashModal, setShowTrashModal] = useState(false);
     const [showDetails, setShowDetails] = useState(true);
+    const [showExpandModal, setShowExpandModal] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
+
+    // Get pending access requests count for share button badge
+    const pendingRequestsCount = useQuery(api.accessRequests.getPendingCount);
 
     // Filter funds by year
     const yearFilteredFunds = useMemo(() => {
@@ -44,9 +52,10 @@ export default function YearSpecialEducationFundsPage({ params }: PageProps) {
         if (yearFilteredFunds.length === 0) {
             return {
                 yearStatistics: {
-                    totalReceived: 0,
+                    totalAllocated: 0,
                     totalUtilized: 0,
-                    totalBalance: 0,
+                    totalObligated: 0,
+                    averageUtilizationRate: 0,
                     totalProjects: 0,
                 },
                 statusCounts: {
@@ -62,9 +71,9 @@ export default function YearSpecialEducationFundsPage({ params }: PageProps) {
 
         const stats = yearFilteredFunds.reduce(
             (acc, fund) => {
-                acc.totalReceived += fund.received;
+                acc.totalAllocated += fund.received;
                 acc.totalUtilized += fund.utilized;
-                acc.totalBalance += fund.balance;
+                acc.totalObligated += fund.obligatedPR || 0;
 
                 // Handle all status types including 'active'
                 const status = fund.status || 'not_available';
@@ -95,9 +104,9 @@ export default function YearSpecialEducationFundsPage({ params }: PageProps) {
                 return acc;
             },
             {
-                totalReceived: 0,
+                totalAllocated: 0,
                 totalUtilized: 0,
-                totalBalance: 0,
+                totalObligated: 0,
                 counts: {
                     active: 0,
                     not_yet_started: 0,
@@ -109,11 +118,16 @@ export default function YearSpecialEducationFundsPage({ params }: PageProps) {
             }
         );
 
+        const averageUtilizationRate = yearFilteredFunds.length > 0
+            ? yearFilteredFunds.reduce((sum, f) => sum + (f.utilizationRate || 0), 0) / yearFilteredFunds.length
+            : 0;
+
         return {
             yearStatistics: {
-                totalReceived: stats.totalReceived,
+                totalAllocated: stats.totalAllocated,
                 totalUtilized: stats.totalUtilized,
-                totalBalance: stats.totalBalance,
+                totalObligated: stats.totalObligated,
+                averageUtilizationRate,
                 totalProjects: yearFilteredFunds.length,
             },
             statusCounts: stats.counts
@@ -168,9 +182,10 @@ export default function YearSpecialEducationFundsPage({ params }: PageProps) {
 
             {showDetails && (
                 <FundsStatistics
-                    totalReceived={yearStatistics.totalReceived}
+                    totalAllocated={yearStatistics.totalAllocated}
                     totalUtilized={yearStatistics.totalUtilized}
-                    totalBalance={yearStatistics.totalBalance}
+                    totalObligated={yearStatistics.totalObligated}
+                    averageUtilizationRate={yearStatistics.averageUtilizationRate}
                     totalProjects={yearStatistics.totalProjects}
                     statusCounts={statusCounts}
                 />
@@ -189,12 +204,41 @@ export default function YearSpecialEducationFundsPage({ params }: PageProps) {
                 onDelete={handleDelete}
                 onOpenTrash={() => setShowTrashModal(true)}
                 FormComponent={FundForm}
+                // Enhanced toolbar features
+                expandButton={
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        aria-label="Expand table"
+                        onClick={() => setShowExpandModal(true)}
+                    >
+                        <Expand className="w-4 h-4" />
+                    </Button>
+                }
+                pendingRequestsCount={pendingRequestsCount}
+                onOpenShare={() => setShowShareModal(true)}
             />
 
             <TrashBinModal
                 isOpen={showTrashModal}
                 onClose={() => setShowTrashModal(false)}
                 type="specialEducationFund"
+            />
+
+            <FundsExpandModal
+                isOpen={showExpandModal}
+                onClose={() => setShowExpandModal(false)}
+                fundType="specialEducation"
+                year={year}
+                title="Special Education Funds"
+            />
+
+            <FundsShareModal
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+                fundType="specialEducation"
+                title="Special Education Funds"
             />
         </div>
     );

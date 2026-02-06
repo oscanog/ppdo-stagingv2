@@ -205,3 +205,8 @@ This project is maintained by the **PPDO Development Team**:
 ---
 
 *For detailed documentation, see the [Developer Docs Index](#-full-documentation-index) above.*
+
+
+## commit message
+
+create me a git commit -m (eg. "message") for all changes: powershell ready
