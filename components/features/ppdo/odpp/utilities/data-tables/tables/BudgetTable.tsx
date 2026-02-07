@@ -139,6 +139,7 @@ export function BudgetTable({
 }: BudgetTableProps) {
     const {
         columns: allColumns,
+        columnWidths,
         rowHeights,
         canEditLayout,
         startResizeColumn,
@@ -248,9 +249,10 @@ export function BudgetTable({
 
     return (
         <ResizableTableContainer>
-            <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: 'fit-content', minWidth: '100%' }}>
                 <ResizableTableHeader
                     columns={visibleColumns}
+                    columnWidths={columnWidths}
                     canEditLayout={canEditLayout}
                     onDragStart={onDragStart}
                     onDragOver={onDragOver}
@@ -271,6 +273,7 @@ export function BudgetTable({
                                     data={{ ...item, _id: item.id }}
                                     index={index}
                                     columns={visibleColumns}
+                                    columnWidths={columnWidths}
                                     rowHeight={rowHeights[item.id] ?? DEFAULT_ROW_HEIGHT}
                                     canEditLayout={canEditLayout}
                                     renderCell={renderCell}

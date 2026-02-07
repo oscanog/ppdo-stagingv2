@@ -121,8 +121,18 @@ export function FundsTable<T extends BaseFund>({
     onSelectRow,
     onSelectAll,
 }: FundsTableProps<T>) {
+    // Map fundType to the correct table identifier used in backend defaults
+    const tableIdentifier = fundType === 'trust' 
+        ? 'trustFundsTable' 
+        : fundType === 'specialEducation' 
+            ? 'sefTable' 
+            : fundType === 'specialHealth' 
+                ? 'shfTable' 
+                : `${fundType}Table`;
+
     const {
         columns: allColumns,
+        columnWidths,
         rowHeights,
         canEditLayout,
         startResizeColumn,
@@ -131,7 +141,7 @@ export function FundsTable<T extends BaseFund>({
         onDrop,
         onDragOver
     } = useResizableColumns({
-        tableIdentifier: `${fundType}Table`,
+        tableIdentifier,
         defaultColumns: FUNDS_TABLE_COLUMNS
     });
 
@@ -234,9 +244,10 @@ export function FundsTable<T extends BaseFund>({
 
     return (
         <ResizableTableContainer>
-            <table className="w-full" style={{ borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', width: 'fit-content', minWidth: '100%' }}>
                 <ResizableTableHeader
                     columns={visibleColumns}
+                    columnWidths={columnWidths}
                     canEditLayout={canEditLayout}
                     onDragStart={onDragStart}
                     onDragOver={onDragOver}
@@ -261,6 +272,7 @@ export function FundsTable<T extends BaseFund>({
                                     data={{ ...item, _id: item.id }}
                                     index={index}
                                     columns={visibleColumns}
+                                    columnWidths={columnWidths}
                                     rowHeight={rowHeights[item.id] ?? DEFAULT_ROW_HEIGHT}
                                     canEditLayout={canEditLayout}
                                     renderCell={(itm, col) => renderCell(itm as T, col)}

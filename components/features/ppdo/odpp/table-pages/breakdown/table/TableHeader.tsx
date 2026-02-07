@@ -70,17 +70,17 @@ export function TableHeader({
         {/* Data Columns */}
         {columns.map((column, index) => (
           <th
-            key={column.key}
+            key={String(column.key)}
             draggable={canEditLayout}
             onDragStart={() => onDragStart(index)}
             onDragOver={onDragOver}
             onDrop={() => onDrop(index)}
-            className={`relative px-2 sm:px-3 py-2 text-zinc-700 dark:text-zinc-200 ${
-              canEditLayout ? "cursor-move" : ""
-            }`}
+            className={`relative px-2 sm:px-3 py-2 text-zinc-700 dark:text-zinc-200 ${canEditLayout ? "cursor-move" : ""
+              }`}
             style={{
-              flex: column.flex,
+              width: `${column.width}px`,
               minWidth: column.minWidth ? `${column.minWidth}px` : '80px',
+              maxWidth: column.maxWidth ? `${column.maxWidth}px` : '450px',
               border: '1px solid rgb(228 228 231 / 1)',
               textAlign: column.align,
             }}
