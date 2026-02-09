@@ -22,16 +22,30 @@ export const searchIndexTables = {
     /**
      * Entity type being indexed
      * Determines which table this entry references
+     *
+     * HIERARCHY:
+     * - 1st page: List/Container views
+     * - 2nd page: Detail views
+     * - 3rd page: Breakdown views
      */
     entityType: v.union(
-      v.literal("project"),
+      // 1st page - List/Container views
+      v.literal("budgetItem"),
       v.literal("twentyPercentDF"),
       v.literal("trustFund"),
       v.literal("specialEducationFund"),
       v.literal("specialHealthFund"),
       v.literal("department"),
       v.literal("agency"),
-      v.literal("user")
+      v.literal("user"),
+      // 2nd page - Detail views
+      v.literal("projectItem"),
+      v.literal("twentyPercentDFItem"),
+      v.literal("trustFundItem"),
+      v.literal("specialEducationFundItem"),
+      v.literal("specialHealthFundItem"),
+      // 3rd page - Breakdown views
+      v.literal("projectBreakdown")
     ),
 
     /**
@@ -97,6 +111,19 @@ export const searchIndexTables = {
     year: v.optional(v.number()),
 
     /**
+     * Parent entity slug (for 2nd/3rd level entities)
+     * Used to build nested URLs for navigation
+     * Example: For projectItem, this would be the budget item's slug
+     */
+    parentSlug: v.optional(v.string()),
+
+    /**
+     * Parent entity ID (for 2nd/3rd level entities)
+     * Used to reference the parent when reindexing
+     */
+    parentId: v.optional(v.string()),
+
+    /**
      * Entity creation timestamp
      * Used for recency-based ranking
      */
@@ -107,6 +134,12 @@ export const searchIndexTables = {
      * Used for freshness ranking
      */
     updatedAt: v.number(),
+
+    /**
+     * User ID who created the original entity
+     * Used to display author information in search results
+     */
+    createdBy: v.optional(v.string()),
 
     /**
      * Soft delete flag

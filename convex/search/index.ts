@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 import { mutation, query, MutationCtx, QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
-import { EntityType } from "./types";
+import { EntityType, getPageDepthDisplay } from "./types";
 import { calculateRelevance, RankingContext } from "./ranking";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
@@ -32,7 +32,7 @@ function createHighlight(text: string, queryTokens: string[]): string {
   if (!text || queryTokens.length === 0) return text;
 
   // Escape special regex characters in tokens
-  const escapedTokens = queryTokens.map(token => 
+  const escapedTokens = queryTokens.map(token =>
     token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   );
 
@@ -154,28 +154,90 @@ function calculateRelevanceScore(args: {
 
 /**
  * Generate source URL for navigation based on entity type
+ * Includes highlight parameter for auto-scroll & highlight feature
+ * For nested entities (2nd/3rd level), parentSlug is required for correct URL
  */
-function getEntityUrl(entityType: string, entityId: string, year?: number): string {
+function getEntityUrl(entityType: string, entityId: string, year?: number, parentSlug?: string): string {
+  // Build base URL
+  let baseUrl: string;
+
   switch (entityType) {
-    case "project":
-      return year ? `/dashboard/project/${year}` : `/dashboard/project`;
+    // 1st page - List/Container views (no parentSlug needed)
+    case "budgetItem":
+      baseUrl = year ? `/dashboard/project/${year}` : `/dashboard/project`;
+      break;
     case "twentyPercentDF":
-      return year ? `/dashboard/20_percent_df/${year}` : `/dashboard/20_percent_df`;
+      baseUrl = year ? `/dashboard/20_percent_df/${year}` : `/dashboard/20_percent_df`;
+      break;
     case "trustFund":
-      return year ? `/dashboard/trust-funds/${year}` : `/dashboard/trust-funds`;
+      baseUrl = year ? `/dashboard/trust-funds/${year}` : `/dashboard/trust-funds`;
+      break;
     case "specialEducationFund":
-      return year ? `/dashboard/special-education-funds/${year}` : `/dashboard/special-education-funds`;
+      baseUrl = year ? `/dashboard/special-education-funds/${year}` : `/dashboard/special-education-funds`;
+      break;
     case "specialHealthFund":
-      return year ? `/dashboard/special-health-funds/${year}` : `/dashboard/special-health-funds`;
+      baseUrl = year ? `/dashboard/special-health-funds/${year}` : `/dashboard/special-health-funds`;
+      break;
     case "department":
-      return `/dashboard/departments`;
+      baseUrl = `/dashboard/departments`;
+      break;
     case "agency":
-      return `/dashboard/office`;
+      baseUrl = `/dashboard/office`;
+      break;
     case "user":
-      return `/dashboard/settings/user-management`;
+      baseUrl = `/dashboard/settings/user-management`;
+      break;
+    // 2nd page - Detail views (require parentSlug for nested URL)
+    case "projectItem":
+      if (parentSlug) {
+        baseUrl = year ? `/dashboard/project/${year}/${parentSlug}` : `/dashboard/project`;
+      } else {
+        // Fallback to 1st page if parentSlug missing
+        baseUrl = year ? `/dashboard/project/${year}` : `/dashboard/project`;
+      }
+      break;
+    case "twentyPercentDFItem":
+      if (parentSlug) {
+        baseUrl = year ? `/dashboard/20_percent_df/${year}/${parentSlug}` : `/dashboard/20_percent_df`;
+      } else {
+        baseUrl = year ? `/dashboard/20_percent_df/${year}` : `/dashboard/20_percent_df`;
+      }
+      break;
+    case "trustFundItem":
+      if (parentSlug) {
+        baseUrl = year ? `/dashboard/trust-funds/${year}/${parentSlug}` : `/dashboard/trust-funds`;
+      } else {
+        baseUrl = year ? `/dashboard/trust-funds/${year}` : `/dashboard/trust-funds`;
+      }
+      break;
+    case "specialEducationFundItem":
+      if (parentSlug) {
+        baseUrl = year ? `/dashboard/special-education-funds/${year}/${parentSlug}` : `/dashboard/special-education-funds`;
+      } else {
+        baseUrl = year ? `/dashboard/special-education-funds/${year}` : `/dashboard/special-education-funds`;
+      }
+      break;
+    case "specialHealthFundItem":
+      if (parentSlug) {
+        baseUrl = year ? `/dashboard/special-health-funds/${year}/${parentSlug}` : `/dashboard/special-health-funds`;
+      } else {
+        baseUrl = year ? `/dashboard/special-health-funds/${year}` : `/dashboard/special-health-funds`;
+      }
+      break;
+    // 3rd page - Breakdown views (require parentSlug which encodes both budget item and project)
+    case "projectBreakdown":
+      if (parentSlug) {
+        baseUrl = year ? `/dashboard/project/${year}/${parentSlug}` : `/dashboard/project`;
+      } else {
+        baseUrl = year ? `/dashboard/project/${year}` : `/dashboard/project`;
+      }
+      break;
     default:
-      return `/dashboard`;
+      baseUrl = `/dashboard`;
   }
+
+  // Append highlight parameter for deep linking and auto-scroll
+  return `${baseUrl}?highlight=${entityId}`;
 }
 
 /**
@@ -192,10 +254,20 @@ export async function indexEntity(
     departmentId?: string;
     status?: string;
     year?: number;
+    parentSlug?: string; // Slug of parent entity for nested URL generation
+    parentId?: string; // ID of parent entity for reference
     isDeleted?: boolean;
+    createdBy?: string; // User ID who created the entity (optional for backward compat)
+    createdAt?: number; // Original entity creation timestamp (optional for backward compat)
+    updatedAt?: number; // Original entity update timestamp (optional for backward compat)
   }
 ) {
   const now = Date.now();
+
+  // Use provided timestamps or fallback to now
+  const createdAt = args.createdAt ?? now;
+  const updatedAt = args.updatedAt ?? now;
+  const createdBy = args.createdBy ?? ""; // Empty string if not provided
 
   // Remove existing index entries for this entity
   const existingEntries = await ctx.db
@@ -226,10 +298,10 @@ export async function indexEntity(
     : args.primaryText;
   const tokens = tokenizeText(combinedText);
 
-  // Calculate relevance score
+  // Calculate relevance score using original timestamps
   const relevanceScore = calculateRelevanceScore({
-    createdAt: now,
-    updatedAt: now,
+    createdAt,
+    updatedAt,
     status: args.status,
     accessCount: 0,
   });
@@ -246,8 +318,11 @@ export async function indexEntity(
     departmentId: args.departmentId,
     status: args.status,
     year: args.year,
-    createdAt: now,
-    updatedAt: now,
+    parentSlug: args.parentSlug, // For nested URL generation
+    parentId: args.parentId, // For reference
+    createdAt, // Original creation date (or now if not provided)
+    updatedAt, // Original update date (or now if not provided)
+    createdBy, // Original creator (or empty string if not provided)
     isDeleted: false,
     relevanceScore,
     accessCount: 0,
@@ -301,14 +376,23 @@ export async function removeFromIndex(
 export const indexEntityMutation = mutation({
   args: {
     entityType: v.union(
-      v.literal("project"),
+      // 1st page
+      v.literal("budgetItem"),
       v.literal("twentyPercentDF"),
       v.literal("trustFund"),
       v.literal("specialEducationFund"),
       v.literal("specialHealthFund"),
       v.literal("department"),
       v.literal("agency"),
-      v.literal("user")
+      v.literal("user"),
+      // 2nd page
+      v.literal("projectItem"),
+      v.literal("twentyPercentDFItem"),
+      v.literal("trustFundItem"),
+      v.literal("specialEducationFundItem"),
+      v.literal("specialHealthFundItem"),
+      // 3rd page
+      v.literal("projectBreakdown")
     ),
     entityId: v.string(),
     primaryText: v.string(),
@@ -317,6 +401,9 @@ export const indexEntityMutation = mutation({
     status: v.optional(v.string()),
     year: v.optional(v.number()),
     isDeleted: v.optional(v.boolean()),
+    createdBy: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     return await indexEntity(ctx, args);
@@ -344,14 +431,23 @@ export const incrementAccessCount = mutation({
   args: {
     entityId: v.string(),
     entityType: v.union(
-      v.literal("project"),
+      // 1st page
+      v.literal("budgetItem"),
       v.literal("twentyPercentDF"),
       v.literal("trustFund"),
       v.literal("specialEducationFund"),
       v.literal("specialHealthFund"),
       v.literal("department"),
       v.literal("agency"),
-      v.literal("user")
+      v.literal("user"),
+      // 2nd page
+      v.literal("projectItem"),
+      v.literal("twentyPercentDFItem"),
+      v.literal("trustFundItem"),
+      v.literal("specialEducationFundItem"),
+      v.literal("specialHealthFundItem"),
+      // 3rd page
+      v.literal("projectBreakdown")
     ),
   },
   handler: async (ctx, args) => {
@@ -392,14 +488,23 @@ export const search = query({
     entityTypes: v.optional(
       v.array(
         v.union(
-          v.literal("project"),
+          // 1st page
+          v.literal("budgetItem"),
           v.literal("twentyPercentDF"),
           v.literal("trustFund"),
           v.literal("specialEducationFund"),
           v.literal("specialHealthFund"),
           v.literal("department"),
           v.literal("agency"),
-          v.literal("user")
+          v.literal("user"),
+          // 2nd page
+          v.literal("projectItem"),
+          v.literal("twentyPercentDFItem"),
+          v.literal("trustFundItem"),
+          v.literal("specialEducationFundItem"),
+          v.literal("specialHealthFundItem"),
+          // 3rd page
+          v.literal("projectBreakdown")
         )
       )
     ),
@@ -550,7 +655,7 @@ export const search = query({
         }
 
         // Check secondary text for matches using already normalized text
-        const secondaryTextMatches = entry.normalizedSecondaryText && 
+        const secondaryTextMatches = entry.normalizedSecondaryText &&
           containsQueryTokens(entry.normalizedSecondaryText, queryTokens);
         if (secondaryTextMatches && entry.secondaryText) {
           matchedFields.push("secondaryText");
@@ -560,19 +665,19 @@ export const search = query({
         // Also check if normalized query is a substring of normalized text (for exact phrase matches)
         const exactPhraseMatch = entry.normalizedPrimaryText.includes(normalizedQuery) ||
           (entry.normalizedSecondaryText && entry.normalizedSecondaryText.includes(normalizedQuery));
-        
+
         // Check token matches - this handles cases where tokenization differs
         const matchedTokens = queryTokens.filter((token) =>
           entry.tokens.includes(token)
         );
-        
+
         // Add token match info if tokens matched but we haven't recorded a match yet
         if (matchedTokens.length > 0 && matchedFields.length === 0) {
           matchedFields.push("tokens");
           // Still highlight in primary text even if only tokens matched
           primaryTextHighlighted = createHighlight(entry.primaryText, queryTokens);
         }
-        
+
         // If we have an exact phrase match but no field match yet, add primaryText
         if (exactPhraseMatch && matchedFields.length === 0) {
           matchedFields.push("primaryText");
@@ -596,16 +701,42 @@ export const search = query({
     // Apply pagination
     const paginatedResults = rankedResults.slice(offset, offset + limit);
 
+    // Fetch author information for each result (Option B: Join During Search Query)
+    const resultsWithAuthors = await Promise.all(
+      paginatedResults.map(async (r) => {
+        let authorName: string | undefined;
+        let authorImage: string | undefined;
+
+        // Fetch user info if createdBy is available
+        if (r.entry.createdBy) {
+          try {
+            const user = await ctx.db.get(r.entry.createdBy as Id<"users">);
+            if (user) {
+              authorName = user.name || user.email || undefined;
+              authorImage = user.image || undefined;
+            }
+          } catch (error) {
+            // User not found or error, leave author fields undefined
+          }
+        }
+
+        return {
+          indexEntry: r.entry,
+          relevanceScore: r.relevanceScore,
+          matchedFields: r.matchedFields,
+          highlights: r.highlights,
+          sourceUrl: getEntityUrl(r.entry.entityType, r.entry.entityId, r.entry.year, r.entry.parentSlug),
+          createdAt: r.entry.createdAt,
+          updatedAt: r.entry.updatedAt,
+          pageDepthText: getPageDepthDisplay(r.entry.entityType),
+          authorName,
+          authorImage,
+        };
+      })
+    );
+
     return {
-      results: paginatedResults.map((r) => ({
-        indexEntry: r.entry,
-        relevanceScore: r.relevanceScore, // Return normalized 0-1 score
-        matchedFields: r.matchedFields,
-        highlights: r.highlights,
-        sourceUrl: getEntityUrl(r.entry.entityType, r.entry.entityId, r.entry.year),
-        createdAt: r.entry.createdAt,
-        updatedAt: r.entry.updatedAt,
-      })),
+      results: resultsWithAuthors,
       totalCount: rankedResults.length,
       offset,
       limit,
@@ -633,7 +764,8 @@ export const categoryCounts = query({
 
     if (queryTokens.length === 0) {
       return {
-        project: 0,
+        // 1st page
+        budgetItem: 0,
         twentyPercentDF: 0,
         trustFund: 0,
         specialEducationFund: 0,
@@ -641,6 +773,14 @@ export const categoryCounts = query({
         department: 0,
         agency: 0,
         user: 0,
+        // 2nd page
+        projectItem: 0,
+        twentyPercentDFItem: 0,
+        trustFundItem: 0,
+        specialEducationFundItem: 0,
+        specialHealthFundItem: 0,
+        // 3rd page
+        projectBreakdown: 0,
       };
     }
 
@@ -696,7 +836,8 @@ export const categoryCounts = query({
 
     // Count by entity type
     const counts: Record<EntityType, number> = {
-      project: 0,
+      // 1st page
+      budgetItem: 0,
       twentyPercentDF: 0,
       trustFund: 0,
       specialEducationFund: 0,
@@ -704,6 +845,14 @@ export const categoryCounts = query({
       department: 0,
       agency: 0,
       user: 0,
+      // 2nd page
+      projectItem: 0,
+      twentyPercentDFItem: 0,
+      trustFundItem: 0,
+      specialEducationFundItem: 0,
+      specialHealthFundItem: 0,
+      // 3rd page
+      projectBreakdown: 0,
     };
 
     for (const entry of matched) {
@@ -725,14 +874,23 @@ export const suggestions = query({
     entityTypes: v.optional(
       v.array(
         v.union(
-          v.literal("project"),
+          // 1st page
+          v.literal("budgetItem"),
           v.literal("twentyPercentDF"),
           v.literal("trustFund"),
           v.literal("specialEducationFund"),
           v.literal("specialHealthFund"),
           v.literal("department"),
           v.literal("agency"),
-          v.literal("user")
+          v.literal("user"),
+          // 2nd page
+          v.literal("projectItem"),
+          v.literal("twentyPercentDFItem"),
+          v.literal("trustFundItem"),
+          v.literal("specialEducationFundItem"),
+          v.literal("specialHealthFundItem"),
+          // 3rd page
+          v.literal("projectBreakdown")
         )
       )
     ),
@@ -789,14 +947,23 @@ export const suggestions = query({
 export const getIndexedEntities = query({
   args: {
     entityType: v.union(
-      v.literal("project"),
+      // 1st page
+      v.literal("budgetItem"),
       v.literal("twentyPercentDF"),
       v.literal("trustFund"),
       v.literal("specialEducationFund"),
       v.literal("specialHealthFund"),
       v.literal("department"),
       v.literal("agency"),
-      v.literal("user")
+      v.literal("user"),
+      // 2nd page
+      v.literal("projectItem"),
+      v.literal("twentyPercentDFItem"),
+      v.literal("trustFundItem"),
+      v.literal("specialEducationFundItem"),
+      v.literal("specialHealthFundItem"),
+      // 3rd page
+      v.literal("projectBreakdown")
     ),
     limit: v.optional(v.number()),
   },

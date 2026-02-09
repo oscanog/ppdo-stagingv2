@@ -12,22 +12,37 @@
 /**
  * Supported entity types for search indexing
  * Each type corresponds to a specific table in the database
+ *
+ * HIERARCHY:
+ * - 1st page: List/Container views (budgetItem, twentyPercentDF, trustFund, etc.)
+ * - 2nd page: Detail views (projectItem, twentyPercentDFItem, trustFundItem, etc.)
+ * - 3rd page: Breakdown views (projectBreakdown, twentyPercentDFBreakdown, etc.)
  */
 export type EntityType =
-  | "project" // Infrastructure projects (projects table)
+  // 1st page - List/Container views
+  | "budgetItem" // Budget Items (budgetItems table) - WAS "project"
   | "twentyPercentDF" // 20% Development Fund (twentyPercentDFs table)
   | "trustFund" // Trust funds (trustFunds table)
   | "specialEducationFund" // SEF programs (specialEducationFunds table)
   | "specialHealthFund" // SHF programs (specialHealthFunds table)
   | "department" // PPDO departments (departments table)
   | "agency" // Implementing agencies/offices (implementingAgencies table)
-  | "user"; // System users (users table)
+  | "user" // System users (users table)
+  // 2nd page - Detail views
+  | "projectItem" // Project details (projects table)
+  | "twentyPercentDFItem" // 20% DF details (twentyPercentDFBreakdowns table)
+  | "trustFundItem" // Trust Fund details (trustFundBreakdowns table)
+  | "specialEducationFundItem" // SEF details (specialEducationFundBreakdowns table)
+  | "specialHealthFundItem" // SHF details (specialHealthFundBreakdowns table)
+  // 3rd page - Breakdown views
+  | "projectBreakdown"; // Project breakdowns (govtProjectBreakdowns table)
 
 /**
  * Entity type labels for UI display
  */
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
-  project: "Project",
+  // 1st page
+  budgetItem: "Budget Item",
   twentyPercentDF: "20% Development Fund",
   trustFund: "Trust Fund",
   specialEducationFund: "Special Education Fund",
@@ -35,13 +50,22 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   department: "Department",
   agency: "Agency",
   user: "User",
+  // 2nd page
+  projectItem: "Project",
+  twentyPercentDFItem: "20% DF",
+  trustFundItem: "Trust Fund",
+  specialEducationFundItem: "Special Education Fund",
+  specialHealthFundItem: "Special Health Fund",
+  // 3rd page
+  projectBreakdown: "Project Breakdown",
 };
 
 /**
  * Entity type plural labels for UI display
  */
 export const ENTITY_TYPE_PLURALS: Record<EntityType, string> = {
-  project: "Projects",
+  // 1st page
+  budgetItem: "Budget Items",
   twentyPercentDF: "20% Development Funds",
   trustFund: "Trust Funds",
   specialEducationFund: "Special Education Funds",
@@ -49,7 +73,87 @@ export const ENTITY_TYPE_PLURALS: Record<EntityType, string> = {
   department: "Departments",
   agency: "Agencies",
   user: "Users",
+  // 2nd page
+  projectItem: "Projects",
+  twentyPercentDFItem: "20% DF Items",
+  trustFundItem: "Trust Fund Items",
+  specialEducationFundItem: "Special Education Fund Items",
+  specialHealthFundItem: "Special Health Fund Items",
+  // 3rd page
+  projectBreakdown: "Project Breakdowns",
 };
+
+// ============================================================================
+// PAGE DEPTH UTILITIES
+// ============================================================================
+
+/**
+ * Page depth levels for entity types
+ * Maps each entity type to its navigation depth in the app
+ * Used to display "Found in X page" in search results
+ *
+ * 1st page = List views (e.g., /dashboard/project/2026)
+ * 2nd page = Detail views (e.g., /dashboard/project/2026/[particularId])
+ * 3rd page = Breakdown views (e.g., /dashboard/project/.../[breakdownId])
+ */
+export const ENTITY_PAGE_DEPTHS: Record<EntityType, number> = {
+  // 1st page - List/Container views
+  budgetItem: 1,
+  twentyPercentDF: 1,
+  trustFund: 1,
+  specialEducationFund: 1,
+  specialHealthFund: 1,
+  department: 1,
+  agency: 1,
+  user: 1,
+
+  // 2nd page - Detail views
+  projectItem: 2,
+  twentyPercentDFItem: 2,
+  trustFundItem: 2,
+  specialEducationFundItem: 2,
+  specialHealthFundItem: 2,
+
+  // 3rd page - Breakdown views
+  projectBreakdown: 3,
+};
+
+/**
+ * Get the page depth level for an entity type
+ * Returns 1, 2, or 3
+ */
+export function getEntityPageDepth(entityType: EntityType): number {
+  return ENTITY_PAGE_DEPTHS[entityType] || 1;
+}
+
+/**
+ * Get ordinal suffix for a number (1st, 2nd, 3rd, 4th, etc.)
+ */
+export function getOrdinalSuffix(n: number): string {
+  const suffixes: Record<number, string> = {
+    1: "st",
+    2: "nd",
+    3: "rd",
+  };
+  
+  // Special case for 11, 12, 13 (they use "th")
+  if (n >= 11 && n <= 13) {
+    return `${n}th`;
+  }
+  
+  const lastDigit = n % 10;
+  return `${n}${suffixes[lastDigit] || "th"}`;
+}
+
+/**
+ * Get display text for page depth
+ * Example: "Found in 1st page", "Found in 2nd page"
+ */
+export function getPageDepthDisplay(entityType: EntityType): string {
+  const depth = getEntityPageDepth(entityType);
+  const ordinal = getOrdinalSuffix(depth);
+  return `Found in ${ordinal} page`;
+}
 
 // ============================================================================
 // SEARCH INDEX ENTRY
@@ -83,6 +187,9 @@ export interface SearchIndexEntry {
   createdAt: number;
   updatedAt: number;
   isDeleted?: boolean;
+  
+  // Author reference (for displaying creator info)
+  createdBy?: string; // User ID who created the original entity
 
   // Ranking factors
   relevanceScore?: number;
@@ -357,7 +464,8 @@ export interface SearchAnalytics {
  * Maps entity types to their corresponding ID types
  */
 export type EntityIdMap = {
-  project: string; // Id<"projects">
+  // 1st page
+  budgetItem: string; // Id<"budgetItems">
   twentyPercentDF: string; // Id<"twentyPercentDFs">
   trustFund: string; // Id<"trustFunds">
   specialEducationFund: string; // Id<"specialEducationFunds">
@@ -365,6 +473,14 @@ export type EntityIdMap = {
   department: string; // Id<"departments">
   agency: string; // Id<"implementingAgencies">
   user: string; // Id<"users">
+  // 2nd page
+  projectItem: string; // Id<"projects">
+  twentyPercentDFItem: string; // Id<"twentyPercentDFBreakdowns">
+  trustFundItem: string; // Id<"trustFundBreakdowns">
+  specialEducationFundItem: string; // Id<"specialEducationFundBreakdowns">
+  specialHealthFundItem: string; // Id<"specialHealthFundBreakdowns">
+  // 3rd page
+  projectBreakdown: string; // Id<"govtProjectBreakdowns">
 };
 
 /**
@@ -391,6 +507,10 @@ export interface SearchApiResult {
   sourceUrl: string;
   createdAt: number;
   updatedAt: number;
+  pageDepthText: string; // e.g., "Found in 1st page"
+  // Author information (fetched during query - Option B)
+  authorName?: string;
+  authorImage?: string;
 }
 
 /**

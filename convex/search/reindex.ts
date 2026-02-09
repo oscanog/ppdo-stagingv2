@@ -9,6 +9,7 @@ import { mutation, query, MutationCtx, QueryCtx } from "../_generated/server";
 import { Doc, Id } from "../_generated/dataModel";
 import { EntityType } from "./types";
 import { indexEntity } from "./index";
+import { buildSlug } from "../lib/searchUtils";
 
 // ============================================================================
 // TYPES
@@ -24,12 +25,60 @@ interface ReindexStats {
 }
 
 // ============================================================================
-// PROJECT REINDEXING
+// BUDGET ITEMS REINDEXING (1st page)
 // ============================================================================
 
-async function reindexProjects(ctx: MutationCtx): Promise<ReindexStats> {
+async function reindexBudgetItems(ctx: MutationCtx): Promise<ReindexStats> {
   const stats: ReindexStats = {
-    entityType: "project",
+    entityType: "budgetItem",
+    total: 0,
+    indexed: 0,
+    skipped: 0,
+    errors: 0,
+    errorDetails: [],
+  };
+
+  const budgetItems = await ctx.db
+    .query("budgetItems")
+    .filter((q) => q.neq(q.field("isDeleted"), true))
+    .collect();
+
+  stats.total = budgetItems.length;
+
+  for (const item of budgetItems) {
+    try {
+      await indexEntity(ctx, {
+        entityType: "budgetItem",
+        entityId: item._id,
+        primaryText: item.particulars || "",
+        secondaryText: undefined, // Budget items don't have secondary text
+        departmentId: item.departmentId,
+        status: item.status, // Budget items have status
+        year: item.year,
+        isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      });
+      stats.indexed++;
+    } catch (error) {
+      stats.errors++;
+      stats.errorDetails.push(
+        `Budget Item ${item._id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  return stats;
+}
+
+// ============================================================================
+// PROJECT ITEMS REINDEXING (2nd page)
+// ============================================================================
+
+async function reindexProjectItems(ctx: MutationCtx): Promise<ReindexStats> {
+  const stats: ReindexStats = {
+    entityType: "projectItem",
     total: 0,
     indexed: 0,
     skipped: 0,
@@ -46,15 +95,32 @@ async function reindexProjects(ctx: MutationCtx): Promise<ReindexStats> {
 
   for (const project of projects) {
     try {
+      // Fetch parent budget item for URL generation
+      // Project page uses URL-encoded particular name (not slug) as route param
+      let parentSlug: string | undefined;
+      let parentId: string | undefined;
+      if (project.budgetItemId) {
+        const budgetItem = await ctx.db.get(project.budgetItemId);
+        if (budgetItem) {
+          parentSlug = encodeURIComponent(budgetItem.particulars);
+          parentId = budgetItem._id as string;
+        }
+      }
+
       await indexEntity(ctx, {
-        entityType: "project",
+        entityType: "projectItem",
         entityId: project._id,
         primaryText: project.particulars,
         secondaryText: project.implementingOffice,
         departmentId: project.departmentId,
         status: project.status,
         year: project.year,
+        parentSlug,
+        parentId,
         isDeleted: false,
+        createdBy: project.createdBy,
+        createdAt: project.createdAt,
+        updatedAt: project.updatedAt,
       });
       stats.indexed++;
     } catch (error) {
@@ -69,7 +135,76 @@ async function reindexProjects(ctx: MutationCtx): Promise<ReindexStats> {
 }
 
 // ============================================================================
-// 20% DF REINDEXING
+// PROJECT BREAKDOWNS REINDEXING (3rd page)
+// ============================================================================
+
+async function reindexProjectBreakdowns(ctx: MutationCtx): Promise<ReindexStats> {
+  const stats: ReindexStats = {
+    entityType: "projectBreakdown",
+    total: 0,
+    indexed: 0,
+    skipped: 0,
+    errors: 0,
+    errorDetails: [],
+  };
+
+  const breakdowns = await ctx.db
+    .query("govtProjectBreakdowns")
+    .filter((q) => q.neq(q.field("isDeleted"), true))
+    .collect();
+
+  stats.total = breakdowns.length;
+
+  for (const breakdown of breakdowns) {
+    try {
+      // Lookup parent project and grandparent budget item for year and URL generation
+      let parentSlug: string | undefined;
+      let parentId: string | undefined;
+      let year: number | undefined;
+      if (breakdown.projectId) {
+        const project = await ctx.db.get(breakdown.projectId);
+        if (project) {
+          year = project.year;
+          parentId = project._id as string;
+          if (project.budgetItemId) {
+            const budgetItem = await ctx.db.get(project.budgetItemId);
+            if (budgetItem) {
+              // 3rd page URL: /dashboard/project/{year}/{encoded-particular}/{project-slug}
+              parentSlug = `${encodeURIComponent(budgetItem.particulars)}/${buildSlug(project.particulars, project._id as string)}`;
+            }
+          }
+        }
+      }
+
+      await indexEntity(ctx, {
+        entityType: "projectBreakdown",
+        entityId: breakdown._id,
+        primaryText: breakdown.projectName || "",
+        secondaryText: breakdown.implementingOffice,
+        departmentId: undefined,
+        status: breakdown.status,
+        year,
+        parentSlug,
+        parentId,
+        isDeleted: false,
+        createdBy: breakdown.createdBy,
+        createdAt: breakdown.createdAt,
+        updatedAt: breakdown.updatedAt,
+      });
+      stats.indexed++;
+    } catch (error) {
+      stats.errors++;
+      stats.errorDetails.push(
+        `Project Breakdown ${breakdown._id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  return stats;
+}
+
+// ============================================================================
+// 20% DF REINDEXING (1st page)
 // ============================================================================
 
 async function reindexTwentyPercentDF(ctx: MutationCtx): Promise<ReindexStats> {
@@ -100,6 +235,9 @@ async function reindexTwentyPercentDF(ctx: MutationCtx): Promise<ReindexStats> {
         status: item.status,
         year: item.year,
         isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
       });
       stats.indexed++;
     } catch (error) {
@@ -114,7 +252,70 @@ async function reindexTwentyPercentDF(ctx: MutationCtx): Promise<ReindexStats> {
 }
 
 // ============================================================================
-// TRUST FUNDS REINDEXING
+// 20% DF ITEMS REINDEXING (2nd page - Breakdowns)
+// ============================================================================
+
+async function reindexTwentyPercentDFItems(ctx: MutationCtx): Promise<ReindexStats> {
+  const stats: ReindexStats = {
+    entityType: "twentyPercentDFItem",
+    total: 0,
+    indexed: 0,
+    skipped: 0,
+    errors: 0,
+    errorDetails: [],
+  };
+
+  const items = await ctx.db
+    .query("twentyPercentDFBreakdowns")
+    .filter((q) => q.neq(q.field("isDeleted"), true))
+    .collect();
+
+  stats.total = items.length;
+
+  for (const item of items) {
+    try {
+      // Lookup parent 20% DF for year and URL generation
+      let parentSlug: string | undefined;
+      let parentId: string | undefined;
+      let year: number | undefined;
+      if (item.twentyPercentDFId) {
+        const parentDF = await ctx.db.get(item.twentyPercentDFId);
+        if (parentDF) {
+          year = parentDF.year;
+          parentId = parentDF._id as string;
+          parentSlug = buildSlug(parentDF.particulars, parentDF._id as string);
+        }
+      }
+
+      await indexEntity(ctx, {
+        entityType: "twentyPercentDFItem",
+        entityId: item._id,
+        primaryText: item.projectName || "",
+        secondaryText: item.implementingOffice,
+        departmentId: undefined,
+        status: item.status,
+        year,
+        parentSlug,
+        parentId,
+        isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      });
+      stats.indexed++;
+    } catch (error) {
+      stats.errors++;
+      stats.errorDetails.push(
+        `20% DF Item ${item._id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  return stats;
+}
+
+// ============================================================================
+// TRUST FUNDS REINDEXING (1st page)
 // ============================================================================
 
 async function reindexTrustFunds(ctx: MutationCtx): Promise<ReindexStats> {
@@ -145,6 +346,9 @@ async function reindexTrustFunds(ctx: MutationCtx): Promise<ReindexStats> {
         status: item.status,
         year: item.year,
         isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
       });
       stats.indexed++;
     } catch (error) {
@@ -159,7 +363,70 @@ async function reindexTrustFunds(ctx: MutationCtx): Promise<ReindexStats> {
 }
 
 // ============================================================================
-// SPECIAL EDUCATION FUNDS REINDEXING
+// TRUST FUND ITEMS REINDEXING (2nd page - Breakdowns)
+// ============================================================================
+
+async function reindexTrustFundItems(ctx: MutationCtx): Promise<ReindexStats> {
+  const stats: ReindexStats = {
+    entityType: "trustFundItem",
+    total: 0,
+    indexed: 0,
+    skipped: 0,
+    errors: 0,
+    errorDetails: [],
+  };
+
+  const items = await ctx.db
+    .query("trustFundBreakdowns")
+    .filter((q) => q.neq(q.field("isDeleted"), true))
+    .collect();
+
+  stats.total = items.length;
+
+  for (const item of items) {
+    try {
+      // Lookup parent trust fund for year and URL generation
+      let parentSlug: string | undefined;
+      let parentId: string | undefined;
+      let year: number | undefined;
+      if (item.trustFundId) {
+        const parentFund = await ctx.db.get(item.trustFundId);
+        if (parentFund) {
+          year = parentFund.year;
+          parentId = parentFund._id as string;
+          parentSlug = buildSlug(parentFund.projectTitle, parentFund._id as string);
+        }
+      }
+
+      await indexEntity(ctx, {
+        entityType: "trustFundItem",
+        entityId: item._id,
+        primaryText: item.projectName || "",
+        secondaryText: item.implementingOffice,
+        departmentId: undefined,
+        status: item.status,
+        year,
+        parentSlug,
+        parentId,
+        isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      });
+      stats.indexed++;
+    } catch (error) {
+      stats.errors++;
+      stats.errorDetails.push(
+        `Trust Fund Item ${item._id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  return stats;
+}
+
+// ============================================================================
+// SPECIAL EDUCATION FUNDS REINDEXING (1st page)
 // ============================================================================
 
 async function reindexSpecialEducationFunds(ctx: MutationCtx): Promise<ReindexStats> {
@@ -190,6 +457,9 @@ async function reindexSpecialEducationFunds(ctx: MutationCtx): Promise<ReindexSt
         status: item.status,
         year: item.year,
         isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
       });
       stats.indexed++;
     } catch (error) {
@@ -204,7 +474,70 @@ async function reindexSpecialEducationFunds(ctx: MutationCtx): Promise<ReindexSt
 }
 
 // ============================================================================
-// SPECIAL HEALTH FUNDS REINDEXING
+// SPECIAL EDUCATION FUND ITEMS REINDEXING (2nd page - Breakdowns)
+// ============================================================================
+
+async function reindexSpecialEducationFundItems(ctx: MutationCtx): Promise<ReindexStats> {
+  const stats: ReindexStats = {
+    entityType: "specialEducationFundItem",
+    total: 0,
+    indexed: 0,
+    skipped: 0,
+    errors: 0,
+    errorDetails: [],
+  };
+
+  const items = await ctx.db
+    .query("specialEducationFundBreakdowns")
+    .filter((q) => q.neq(q.field("isDeleted"), true))
+    .collect();
+
+  stats.total = items.length;
+
+  for (const item of items) {
+    try {
+      // Lookup parent special education fund for year and URL generation
+      let parentSlug: string | undefined;
+      let parentId: string | undefined;
+      let year: number | undefined;
+      if (item.specialEducationFundId) {
+        const parentFund = await ctx.db.get(item.specialEducationFundId);
+        if (parentFund) {
+          year = parentFund.year;
+          parentId = parentFund._id as string;
+          parentSlug = buildSlug(parentFund.projectTitle, parentFund._id as string);
+        }
+      }
+
+      await indexEntity(ctx, {
+        entityType: "specialEducationFundItem",
+        entityId: item._id,
+        primaryText: item.projectName || "",
+        secondaryText: item.implementingOffice,
+        departmentId: undefined,
+        status: item.status,
+        year,
+        parentSlug,
+        parentId,
+        isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      });
+      stats.indexed++;
+    } catch (error) {
+      stats.errors++;
+      stats.errorDetails.push(
+        `SEF Item ${item._id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  return stats;
+}
+
+// ============================================================================
+// SPECIAL HEALTH FUNDS REINDEXING (1st page)
 // ============================================================================
 
 async function reindexSpecialHealthFunds(ctx: MutationCtx): Promise<ReindexStats> {
@@ -235,12 +568,78 @@ async function reindexSpecialHealthFunds(ctx: MutationCtx): Promise<ReindexStats
         status: item.status,
         year: item.year,
         isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
       });
       stats.indexed++;
     } catch (error) {
       stats.errors++;
       stats.errorDetails.push(
         `SHF ${item._id}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  return stats;
+}
+
+// ============================================================================
+// SPECIAL HEALTH FUND ITEMS REINDEXING (2nd page - Breakdowns)
+// ============================================================================
+
+async function reindexSpecialHealthFundItems(ctx: MutationCtx): Promise<ReindexStats> {
+  const stats: ReindexStats = {
+    entityType: "specialHealthFundItem",
+    total: 0,
+    indexed: 0,
+    skipped: 0,
+    errors: 0,
+    errorDetails: [],
+  };
+
+  const items = await ctx.db
+    .query("specialHealthFundBreakdowns")
+    .filter((q) => q.neq(q.field("isDeleted"), true))
+    .collect();
+
+  stats.total = items.length;
+
+  for (const item of items) {
+    try {
+      // Lookup parent special health fund for year and URL generation
+      let parentSlug: string | undefined;
+      let parentId: string | undefined;
+      let year: number | undefined;
+      if (item.specialHealthFundId) {
+        const parentFund = await ctx.db.get(item.specialHealthFundId);
+        if (parentFund) {
+          year = parentFund.year;
+          parentId = parentFund._id as string;
+          parentSlug = buildSlug(parentFund.projectTitle, parentFund._id as string);
+        }
+      }
+
+      await indexEntity(ctx, {
+        entityType: "specialHealthFundItem",
+        entityId: item._id,
+        primaryText: item.projectName || "",
+        secondaryText: item.implementingOffice,
+        departmentId: undefined,
+        status: item.status,
+        year,
+        parentSlug,
+        parentId,
+        isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
+      });
+      stats.indexed++;
+    } catch (error) {
+      stats.errors++;
+      stats.errorDetails.push(
+        `SHF Item ${item._id}: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -279,6 +678,9 @@ async function reindexDepartments(ctx: MutationCtx): Promise<ReindexStats> {
         departmentId: item._id,
         status: item.isActive ? "active" : "inactive",
         isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
       });
       stats.indexed++;
     } catch (error) {
@@ -323,6 +725,9 @@ async function reindexAgencies(ctx: MutationCtx): Promise<ReindexStats> {
         departmentId: item.departmentId,
         status: item.isActive ? "active" : "inactive",
         isDeleted: false,
+        createdBy: item.createdBy,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
       });
       stats.indexed++;
     } catch (error) {
@@ -370,6 +775,9 @@ async function reindexUsers(ctx: MutationCtx): Promise<ReindexStats> {
         departmentId: item.departmentId,
         status: item.status,
         isDeleted: false,
+        createdBy: item._id, // Users are their own creators
+        createdAt: item._creationTime,
+        updatedAt: item.updatedAt || item._creationTime,
       });
       stats.indexed++;
     } catch (error) {
@@ -393,20 +801,30 @@ async function reindexUsers(ctx: MutationCtx): Promise<ReindexStats> {
 export const reindexByType = mutation({
   args: {
     entityType: v.union(
-      v.literal("project"),
+      // 1st page
+      v.literal("budgetItem"),
       v.literal("twentyPercentDF"),
       v.literal("trustFund"),
       v.literal("specialEducationFund"),
       v.literal("specialHealthFund"),
       v.literal("department"),
       v.literal("agency"),
-      v.literal("user")
+      v.literal("user"),
+      // 2nd page
+      v.literal("projectItem"),
+      v.literal("twentyPercentDFItem"),
+      v.literal("trustFundItem"),
+      v.literal("specialEducationFundItem"),
+      v.literal("specialHealthFundItem"),
+      // 3rd page
+      v.literal("projectBreakdown")
     ),
   },
   handler: async (ctx, args): Promise<ReindexStats> => {
     switch (args.entityType) {
-      case "project":
-        return await reindexProjects(ctx);
+      // 1st page
+      case "budgetItem":
+        return await reindexBudgetItems(ctx);
       case "twentyPercentDF":
         return await reindexTwentyPercentDF(ctx);
       case "trustFund":
@@ -421,6 +839,20 @@ export const reindexByType = mutation({
         return await reindexAgencies(ctx);
       case "user":
         return await reindexUsers(ctx);
+      // 2nd page
+      case "projectItem":
+        return await reindexProjectItems(ctx);
+      case "twentyPercentDFItem":
+        return await reindexTwentyPercentDFItems(ctx);
+      case "trustFundItem":
+        return await reindexTrustFundItems(ctx);
+      case "specialEducationFundItem":
+        return await reindexSpecialEducationFundItems(ctx);
+      case "specialHealthFundItem":
+        return await reindexSpecialHealthFundItems(ctx);
+      // 3rd page
+      case "projectBreakdown":
+        return await reindexProjectBreakdowns(ctx);
       default:
         throw new Error(`Unknown entity type: ${args.entityType}`);
     }
@@ -437,7 +869,8 @@ export const reindexAll = mutation({
     const allStats: ReindexStats[] = [];
 
     // Reindex all entity types sequentially to avoid overwhelming the database
-    allStats.push(await reindexProjects(ctx));
+    // 1st page entities
+    allStats.push(await reindexBudgetItems(ctx));
     allStats.push(await reindexTwentyPercentDF(ctx));
     allStats.push(await reindexTrustFunds(ctx));
     allStats.push(await reindexSpecialEducationFunds(ctx));
@@ -445,6 +878,16 @@ export const reindexAll = mutation({
     allStats.push(await reindexDepartments(ctx));
     allStats.push(await reindexAgencies(ctx));
     allStats.push(await reindexUsers(ctx));
+
+    // 2nd page entities
+    allStats.push(await reindexProjectItems(ctx));
+    allStats.push(await reindexTwentyPercentDFItems(ctx));
+    allStats.push(await reindexTrustFundItems(ctx));
+    allStats.push(await reindexSpecialEducationFundItems(ctx));
+    allStats.push(await reindexSpecialHealthFundItems(ctx));
+
+    // 3rd page entities
+    allStats.push(await reindexProjectBreakdowns(ctx));
 
     return allStats;
   },
@@ -488,17 +931,31 @@ export const getIndexStats = query({
 
     // Count entities in database
     const [
+      budgetItems,
       projects,
+      projectBreakdowns,
       twentyPercentDF,
+      twentyPercentDFBreakdowns,
       trustFunds,
+      trustFundBreakdowns,
       specialEducationFunds,
+      specialEducationFundBreakdowns,
       specialHealthFunds,
+      specialHealthFundBreakdowns,
       departments,
       agencies,
       users,
     ] = await Promise.all([
       ctx.db
+        .query("budgetItems")
+        .filter((q) => q.neq(q.field("isDeleted"), true))
+        .collect(),
+      ctx.db
         .query("projects")
+        .filter((q) => q.neq(q.field("isDeleted"), true))
+        .collect(),
+      ctx.db
+        .query("govtProjectBreakdowns")
         .filter((q) => q.neq(q.field("isDeleted"), true))
         .collect(),
       ctx.db
@@ -506,7 +963,15 @@ export const getIndexStats = query({
         .filter((q) => q.neq(q.field("isDeleted"), true))
         .collect(),
       ctx.db
+        .query("twentyPercentDFBreakdowns")
+        .filter((q) => q.neq(q.field("isDeleted"), true))
+        .collect(),
+      ctx.db
         .query("trustFunds")
+        .filter((q) => q.neq(q.field("isDeleted"), true))
+        .collect(),
+      ctx.db
+        .query("trustFundBreakdowns")
         .filter((q) => q.neq(q.field("isDeleted"), true))
         .collect(),
       ctx.db
@@ -514,7 +979,15 @@ export const getIndexStats = query({
         .filter((q) => q.neq(q.field("isDeleted"), true))
         .collect(),
       ctx.db
+        .query("specialEducationFundBreakdowns")
+        .filter((q) => q.neq(q.field("isDeleted"), true))
+        .collect(),
+      ctx.db
         .query("specialHealthFunds")
+        .filter((q) => q.neq(q.field("isDeleted"), true))
+        .collect(),
+      ctx.db
+        .query("specialHealthFundBreakdowns")
         .filter((q) => q.neq(q.field("isDeleted"), true))
         .collect(),
       ctx.db
@@ -529,7 +1002,8 @@ export const getIndexStats = query({
     ]);
 
     const dbCounts: Record<EntityType, number> = {
-      project: projects.length,
+      // 1st page
+      budgetItem: budgetItems.length,
       twentyPercentDF: twentyPercentDF.length,
       trustFund: trustFunds.length,
       specialEducationFund: specialEducationFunds.length,
@@ -537,6 +1011,14 @@ export const getIndexStats = query({
       department: departments.length,
       agency: agencies.length,
       user: users.length,
+      // 2nd page
+      projectItem: projects.length,
+      twentyPercentDFItem: twentyPercentDFBreakdowns.length,
+      trustFundItem: trustFundBreakdowns.length,
+      specialEducationFundItem: specialEducationFundBreakdowns.length,
+      specialHealthFundItem: specialHealthFundBreakdowns.length,
+      // 3rd page
+      projectBreakdown: projectBreakdowns.length,
     };
 
     // Build stats by type
@@ -546,7 +1028,8 @@ export const getIndexStats = query({
     >;
 
     const entityTypes: EntityType[] = [
-      "project",
+      // 1st page
+      "budgetItem",
       "twentyPercentDF",
       "trustFund",
       "specialEducationFund",
@@ -554,6 +1037,14 @@ export const getIndexStats = query({
       "department",
       "agency",
       "user",
+      // 2nd page
+      "projectItem",
+      "twentyPercentDFItem",
+      "trustFundItem",
+      "specialEducationFundItem",
+      "specialHealthFundItem",
+      // 3rd page
+      "projectBreakdown",
     ];
 
     for (const type of entityTypes) {
@@ -589,14 +1080,23 @@ export const clearIndex = mutation({
   args: {
     entityType: v.optional(
       v.union(
-        v.literal("project"),
+        // 1st page
+        v.literal("budgetItem"),
         v.literal("twentyPercentDF"),
         v.literal("trustFund"),
         v.literal("specialEducationFund"),
         v.literal("specialHealthFund"),
         v.literal("department"),
         v.literal("agency"),
-        v.literal("user")
+        v.literal("user"),
+        // 2nd page
+        v.literal("projectItem"),
+        v.literal("twentyPercentDFItem"),
+        v.literal("trustFundItem"),
+        v.literal("specialEducationFundItem"),
+        v.literal("specialHealthFundItem"),
+        // 3rd page
+        v.literal("projectBreakdown")
       )
     ),
   },
