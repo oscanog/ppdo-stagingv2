@@ -266,6 +266,7 @@ export function BudgetTrackingTable({
   const {
     contextMenu,
     setContextMenu,
+    contextMenuRef,
     isTogglingAutoCalculate,
     handleRowClick,
     handleContextMenu,
@@ -619,6 +620,7 @@ export function BudgetTrackingTable({
                 onSelectRow={handleSelectRow}
                 onSelectAll={handleSelectAll}
                 isHighlighted={isHighlighted}
+                onContextMenu={(item, e) => handleContextMenu(e, item)}
               />
             </div>
           </TabsContent>
@@ -644,6 +646,7 @@ export function BudgetTrackingTable({
       {/* Context Menu */}
       {contextMenu && (
         <BudgetContextMenu
+          ref={contextMenuRef}
           position={{ x: contextMenu.x, y: contextMenu.y }}
           item={contextMenu.entity}
           canEdit={!!onEdit}
