@@ -8,6 +8,7 @@ import { ConfirmationModal } from "@/components/features/ppdo/odpp/table-pages/1
 import { TemplateSelector } from './TemplateSelector';
 import { TemplateApplicationModal } from './TemplateApplicationModal';
 import { ColumnVisibilityPanel } from './ColumnVisibilityPanel';
+import { TextAlign } from './JustifyDropdown';
 import { PrintDraft, ColumnDefinition, BudgetTotals, RowMarker } from '@/lib/print-canvas/types';
 import { BudgetItem } from "@/components/features/ppdo/odpp/table-pages/11_project_plan/types";
 import { CanvasTemplate } from '@/app/(extra)/canvas/_components/editor/types/template';
@@ -19,7 +20,7 @@ import PagePanel from '@/app/(extra)/canvas/_components/editor/page-panel';
 import BottomPageControls from '@/app/(extra)/canvas/_components/editor/bottom-page-controls';
 import { HorizontalRuler, VerticalRuler } from '@/app/(extra)/canvas/_components/editor/ruler';
 import { useRulerState } from '@/app/(extra)/canvas/_components/editor/hooks/useRulerState';
-import { getPageDimensions, RULER_WIDTH, RULER_HEIGHT } from '@/app/(extra)/canvas/_components/editor/constants';
+import { getPageDimensions, RULER_WIDTH, RULER_HEIGHT, POINTS_PER_INCH } from '@/app/(extra)/canvas/_components/editor/constants';
 // Custom hooks
 import { usePrintPreviewState } from "@/components/features/ppdo/odpp/table-pages/11_project_plan/hooks";
 import { usePrintPreviewActions } from "@/components/features/ppdo/odpp/table-pages/11_project_plan/hooks";
@@ -96,6 +97,9 @@ export function PrintPreviewModal({
   // Version counter to force React re-renders when Set changes (React doesn't detect Set mutations)
   const [hiddenColumnsVersion, setHiddenColumnsVersion] = useState(0);
 
+  // --- Text Alignment State ---
+  const [textAlign, setTextAlign] = useState<TextAlign>('left');
+
   // --- Column Label Overrides (for inline renaming) ---
   const [columnLabelOverrides, setColumnLabelOverrides] = useState<Map<string, string>>(new Map());
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(() => {
@@ -108,37 +112,37 @@ export function PrintPreviewModal({
   // Track initialization to prevent re-triggering
   const initializationStartedRef = useRef(false);
 
-  // Calculate canvas offset for ruler positioning
-  const updateCanvasOffset = useCallback(() => {
-    if (canvasContainerRef.current && canvasScrollRef.current) {
-      const scrollContainer = canvasScrollRef.current;
-      const pageDimensions = getPageDimensions(state.currentPage.size, state.currentPage.orientation);
-      const containerWidth = scrollContainer.clientWidth;
-      const canvasWidth = pageDimensions.width;
-
-      const padding = 32; // px-8 padding
-      const canvasStartOffset = Math.max(padding, (containerWidth - canvasWidth) / 2);
-
-      setCanvasOffsetLeft(canvasStartOffset);
-    }
-  }, [state.currentPage.size, state.currentPage.orientation]);
-
-  // Update canvas offset on scroll, resize, or page changes
+  // Calculate canvas offset for ruler positioning using ResizeObserver
+  // This automatically handles: window resize, sidebar collapse/expand transitions, page size changes
   useEffect(() => {
-    updateCanvasOffset();
-    const handleResize = () => updateCanvasOffset();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [updateCanvasOffset]);
+    const scrollEl = canvasScrollRef.current;
+    if (!scrollEl) return;
+
+    const recalcOffset = () => {
+      const pageDimensions = getPageDimensions(state.currentPage.size, state.currentPage.orientation);
+      const containerWidth = scrollEl.clientWidth;
+      const canvasWidth = pageDimensions.width;
+      const padding = 32; // px-8 padding
+      setCanvasOffsetLeft(Math.max(padding, (containerWidth - canvasWidth) / 2));
+    };
+
+    // Initial calculation
+    recalcOffset();
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(recalcOffset);
+    });
+    observer.observe(scrollEl);
+
+    return () => observer.disconnect();
+  }, [state.currentPage.size, state.currentPage.orientation]);
 
   // Persist panel state
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('printPreview.panelCollapsed', isPanelCollapsed.toString());
     }
-    // Also trigger offset update when panel collapses/expands
-    updateCanvasOffset();
-  }, [isPanelCollapsed, updateCanvasOffset]);
+  }, [isPanelCollapsed]);
 
   // Prepare table data for ColumnVisibilityPanel (with label overrides)
   const tables = useMemo(() => [{
@@ -151,12 +155,8 @@ export function PrintPreviewModal({
     }))
   }], [columns, columnLabelOverrides]);
 
-  // Filter and redistribute canvas elements based on hidden columns
+  // Filter and redistribute canvas elements based on hidden columns and margins
   const visibleElements = useMemo(() => {
-    if (hiddenCanvasColumns.size === 0) {
-      return state.currentPage.elements;
-    }
-
     // Group elements by row (same Y position) to identify table structure
     const tableElements = state.currentPage.elements.filter(
       el => el.groupId && el.groupName?.toLowerCase().includes('table')
@@ -168,6 +168,9 @@ export function PrintPreviewModal({
 
     // Helper function to extract column key from any table element ID
     const extractColumnKey = (id: string): string | null => {
+      // Category headers span the full table width — they are NOT column-specific
+      if (id.startsWith('category-')) return null;
+
       // Match patterns: cell-xxx-COLUMNKEY-xxx, header-COLUMNKEY-xxx, total-COLUMNKEY-xxx
       const patterns = [
         /cell-\w+-(\w+)-/,           // Data cells: cell-123-particular-456
@@ -208,12 +211,12 @@ export function PrintPreviewModal({
       return state.currentPage.elements;
     }
 
-    // Calculate total available width (full canvas width minus margins)
+    // Calculate total available width based on current ruler margins
     const pageSize = state.currentPage.size || 'A4';
     const orientation = state.currentPage.orientation || 'portrait';
-    const MARGIN = 20; // Same as tableToCanvas.ts
+    const marginLeft = rulerState.margins.left;
+    const marginRight = rulerState.margins.right;
 
-    // Page dimensions
     const PAGE_SIZES = {
       A4: { width: 595, height: 842 },
       Short: { width: 612, height: 792 },
@@ -225,8 +228,9 @@ export function PrintPreviewModal({
       ? { width: baseSize.height, height: baseSize.width }
       : baseSize;
 
-    const totalAvailableWidth = size.width - (MARGIN * 2);
-    const firstColumnX = allColumns[0][1].originalX;
+    const totalAvailableWidth = size.width - marginLeft - marginRight;
+    const firstColumnX = marginLeft;
+    const oldLeftEdge = allColumns[0][1].originalX;
 
     // Create new width and position map for visible columns
     // Distribute full available width among visible columns proportionally
@@ -246,6 +250,9 @@ export function PrintPreviewModal({
       currentX += newWidth;
     });
 
+    // Scale factor for non-column table elements (e.g., category headers)
+    const scaleX = totalVisibleOriginalWidth > 0 ? totalAvailableWidth / totalVisibleOriginalWidth : 1;
+
     // Apply transformations to elements
     return state.currentPage.elements.map(el => {
       // Non-table elements pass through unchanged
@@ -255,27 +262,37 @@ export function PrintPreviewModal({
 
       // Extract column key from element ID
       const columnKey = extractColumnKey(el.id);
-      if (!columnKey) return el;
+
+      // Non-column table elements (e.g., category headers) - scale proportionally
+      // Category headers never get textAlign applied
+      if (!columnKey) {
+        return {
+          ...el,
+          x: marginLeft + (el.x - oldLeftEdge) * scaleX,
+          width: el.width * scaleX,
+        };
+      }
 
       // Hide if column is hidden
       if (hiddenColumnsSet.has(columnKey)) {
         return { ...el, visible: false };
       }
 
-      // Reposition and resize visible columns
+      // Reposition and resize visible columns, apply textAlign
       const newLayout = newColumnLayout.get(columnKey);
       if (newLayout) {
         return {
           ...el,
           x: newLayout.x,
           width: newLayout.width,
-          visible: true
+          visible: true,
+          ...(textAlign !== 'left' && el.type === 'text' ? { textAlign } : {}),
         };
       }
 
-      return el;
+      return el.type === 'text' && textAlign !== 'left' ? { ...el, textAlign } : el;
     });
-  }, [state.currentPage.elements, hiddenCanvasColumns, state.currentPage.size, state.currentPage.orientation]);
+  }, [state.currentPage.elements, hiddenCanvasColumns, state.currentPage.size, state.currentPage.orientation, rulerState.margins, textAlign]);
 
   // Calculate column widths and table dimensions from visible elements
   const { columnWidths, tableDimensions } = useMemo(() => {
@@ -289,6 +306,9 @@ export function PrintPreviewModal({
 
     // Extract column key from element ID
     const extractColumnKey = (id: string): string | null => {
+      // Category headers span the full table width — they are NOT column-specific
+      if (id.startsWith('category-')) return null;
+
       const patterns = [
         /cell-\w+-(\w+)-/,
         /header-(\w+)-/,
@@ -413,10 +433,11 @@ export function PrintPreviewModal({
 
   // Initialize from table data with template and orientation
   const initializeFromTableData = useCallback(
-    (template?: CanvasTemplate | null, orientation: 'portrait' | 'landscape' = 'portrait') => {
+    (template?: CanvasTemplate | null, orientation: 'portrait' | 'landscape' = 'portrait', includeCoverPage: boolean = true) => {
       console.group('ðŸŽ¨ INITIALIZING PRINT PREVIEW');
       console.log('Template:', template?.name || 'none');
       console.log('Orientation:', orientation);
+      console.log('Include Cover Page:', includeCoverPage);
 
       try {
         const result = convertTableToCanvas({
@@ -428,9 +449,10 @@ export function PrintPreviewModal({
           orientation: orientation,
           includeHeaders: true,
           includeTotals: true,
-          title: `Budget Tracking ${year}`,
-          subtitle: particular ? `Particular: ${particular}` : undefined,
+          title: includeCoverPage ? `Budget Tracking ${year}` : undefined,
+          subtitle: includeCoverPage && particular ? `Particular: ${particular}` : undefined,
           rowMarkers,
+          margin: rulerState.margins.left,
         });
 
         let finalPages = result.pages;
@@ -473,13 +495,13 @@ export function PrintPreviewModal({
   );
 
   // âœ… Handler: Called when user finishes the Setup Wizard
-  const handleSetupComplete = useCallback((result: { template: CanvasTemplate | null, orientation: 'portrait' | 'landscape' }) => {
+  const handleSetupComplete = useCallback((result: { template: CanvasTemplate | null, orientation: 'portrait' | 'landscape', includeCoverPage: boolean }) => {
     console.log('ðŸŽ¯ Setup complete, closing modal and initializing...');
     setShowSetupModal(false);
 
     // Defer slightly to allow modal unmount animation to start cleanly
     setTimeout(() => {
-      initializeFromTableData(result.template, result.orientation);
+      initializeFromTableData(result.template, result.orientation, result.includeCoverPage);
     }, 100);
   }, [initializeFromTableData]);
 
@@ -665,6 +687,12 @@ export function PrintPreviewModal({
   const formattedLastSaved = state.lastSavedTime ? formatTimestamp(state.lastSavedTime) : '';
   const handleTitleChange = useCallback((newTitle: string) => { state.setDocumentTitle(newTitle); state.setIsDirty(true); }, [state]);
 
+  // Margin conversion: internal state is pixels, dropdown operates in inches
+  const currentMarginInches = rulerState.margins.left / POINTS_PER_INCH;
+  const handleMarginChangeInches = useCallback((inches: number) => {
+    setUniformMargins(inches * POINTS_PER_INCH);
+  }, [setUniformMargins]);
+
   if (!isOpen) return null;
 
   if (isLoadingTemplate) {
@@ -698,12 +726,14 @@ export function PrintPreviewModal({
           onToggleMarginGuides={toggleMarginGuides}
           pageOrientation={state.currentPage.orientation}
           pageSize={state.currentPage.size}
-          currentMargin={rulerState.margins.left}
-          onMarginChange={setUniformMargins}
+          currentMargin={currentMarginInches}
+          onMarginChange={handleMarginChangeInches}
+          textAlign={textAlign}
+          onTextAlignChange={setTextAlign}
         />
 
         {/* Inner Editor Toolbar (moved up for alignment) */}
-        <div className="z-20 bg-stone-100 border-b border-stone-300 shadow-sm no-print">
+        <div className="z-20 bg-stone-100 dark:bg-zinc-800 border-b border-stone-300 dark:border-zinc-700 shadow-sm no-print">
           <Toolbar
             selectedElement={state.selectedElement}
             onUpdateElement={state.selectedElementId ? (updates) => actions.updateElement(state.selectedElementId!, updates) : undefined}
@@ -728,25 +758,25 @@ export function PrintPreviewModal({
             onToggleRuler={toggleRulerVisibility}
             marginGuidesVisible={rulerState.showMarginGuides}
             onToggleMarginGuides={toggleMarginGuides}
-            currentMargin={rulerState.margins.left}
-            onMarginChange={setUniformMargins}
+            currentMargin={currentMarginInches}
+            onMarginChange={handleMarginChangeInches}
           />
         </div>
 
         {/* Rulers UI Block */}
         {rulerState.visible && (
-          <div className="sticky top-0 z-30 bg-stone-200 border-b border-stone-300 flex no-print">
+          <div className="sticky top-0 z-30 bg-stone-200 dark:bg-zinc-900 border-b border-stone-300 dark:border-zinc-700 flex no-print">
             {/* Space for Vertical Ruler */}
             {rulerState.showVertical && (
               <div
-                className="flex-shrink-0 bg-stone-200 border-r border-stone-300"
+                className="flex-shrink-0 bg-stone-200 dark:bg-zinc-900 border-r border-stone-300 dark:border-zinc-700"
                 style={{ width: RULER_WIDTH, height: RULER_HEIGHT }}
               />
             )}
 
             {/* Space for Left Sidebar (ColumnVisibilityPanel) */}
             <div
-              className="flex-shrink-0 bg-stone-200 border-r border-stone-300 transition-all duration-300"
+              className="flex-shrink-0 bg-stone-200 dark:bg-zinc-900 border-r border-stone-300 dark:border-zinc-700 transition-all duration-300"
               style={{ width: isPanelCollapsed ? 48 : 280, height: RULER_HEIGHT }}
             />
 
@@ -776,13 +806,13 @@ export function PrintPreviewModal({
             </div>
 
             {/* Space for Right Sidebar (PagePanel) */}
-            <div className="w-64 flex-shrink-0 bg-stone-200 border-l border-stone-300" style={{ height: RULER_HEIGHT }} />
+            <div className="w-64 flex-shrink-0 bg-stone-200 dark:bg-zinc-900 border-l border-stone-300 dark:border-zinc-700" style={{ height: RULER_HEIGHT }} />
           </div>
         )}
 
         <div className="flex flex-1 overflow-hidden">
           {rulerState.visible && rulerState.showVertical && (
-            <div className="flex-shrink-0 bg-stone-100 border-r border-stone-300 overflow-hidden" style={{ width: RULER_WIDTH }}>
+            <div className="flex-shrink-0 bg-stone-100 dark:bg-zinc-800 border-r border-stone-300 dark:border-zinc-700 overflow-hidden" style={{ width: RULER_WIDTH }}>
               <div style={{ transform: `translateY(${-scrollTop}px)`, marginTop: 0 }}>
                 <VerticalRuler height={getPageDimensions(state.currentPage.size, state.currentPage.orientation).height} rulerState={rulerState} onMarginChange={updateMargin} scrollTop={0} showHeaderFooter={true} />
               </div>
@@ -804,7 +834,7 @@ export function PrintPreviewModal({
             onToggleCollapse={() => setIsPanelCollapsed(!isPanelCollapsed)}
           />
 
-          <div className="flex-1 flex flex-col overflow-hidden bg-stone-50 min-w-0">
+          <div className="flex-1 flex flex-col overflow-hidden bg-stone-50 dark:bg-zinc-950 min-w-0">
             {/* Canvas Area */}
 
             <div ref={canvasScrollRef} className="flex-1 overflow-y-auto overflow-x-auto flex items-start justify-center pt-4 pb-16 px-8" onScroll={(e) => { const target = e.target as HTMLDivElement; setScrollLeft(target.scrollLeft); setScrollTop(target.scrollTop); }}>
@@ -827,7 +857,7 @@ export function PrintPreviewModal({
               />
             </div>
 
-            <div className="border-t border-stone-200 bg-white flex-shrink-0">
+            <div className="border-t border-stone-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 flex-shrink-0">
               <BottomPageControls
                 currentPageIndex={state.currentPageIndex}
                 totalPages={state.pages.length}
@@ -848,7 +878,7 @@ export function PrintPreviewModal({
             </div>
           </div>
 
-          <div className="w-64 border-l border-stone-200 bg-zinc-50 flex-shrink-0 overflow-y-auto">
+          <div className="w-64 border-l border-stone-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 flex-shrink-0 overflow-y-auto">
             <PagePanel
               pages={state.pages}
               currentPageIndex={state.currentPageIndex}

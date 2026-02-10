@@ -25,7 +25,8 @@ const PAGE_SIZES = {
 
 const HEADER_HEIGHT = 80;
 const FOOTER_HEIGHT = 60;
-const MARGIN = 20;
+// Module-level margin, set per-conversion from config. Default: 0.3" * 72 ≈ 22px
+let MARGIN = 22;
 // Minimum row heights (rows will expand if text wraps)
 const MIN_ROW_HEIGHT = 24;
 const MIN_HEADER_ROW_HEIGHT = 28;
@@ -54,6 +55,9 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
     subtitle,
     rowMarkers = [],
   } = config;
+
+  // Set module-level MARGIN from config (safe: synchronous, single-threaded)
+  MARGIN = config.margin ?? 22;
 
   const isLandscape = config.orientation === 'landscape';
   const baseSize = PAGE_SIZES[pageSize as keyof typeof PAGE_SIZES] || PAGE_SIZES.A4;
@@ -242,6 +246,8 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
 function calculateColumnWidths(columns: ColumnDefinition[], totalWidth: number): number[] {
   const weights: Record<string, number> = {
     particular: 3,
+    particulars: 3,
+    implementingOffice: 2,
     year: 1,
     status: 1.2,
     totalBudgetAllocated: 2,
@@ -251,6 +257,8 @@ function calculateColumnWidths(columns: ColumnDefinition[], totalWidth: number):
     projectCompleted: 1.2,
     projectDelayed: 1.2,
     projectsOnTrack: 1.2,
+    projectsOngoing: 1.2,
+    remarks: 1.5,
   };
 
   const totalWeight = columns.reduce((sum, col) => sum + (weights[col.key] || 1), 0);
@@ -648,7 +656,7 @@ function formatCellValue(item: BudgetItem, key: string): string {
 
   // Currency formatting
   if (key.includes('Budget') || key.includes('budget')) {
-    return `â‚±${value.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    return `₱${value.toLocaleString('en-PH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   }
 
   // Percentage formatting
