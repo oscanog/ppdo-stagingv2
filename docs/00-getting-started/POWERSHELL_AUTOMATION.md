@@ -65,7 +65,8 @@ function push-staging {
     
     # --- ASK TO CHANGE REMOTE ORIGIN ---
     Write-Host "`n=== GIT REMOTE CONFIGURATION ===" -ForegroundColor Cyan
-    Write-Host "Current remote origin: $remoteUrl" -ForegroundColor Gray
+    Write-Host "Current repo origin url: " -ForegroundColor Yellow -NoNewline
+    Write-Host "$remoteUrl" -ForegroundColor Gray
     $changeRemote = Read-Host "Do you want to change the git remote origin? (Y/N, default: N)"
     
     if ($changeRemote -eq 'Y' -or $changeRemote -eq 'y') {
