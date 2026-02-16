@@ -54,4 +54,12 @@ copy.txt
 nul
 
 # database backup
-/database-backup/
+/database_backup/
+
+# agents folder
+/laravel_super_agents/
+
+# tests
+
+/tests/
+/tests-results/

@@ -15,10 +15,13 @@ import {
   Mail,
   Phone,
   MapPin,
-  Globe,
   User,
   Pause,
   Loader2,
+  FolderKanban,
+  PiggyBank,
+  Heart,
+  GraduationCap,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/shared"
 import { ProjectCard, ProjectItem } from "../components/ProjectCard"
@@ -36,6 +39,57 @@ function formatCurrency(amount: number): string {
   }).format(amount)
 }
 
+// Category configuration - keys must match backend categoryCounts keys
+const categoryConfig: Record<string, {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  color: string;
+  borderColor: string;
+  bgColor: string;
+}> = {
+  project11Plans: {
+    label: "Project 11 Plans / Budget Items",
+    icon: FolderKanban,
+    color: "text-emerald-600 dark:text-emerald-400",
+    borderColor: "border-emerald-500/20",
+    bgColor: "bg-emerald-500/10",
+  },
+  twentyPercentDF: {
+    label: "20% Development Fund",
+    icon: PiggyBank,
+    color: "text-amber-600 dark:text-amber-400",
+    borderColor: "border-amber-500/20",
+    bgColor: "bg-amber-500/10",
+  },
+  trustFund: {
+    label: "Trust Fund",
+    icon: PiggyBank,
+    color: "text-blue-600 dark:text-blue-400",
+    borderColor: "border-blue-500/20",
+    bgColor: "bg-blue-500/10",
+  },
+  specialHealth: {
+    label: "Special Health Fund",
+    icon: Heart,
+    color: "text-rose-600 dark:text-rose-400",
+    borderColor: "border-rose-500/20",
+    bgColor: "bg-rose-500/10",
+  },
+  specialEducation: {
+    label: "Special Education Fund",
+    icon: GraduationCap,
+    color: "text-purple-600 dark:text-purple-400",
+    borderColor: "border-purple-500/20",
+    bgColor: "bg-purple-500/10",
+  },
+}
+
+type ProjectCategory = keyof typeof categoryConfig
+
+interface CategorizedProjectItem extends Omit<ProjectItem, 'type' | 'category'> {
+  category?: ProjectCategory
+}
+
 export default function AgencyDetailPage() {
   const params = useParams()
   const id = params?.id as Id<"implementingAgencies">
@@ -50,10 +104,6 @@ export default function AgencyDetailPage() {
     )
   }
 
-  // Handle case where agency is not found (query returns null/undefined if checks fail, but my backend throws error. 
-  // If backend throws, useQuery might not differentiate easily without error boundary, but let's assume valid ID)
-  // Actually simplest is checking result.
-
   const getTypeColor = (type: string) => {
     switch (type) {
       case "external":
@@ -65,10 +115,22 @@ export default function AgencyDetailPage() {
     }
   }
 
-  // Filter projects from the unified list
-  const ongoingProjects = agency.projects.filter((p) => p.status === "ongoing")
-  const completedProjects = agency.projects.filter((p) => p.status === "completed")
-  const delayedProjects = agency.projects.filter((p) => p.status === "delayed")
+  // Get categorized projects from the new API response
+  const projectsByCategory = agency.projectsByCategory || {
+    project11Plans: [],
+    twentyPercentDF: [],
+    trustFund: [],
+    specialHealth: [],
+    specialEducation: [],
+  }
+
+  const categoryCounts = agency.categoryCounts || {
+    project11Plans: 0,
+    twentyPercentDF: 0,
+    trustFund: 0,
+    specialHealth: 0,
+    specialEducation: 0,
+  }
 
   // Use calculated stats from backend
   const stats = {
@@ -76,31 +138,82 @@ export default function AgencyDetailPage() {
     avgProjectBudget: agency.avgProjectBudget || 0
   }
 
+  // Helper to render a category section
+  const renderCategorySection = (
+    categoryKey: ProjectCategory,
+    projects: CategorizedProjectItem[]
+  ) => {
+    if (projects.length === 0) return null
+
+    const config = categoryConfig[categoryKey]
+    if (!config) return null
+    const IconComponent = config.icon
+
+    // Group by status within category
+    const ongoing = projects.filter(p => p.status === "ongoing")
+    const completed = projects.filter(p => p.status === "completed")
+    const delayed = projects.filter(p => p.status === "delayed")
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <IconComponent className={`h-5 w-5 ${config.color}`} />
+          <h4 className="text-xl font-cinzel font-semibold">{config.label}</h4>
+          <Badge variant="outline" className={`${config.borderColor} ${config.color}`}>
+            {projects.length}
+          </Badge>
+        </div>
+
+        {/* Ongoing */}
+        {ongoing.length > 0 && (
+          <div className="pl-8 space-y-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4 text-[#15803D]" />
+              <span>Ongoing ({ongoing.length})</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {ongoing.map((project) => (
+                <ProjectCard key={project.id} project={project as ProjectItem} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Completed */}
+        {completed.length > 0 && (
+          <div className="pl-8 space-y-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <span>Completed ({completed.length})</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {completed.map((project) => (
+                <ProjectCard key={project.id} project={project as ProjectItem} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Delayed */}
+        {delayed.length > 0 && (
+          <div className="pl-8 space-y-3">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Pause className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              <span>Delayed ({delayed.length})</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {delayed.map((project) => (
+                <ProjectCard key={project.id} project={project as ProjectItem} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 md:py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/dashboard/implementing-agencies">
-                <Button variant="ghost" size="icon" className="hover:bg-[#15803D]/10">
-                  <ArrowLeft className="h-5 w-5" style={{ color: "#15803D" }} />
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-2xl md:text-4xl font-cinzel font-bold tracking-tight" style={{ color: "#15803D" }}>
-                  PPDO
-                </h1>
-                <p className="text-sm md:text-base text-muted-foreground mt-1">
-                  Provincial Planning and Development Office
-                </p>
-              </div>
-            </div>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-10 space-y-8">
@@ -113,16 +226,13 @@ export default function AgencyDetailPage() {
             <div className="flex-1 space-y-3">
               <div className="flex flex-wrap items-center gap-3">
                 <Badge variant="outline" className={`${getTypeColor(agency.type)} font-medium`}>
-                  {agency.type === "department" ? "PROVINCIAL" : "EXTERNAL"}
+                  {agency.type === "internal" ? "PROVINCIAL" : "EXTERNAL"}
                 </Badge>
               </div>
               <div>
                 <h2 className="text-3xl md:text-5xl font-cinzel font-bold tracking-tight mb-2">{agency.code}</h2>
                 <p className="text-lg md:text-xl text-muted-foreground">{agency.fullName}</p>
               </div>
-              <p className="text-base md:text-lg text-muted-foreground max-w-4xl leading-relaxed">
-                {agency.description || "No description available."}
-              </p>
             </div>
           </div>
         </div>
@@ -164,6 +274,22 @@ export default function AgencyDetailPage() {
                 <p className="text-3xl font-bold font-cinzel">{stats.utilizationRate}%</p>
                 <p className="text-xs text-muted-foreground mt-1">Budget efficiency</p>
               </div>
+            </div>
+
+            {/* Category Breakdown */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+              {Object.entries(categoryCounts).map(([key, count]) => {
+                const config = categoryConfig[key]
+                if (!config) return null
+                const IconComponent = config.icon
+                return (
+                  <div key={key} className={`text-center p-3 rounded-lg ${config.bgColor} border ${config.borderColor}`}>
+                    <IconComponent className={`h-5 w-5 mx-auto mb-1 ${config.color}`} />
+                    <p className="text-lg font-bold">{count}</p>
+                    <p className="text-xs text-muted-foreground truncate">{config.label.split(" / ")[0]}</p>
+                  </div>
+                )
+              })}
             </div>
 
             {/* Budget Information */}
@@ -239,81 +365,44 @@ export default function AgencyDetailPage() {
                     <p className="font-semibold">{agency.address || "N/A"}</p>
                   </div>
                 </div>
-                {/* Website wasn't in DB schema, omitting or needing schema update. Let's omit for now to avoid errors */}
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Projects Section */}
-        <div className="space-y-6">
+        {/* Projects Section - Categorized */}
+        <div className="space-y-8">
           <div className="flex items-center justify-between">
             <h3 className="text-2xl md:text-3xl font-cinzel font-bold">Projects Portfolio</h3>
-            <p className="text-sm text-muted-foreground">{agency.projects.length} total projects</p>
+            <p className="text-sm text-muted-foreground">{agency.totalProjects} total projects</p>
           </div>
 
-          {/* Ongoing Projects */}
-          {ongoingProjects.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Clock className="h-5 w-5 text-[#15803D]" />
-                <h4 className="text-xl font-cinzel font-semibold">Ongoing Projects</h4>
-                <Badge variant="outline" style={{ borderColor: "#15803D", color: "#15803D" }}>
-                  {ongoingProjects.length}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {ongoingProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project as ProjectItem} />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Project 11 Plans / Budget Items */}
+          {renderCategorySection("project11Plans", projectsByCategory.project11Plans as CategorizedProjectItem[])}
 
-          {/* Completed Projects */}
-          {completedProjects.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <h4 className="text-xl font-cinzel font-semibold">Completed Projects</h4>
-                <Badge variant="outline" className="border-blue-500/20 text-blue-600 dark:text-blue-400">
-                  {completedProjects.length}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {completedProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project as ProjectItem} />
-                ))}
-              </div>
-            </div>
-          )}
+          {/* 20% Development Fund */}
+          {renderCategorySection("twentyPercentDF", projectsByCategory.twentyPercentDF as CategorizedProjectItem[])}
 
-          {/* Delayed Projects */}
-          {delayedProjects.length > 0 && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Pause className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                <h4 className="text-xl font-cinzel font-semibold">Delayed Projects</h4>
-                <Badge variant="outline" className="border-gray-500/20 text-gray-600 dark:text-gray-400">
-                  {delayedProjects.length}
-                </Badge>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {delayedProjects.map((project) => (
-                  <ProjectCard key={project.id} project={project as ProjectItem} />
-                ))}
-              </div>
+          {/* Trust Fund */}
+          {renderCategorySection("trustFund", projectsByCategory.trustFund as CategorizedProjectItem[])}
+
+          {/* Special Health Fund */}
+          {renderCategorySection("specialHealth", projectsByCategory.specialHealth as CategorizedProjectItem[])}
+
+          {/* Special Education Fund */}
+          {renderCategorySection("specialEducation", projectsByCategory.specialEducation as CategorizedProjectItem[])}
+
+          {/* Empty State */}
+          {agency.totalProjects === 0 && (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium">No projects found</p>
+              <p className="text-sm">This agency has no projects assigned yet.</p>
             </div>
           )}
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t mt-16 py-8 bg-card/30">
-        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>© 2025 Provincial Planning and Development Office. All rights reserved.</p>
-        </div>
-      </footer>
     </div>
   )
 }

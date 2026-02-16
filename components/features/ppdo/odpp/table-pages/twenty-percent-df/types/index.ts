@@ -1,5 +1,6 @@
 import { Id } from "@/convex/_generated/dataModel";
 import { SortState, ContextMenuState } from "@/lib/shared/types/table.types";
+import { SortOption } from "@/types/sort";
 
 // ============================================================================
 // 20% DF TYPES
@@ -10,7 +11,7 @@ export interface TwentyPercentDF {
     particulars: string;
     implementingOffice: string;
     categoryId?: Id<"projectCategories">;
-    departmentId?: Id<"departments">;
+    departmentId?: Id<"implementingAgencies">;
     totalBudgetAllocated: number;
     obligatedBudget?: number;
     totalBudgetUtilized: number;
@@ -34,7 +35,7 @@ export interface TwentyPercentDFFormData {
     particulars: string;
     implementingOffice: string;
     categoryId?: Id<"projectCategories">;
-    departmentId?: Id<"departments">;
+    departmentId?: Id<"implementingAgencies">;
     totalBudgetAllocated: number;
     obligatedBudget?: number;
     totalBudgetUtilized: number;
@@ -137,4 +138,8 @@ export interface TwentyPercentDFTableProps {
     onOpenTrash?: () => void;
     newlyAddedId?: string | null;
     expandButton?: React.ReactNode;
+    /** Current sort option for the table */
+    sortOption?: SortOption;
+    /** Callback when sort option changes */
+    onSortChange?: (option: SortOption) => void;
 }

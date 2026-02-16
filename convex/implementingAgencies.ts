@@ -16,7 +16,7 @@ import { indexEntity, removeFromIndex } from "./search/index";
 export const list = query({
   args: {
     includeInactive: v.optional(v.boolean()),
-    type: v.optional(v.union(v.literal("department"), v.literal("external"))),
+    type: v.optional(v.union(v.literal("internal"), v.literal("external"))),
     usageContext: v.optional(v.union(v.literal("project"), v.literal("breakdown"))),
   },
   handler: async (ctx, args) => {
@@ -45,17 +45,31 @@ export const list = query({
       return a.code.localeCompare(b.code);
     });
 
-    // Enrich with department information and runtime stats
+    // Enrich with hierarchy and head user information
     const enrichedAgencies = await Promise.all(
       agencies.map(async (agency) => {
-        let departmentInfo = null;
-        if (agency.departmentId) {
-          const dept = await ctx.db.get(agency.departmentId);
-          if (dept) {
-            departmentInfo = {
-              id: dept._id,
-              name: dept.name,
-              code: dept.code,
+        // Get head user info if available
+        let headUserInfo = null;
+        if (agency.headUserId) {
+          const headUser = await ctx.db.get(agency.headUserId);
+          if (headUser) {
+            headUserInfo = {
+              id: headUser._id,
+              name: headUser.name,
+              email: headUser.email,
+            };
+          }
+        }
+
+        // Get parent agency info if available
+        let parentAgencyInfo = null;
+        if (agency.parentAgencyId) {
+          const parent = await ctx.db.get(agency.parentAgencyId);
+          if (parent) {
+            parentAgencyInfo = {
+              id: parent._id,
+              name: parent.fullName,
+              code: parent.code,
             };
           }
         }
@@ -67,40 +81,106 @@ export const list = query({
           .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
           .collect();
 
-        // 2. Get Breakdowns
-        const breakdowns = await ctx.db
+        // 2. Get Govt Project Breakdowns
+        const govtBreakdowns = await ctx.db
           .query("govtProjectBreakdowns")
           .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
           .collect();
 
-        // 3. Filter out deleted items
-        const activeProjects = projects.filter(p => !p.isDeleted);
-        const activeBreakdowns = breakdowns.filter(b => !b.isDeleted);
+        // 3. Get 20% DF Breakdowns
+        const twentyPercentDFBreakdowns = await ctx.db
+          .query("twentyPercentDFBreakdowns")
+          .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
+          .collect();
 
-        const totalProjectsCount = activeProjects.length + activeBreakdowns.length;
+        // 4. Get Trust Fund Breakdowns
+        const trustFundBreakdowns = await ctx.db
+          .query("trustFundBreakdowns")
+          .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
+          .collect();
+
+        // 5. Get Special Health Fund Breakdowns
+        const specialHealthBreakdowns = await ctx.db
+          .query("specialHealthFundBreakdowns")
+          .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
+          .collect();
+
+        // 6. Get Special Education Fund Breakdowns
+        const specialEducationBreakdowns = await ctx.db
+          .query("specialEducationFundBreakdowns")
+          .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
+          .collect();
+
+        // Filter out deleted items
+        const activeProjects = projects.filter(p => !p.isDeleted);
+        const activeGovtBreakdowns = govtBreakdowns.filter(b => !b.isDeleted);
+        const active20DFBreakdowns = twentyPercentDFBreakdowns.filter(b => !b.isDeleted);
+        const activeTrustFundBreakdowns = trustFundBreakdowns.filter(b => !b.isDeleted);
+        const activeSpecialHealthBreakdowns = specialHealthBreakdowns.filter(b => !b.isDeleted);
+        const activeSpecialEducationBreakdowns = specialEducationBreakdowns.filter(b => !b.isDeleted);
+
+        // Total breakdowns count (all types except main projects)
+        const totalBreakdownsCount = 
+          activeGovtBreakdowns.length +
+          active20DFBreakdowns.length +
+          activeTrustFundBreakdowns.length +
+          activeSpecialHealthBreakdowns.length +
+          activeSpecialEducationBreakdowns.length;
+
+        const totalProjectsCount = activeProjects.length + totalBreakdownsCount;
 
         // Count by status
+        const countByStatus = <T extends { status?: string }>(items: T[], status: string) => 
+          items.filter(item => item.status === status).length;
+        
+        const countByStatusMulti = <T extends { status?: string }>(items: T[], statuses: string[]) =>
+          items.filter(item => item.status !== undefined && statuses.includes(item.status)).length;
+
         const completedProjectsCount =
-          activeProjects.filter(p => p.status === "completed").length +
-          activeBreakdowns.filter(b => b.status === "completed").length;
+          countByStatus(activeProjects, "completed") +
+          countByStatus(activeGovtBreakdowns, "completed") +
+          countByStatus(active20DFBreakdowns, "completed") +
+          countByStatus(activeTrustFundBreakdowns, "completed") +
+          countByStatus(activeSpecialHealthBreakdowns, "completed") +
+          countByStatus(activeSpecialEducationBreakdowns, "completed");
 
         const ongoingProjectsCount =
-          activeProjects.filter(p => p.status === "ongoing" || p.status === "delayed").length +
-          activeBreakdowns.filter(b => b.status === "ongoing" || b.status === "delayed").length;
+          countByStatusMulti(activeProjects, ["ongoing", "delayed"]) +
+          countByStatusMulti(activeGovtBreakdowns, ["ongoing", "delayed"]) +
+          countByStatusMulti(active20DFBreakdowns, ["ongoing", "delayed"]) +
+          countByStatusMulti(activeTrustFundBreakdowns, ["ongoing", "delayed"]) +
+          countByStatusMulti(activeSpecialHealthBreakdowns, ["ongoing", "delayed"]) +
+          countByStatusMulti(activeSpecialEducationBreakdowns, ["ongoing", "delayed"]);
 
-        const projectBudget = activeProjects.reduce((sum, p) => sum + p.totalBudgetAllocated, 0);
-        const breakdownBudget = activeBreakdowns.reduce((sum, b) => sum + (b.allocatedBudget || 0), 0);
+        // Calculate budgets
+        const sumBudget = <T extends Record<string, unknown>>(items: T[], field: keyof T) => 
+          items.reduce((sum, item) => sum + (Number(item[field]) || 0), 0);
+
+        const projectBudget = sumBudget(activeProjects, "totalBudgetAllocated");
+        const breakdownBudget = 
+          sumBudget(activeGovtBreakdowns, "allocatedBudget") +
+          sumBudget(active20DFBreakdowns, "allocatedBudget") +
+          sumBudget(activeTrustFundBreakdowns, "allocatedBudget") +
+          sumBudget(activeSpecialHealthBreakdowns, "allocatedBudget") +
+          sumBudget(activeSpecialEducationBreakdowns, "allocatedBudget");
         const totalBudget = projectBudget + breakdownBudget;
 
-        const projectUtilized = activeProjects.reduce((sum, p) => sum + p.totalBudgetUtilized, 0);
-        const breakdownUtilized = activeBreakdowns.reduce((sum, b) => sum + (b.budgetUtilized || 0), 0);
+        const projectUtilized = sumBudget(activeProjects, "totalBudgetUtilized");
+        const breakdownUtilized = 
+          sumBudget(activeGovtBreakdowns, "budgetUtilized") +
+          sumBudget(active20DFBreakdowns, "budgetUtilized") +
+          sumBudget(activeTrustFundBreakdowns, "budgetUtilized") +
+          sumBudget(activeSpecialHealthBreakdowns, "budgetUtilized") +
+          sumBudget(activeSpecialEducationBreakdowns, "budgetUtilized");
         const utilizedBudget = projectUtilized + breakdownUtilized;
 
         return {
           ...agency,
-          department: departmentInfo,
+          headUser: headUserInfo,
+          parentAgency: parentAgencyInfo,
           // Runtime calculated stats
           totalProjects: totalProjectsCount,
+          totalBreakdowns: totalBreakdownsCount,
           activeProjects: ongoingProjectsCount,
           completedProjects: completedProjectsCount,
           totalBudget: totalBudget,
@@ -134,70 +214,143 @@ export const get = query({
     const agency = await ctx.db.get(args.id);
     if (!agency) throw new Error("Implementing agency not found");
 
-    // Enrich with department information
-    let departmentInfo = null;
-    if (agency.departmentId) {
-      const dept = await ctx.db.get(agency.departmentId);
-      if (dept) {
-        departmentInfo = {
-          id: dept._id,
-          name: dept.name,
-          code: dept.code,
+    // Enrich with head user and parent agency information
+    let headUserInfo = null;
+    if (agency.headUserId) {
+      const headUser = await ctx.db.get(agency.headUserId);
+      if (headUser) {
+        headUserInfo = {
+          id: headUser._id,
+          name: headUser.name,
+          email: headUser.email,
         };
       }
     }
 
-    // 1. Get Projects
+    let parentAgencyInfo = null;
+    if (agency.parentAgencyId) {
+      const parent = await ctx.db.get(agency.parentAgencyId);
+      if (parent) {
+        parentAgencyInfo = {
+          id: parent._id,
+          name: parent.fullName,
+          code: parent.code,
+        };
+      }
+    }
+
+    // 1. Get Projects (11 Plans / Budget Items)
     const projects = await ctx.db
       .query("projects")
       .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
       .collect();
 
-    // 2. Get Breakdowns
-    const breakdowns = await ctx.db
+    // 2. Get Govt Project Breakdowns (also Budget Items)
+    const govtBreakdowns = await ctx.db
       .query("govtProjectBreakdowns")
       .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
       .collect();
 
-    // 3. Filter out deleted items
-    const activeProjects = projects.filter(p => !p.isDeleted);
-    const activeBreakdowns = breakdowns.filter(b => !b.isDeleted);
+    // 3. Get 20% DF Breakdowns
+    const twentyPercentDFBreakdowns = await ctx.db
+      .query("twentyPercentDFBreakdowns")
+      .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
+      .collect();
 
-    // 4. Calculate Stats
-    const totalProjectsCount = activeProjects.length + activeBreakdowns.length;
+    // 4. Get Trust Fund Breakdowns
+    const trustFundBreakdowns = await ctx.db
+      .query("trustFundBreakdowns")
+      .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
+      .collect();
+
+    // 5. Get Special Health Fund Breakdowns
+    const specialHealthBreakdowns = await ctx.db
+      .query("specialHealthFundBreakdowns")
+      .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
+      .collect();
+
+    // 6. Get Special Education Fund Breakdowns
+    const specialEducationBreakdowns = await ctx.db
+      .query("specialEducationFundBreakdowns")
+      .withIndex("implementingOffice", (q) => q.eq("implementingOffice", agency.code))
+      .collect();
+
+    // Filter out deleted items
+    const activeProjects = projects.filter(p => !p.isDeleted);
+    const activeGovtBreakdowns = govtBreakdowns.filter(b => !b.isDeleted);
+    const active20DFBreakdowns = twentyPercentDFBreakdowns.filter(b => !b.isDeleted);
+    const activeTrustFundBreakdowns = trustFundBreakdowns.filter(b => !b.isDeleted);
+    const activeSpecialHealthBreakdowns = specialHealthBreakdowns.filter(b => !b.isDeleted);
+    const activeSpecialEducationBreakdowns = specialEducationBreakdowns.filter(b => !b.isDeleted);
+
+    // Calculate Stats - all types combined
+    const totalProjectsCount = 
+      activeProjects.length + 
+      activeGovtBreakdowns.length + 
+      active20DFBreakdowns.length +
+      activeTrustFundBreakdowns.length +
+      activeSpecialHealthBreakdowns.length +
+      activeSpecialEducationBreakdowns.length;
+
+    // Count by status across all types
+    const countByStatus = <T extends { status?: string }>(items: T[], status: string) => 
+      items.filter(item => item.status === status).length;
+    
+    const countByStatusMulti = <T extends { status?: string }>(items: T[], statuses: string[]) =>
+      items.filter(item => item.status !== undefined && statuses.includes(item.status)).length;
 
     const completedProjectsCount =
-      activeProjects.filter(p => p.status === "completed").length +
-      activeBreakdowns.filter(b => b.status === "completed").length;
+      countByStatus(activeProjects, "completed") +
+      countByStatus(activeGovtBreakdowns, "completed") +
+      countByStatus(active20DFBreakdowns, "completed") +
+      countByStatus(activeTrustFundBreakdowns, "completed") +
+      countByStatus(activeSpecialHealthBreakdowns, "completed") +
+      countByStatus(activeSpecialEducationBreakdowns, "completed");
 
     const ongoingProjectsCount =
-      activeProjects.filter(p => p.status === "ongoing" || p.status === "delayed").length +
-      activeBreakdowns.filter(b => b.status === "ongoing" || b.status === "delayed").length;
+      countByStatusMulti(activeProjects, ["ongoing", "delayed"]) +
+      countByStatusMulti(activeGovtBreakdowns, ["ongoing", "delayed"]) +
+      countByStatusMulti(active20DFBreakdowns, ["ongoing", "delayed"]) +
+      countByStatusMulti(activeTrustFundBreakdowns, ["ongoing", "delayed"]) +
+      countByStatusMulti(activeSpecialHealthBreakdowns, ["ongoing", "delayed"]) +
+      countByStatusMulti(activeSpecialEducationBreakdowns, ["ongoing", "delayed"]);
 
-    const projectBudget = activeProjects.reduce((sum, p) => sum + p.totalBudgetAllocated, 0);
-    const breakdownBudget = activeBreakdowns.reduce((sum, b) => sum + (b.allocatedBudget || 0), 0);
-    const totalBudget = projectBudget + breakdownBudget;
+    // Calculate budgets
+    const sumBudget = <T extends Record<string, unknown>>(items: T[], field: keyof T) => 
+      items.reduce((sum, item) => sum + (Number(item[field]) || 0), 0);
 
-    const projectUtilized = activeProjects.reduce((sum, p) => sum + p.totalBudgetUtilized, 0);
-    const breakdownUtilized = activeBreakdowns.reduce((sum, b) => sum + (b.budgetUtilized || 0), 0);
-    const utilizedBudget = projectUtilized + breakdownUtilized;
+    const totalBudget = 
+      sumBudget(activeProjects, "totalBudgetAllocated") +
+      sumBudget(activeGovtBreakdowns, "allocatedBudget") +
+      sumBudget(active20DFBreakdowns, "allocatedBudget") +
+      sumBudget(activeTrustFundBreakdowns, "allocatedBudget") +
+      sumBudget(activeSpecialHealthBreakdowns, "allocatedBudget") +
+      sumBudget(activeSpecialEducationBreakdowns, "allocatedBudget");
 
-    // 5. Normalization for Project Cards
-    const mappedProjects = activeProjects.map(p => ({
+    const utilizedBudget = 
+      sumBudget(activeProjects, "totalBudgetUtilized") +
+      sumBudget(activeGovtBreakdowns, "budgetUtilized") +
+      sumBudget(active20DFBreakdowns, "budgetUtilized") +
+      sumBudget(activeTrustFundBreakdowns, "budgetUtilized") +
+      sumBudget(activeSpecialHealthBreakdowns, "budgetUtilized") +
+      sumBudget(activeSpecialEducationBreakdowns, "budgetUtilized");
+
+    // Normalize for Project Cards - by category
+    const mapProject = (p: any) => ({
       id: p._id,
       name: p.particulars,
       description: p.remarks || "No description",
       status: p.status || "ongoing",
       budget: p.totalBudgetAllocated,
       utilized: p.totalBudgetUtilized,
-      location: "Provincial", // Projects are usually provincial level
-      startDate: new Date(p.createdAt).toISOString(), // Fallback
+      location: "Provincial",
+      startDate: new Date(p.createdAt).toISOString(),
       endDate: p.targetDateCompletion ? new Date(p.targetDateCompletion).toISOString() : new Date().toISOString(),
-      beneficiaries: 0, // Not in schema
-      type: "project" as const
-    }));
+      beneficiaries: 0,
+      category: "project11Plans" as const,
+    });
 
-    const mappedBreakdowns = activeBreakdowns.map(b => ({
+    const mapGovtBreakdown = (b: any) => ({
       id: b._id,
       name: b.projectName,
       description: b.remarks || "No description",
@@ -208,14 +361,87 @@ export const get = query({
       startDate: b.dateStarted ? new Date(b.dateStarted).toISOString() : new Date(b.createdAt).toISOString(),
       endDate: b.targetDate ? new Date(b.targetDate).toISOString() : new Date().toISOString(),
       beneficiaries: 0,
-      type: "breakdown" as const
-    }));
+      category: "project11Plans" as const, // Govt breakdowns are also budget items
+    });
 
-    const allProjects = [...mappedProjects, ...mappedBreakdowns];
+    const map20DFBreakdown = (b: any) => ({
+      id: b._id,
+      name: b.projectName,
+      description: b.remarks || "No description",
+      status: b.status || "ongoing",
+      budget: b.allocatedBudget || 0,
+      utilized: b.budgetUtilized || 0,
+      location: b.municipality || "Various",
+      startDate: b.dateStarted ? new Date(b.dateStarted).toISOString() : new Date(b.createdAt).toISOString(),
+      endDate: b.targetDate ? new Date(b.targetDate).toISOString() : new Date().toISOString(),
+      beneficiaries: 0,
+      category: "twentyPercentDF" as const,
+    });
+
+    const mapTrustFundBreakdown = (b: any) => ({
+      id: b._id,
+      name: b.projectName,
+      description: b.remarks || "No description",
+      status: b.status || "ongoing",
+      budget: b.allocatedBudget || 0,
+      utilized: b.budgetUtilized || 0,
+      location: b.municipality || "Various",
+      startDate: b.dateStarted ? new Date(b.dateStarted).toISOString() : new Date(b.createdAt).toISOString(),
+      endDate: b.targetDate ? new Date(b.targetDate).toISOString() : new Date().toISOString(),
+      beneficiaries: 0,
+      category: "trustFund" as const,
+    });
+
+    const mapSpecialHealthBreakdown = (b: any) => ({
+      id: b._id,
+      name: b.projectName,
+      description: b.remarks || "No description",
+      status: b.status || "ongoing",
+      budget: b.allocatedBudget || 0,
+      utilized: b.budgetUtilized || 0,
+      location: b.municipality || "Various",
+      startDate: b.dateStarted ? new Date(b.dateStarted).toISOString() : new Date(b.createdAt).toISOString(),
+      endDate: b.targetDate ? new Date(b.targetDate).toISOString() : new Date().toISOString(),
+      beneficiaries: 0,
+      category: "specialHealth" as const,
+    });
+
+    const mapSpecialEducationBreakdown = (b: any) => ({
+      id: b._id,
+      name: b.projectName,
+      description: b.remarks || "No description",
+      status: b.status || "ongoing",
+      budget: b.allocatedBudget || 0,
+      utilized: b.budgetUtilized || 0,
+      location: b.municipality || "Various",
+      startDate: b.dateStarted ? new Date(b.dateStarted).toISOString() : new Date(b.createdAt).toISOString(),
+      endDate: b.targetDate ? new Date(b.targetDate).toISOString() : new Date().toISOString(),
+      beneficiaries: 0,
+      category: "specialEducation" as const,
+    });
+
+    // Categorized projects
+    const project11Plans = [
+      ...activeProjects.map(mapProject),
+      ...activeGovtBreakdowns.map(mapGovtBreakdown),
+    ];
+    const twentyPercentDF = active20DFBreakdowns.map(map20DFBreakdown);
+    const trustFund = activeTrustFundBreakdowns.map(mapTrustFundBreakdown);
+    const specialHealth = activeSpecialHealthBreakdowns.map(mapSpecialHealthBreakdown);
+    const specialEducation = activeSpecialEducationBreakdowns.map(mapSpecialEducationBreakdown);
+
+    const allProjects = [
+      ...project11Plans,
+      ...twentyPercentDF,
+      ...trustFund,
+      ...specialHealth,
+      ...specialEducation,
+    ];
 
     return {
       ...agency,
-      department: departmentInfo,
+      headUser: headUserInfo,
+      parentAgency: parentAgencyInfo,
       // Stats
       totalProjects: totalProjectsCount,
       activeProjects: ongoingProjectsCount,
@@ -223,8 +449,23 @@ export const get = query({
       totalBudget: totalBudget,
       utilizedBudget: utilizedBudget,
       avgProjectBudget: totalProjectsCount > 0 ? totalBudget / totalProjectsCount : 0,
-      // List
-      projects: allProjects
+      // Categorized lists
+      projects: allProjects,
+      projectsByCategory: {
+        project11Plans,
+        twentyPercentDF,
+        trustFund,
+        specialHealth,
+        specialEducation,
+      },
+      // Category counts for quick reference
+      categoryCounts: {
+        project11Plans: project11Plans.length,
+        twentyPercentDF: twentyPercentDF.length,
+        trustFund: trustFund.length,
+        specialHealth: specialHealth.length,
+        specialEducation: specialEducation.length,
+      },
     };
   },
 });
@@ -245,22 +486,35 @@ export const getByCode = query({
 
     if (!agency) throw new Error("Implementing agency not found");
 
-    // Enrich with department information
-    let departmentInfo = null;
-    if (agency.departmentId) {
-      const dept = await ctx.db.get(agency.departmentId);
-      if (dept) {
-        departmentInfo = {
-          id: dept._id,
-          name: dept.name,
-          code: dept.code,
+    // Enrich with head user and parent agency information
+    let headUserInfo = null;
+    if (agency.headUserId) {
+      const headUser = await ctx.db.get(agency.headUserId);
+      if (headUser) {
+        headUserInfo = {
+          id: headUser._id,
+          name: headUser.name,
+          email: headUser.email,
+        };
+      }
+    }
+
+    let parentAgencyInfo = null;
+    if (agency.parentAgencyId) {
+      const parent = await ctx.db.get(agency.parentAgencyId);
+      if (parent) {
+        parentAgencyInfo = {
+          id: parent._id,
+          name: parent.fullName,
+          code: parent.code,
         };
       }
     }
 
     return {
       ...agency,
-      department: departmentInfo,
+      headUser: headUserInfo,
+      parentAgency: parentAgencyInfo,
     };
   },
 });
@@ -337,7 +591,7 @@ export const getStatistics = query({
 
     const active = allAgencies.filter(a => a.isActive);
     const inactive = allAgencies.filter(a => !a.isActive);
-    const departments = allAgencies.filter(a => a.type === "department");
+    const internalAgencies = allAgencies.filter(a => a.type === "internal");
     const external = allAgencies.filter(a => a.type === "external");
     const systemDefaults = allAgencies.filter(a => a.isSystemDefault);
 
@@ -353,7 +607,7 @@ export const getStatistics = query({
       total: allAgencies.length,
       active: active.length,
       inactive: inactive.length,
-      departments: departments.length,
+      internal: internalAgencies.length,
       external: external.length,
       systemDefaults: systemDefaults.length,
       totalProjectUsage,
@@ -375,8 +629,9 @@ export const create = mutation({
   args: {
     code: v.string(),
     fullName: v.string(),
-    type: v.union(v.literal("department"), v.literal("external")),
-    departmentId: v.optional(v.id("departments")),
+    type: v.union(v.literal("internal"), v.literal("external")),
+    parentAgencyId: v.optional(v.id("implementingAgencies")),
+    headUserId: v.optional(v.id("users")),
     description: v.optional(v.string()),
     contactPerson: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
@@ -409,21 +664,19 @@ export const create = mutation({
       throw new Error(`Implementing agency with code "${args.code}" already exists`);
     }
 
-    // Validate type-specific requirements
-    if (args.type === "department") {
-      if (!args.departmentId) {
-        throw new Error("Department ID is required when type is 'department'");
+    // Validate parent agency if provided
+    if (args.parentAgencyId) {
+      const parent = await ctx.db.get(args.parentAgencyId);
+      if (!parent) {
+        throw new Error("Parent agency not found");
       }
+    }
 
-      // Verify department exists
-      const dept = await ctx.db.get(args.departmentId);
-      if (!dept) {
-        throw new Error("Department not found");
-      }
-    } else {
-      // External agency - should not have departmentId
-      if (args.departmentId) {
-        throw new Error("External agencies should not have a department ID");
+    // Validate head user if provided
+    if (args.headUserId) {
+      const headUser = await ctx.db.get(args.headUserId);
+      if (!headUser) {
+        throw new Error("Head user not found");
       }
     }
 
@@ -441,7 +694,8 @@ export const create = mutation({
       code: args.code,
       fullName: args.fullName,
       type: args.type,
-      departmentId: args.departmentId,
+      parentAgencyId: args.parentAgencyId,
+      headUserId: args.headUserId,
       description: args.description,
       contactPerson: args.contactPerson,
       contactEmail: args.contactEmail,
@@ -466,7 +720,6 @@ export const create = mutation({
       entityId: agencyId,
       primaryText: args.fullName,
       secondaryText: args.code,
-      departmentId: args.departmentId,
       status: "active",
       isDeleted: false,
     });
@@ -483,8 +736,9 @@ export const update = mutation({
     id: v.id("implementingAgencies"),
     code: v.optional(v.string()),
     fullName: v.optional(v.string()),
-    type: v.optional(v.union(v.literal("department"), v.literal("external"))),
-    departmentId: v.optional(v.id("departments")),
+    type: v.optional(v.union(v.literal("internal"), v.literal("external"))),
+    parentAgencyId: v.optional(v.id("implementingAgencies")),
+    headUserId: v.optional(v.id("users")),
     description: v.optional(v.string()),
     contactPerson: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
@@ -528,13 +782,24 @@ export const update = mutation({
       }
     }
 
-    // Validate type changes
-    const newType = args.type || existing.type;
-    if (newType === "department" && args.departmentId) {
-      // Verify department exists
-      const dept = await ctx.db.get(args.departmentId);
-      if (!dept) {
-        throw new Error("Department not found");
+    // Validate parent agency if provided
+    if (args.parentAgencyId) {
+      // Prevent circular reference
+      if (args.parentAgencyId === args.id) {
+        throw new Error("Agency cannot be its own parent");
+      }
+      
+      const parent = await ctx.db.get(args.parentAgencyId);
+      if (!parent) {
+        throw new Error("Parent agency not found");
+      }
+    }
+
+    // Validate head user if provided
+    if (args.headUserId) {
+      const headUser = await ctx.db.get(args.headUserId);
+      if (!headUser) {
+        throw new Error("Head user not found");
       }
     }
 
@@ -552,7 +817,8 @@ export const update = mutation({
       ...(args.code && { code: args.code }),
       ...(args.fullName && { fullName: args.fullName }),
       ...(args.type && { type: args.type }),
-      ...(args.departmentId !== undefined && { departmentId: args.departmentId }),
+      ...(args.parentAgencyId !== undefined && { parentAgencyId: args.parentAgencyId }),
+      ...(args.headUserId !== undefined && { headUserId: args.headUserId }),
       ...(args.description !== undefined && { description: args.description }),
       ...(args.contactPerson !== undefined && { contactPerson: args.contactPerson }),
       ...(args.contactEmail !== undefined && { contactEmail: args.contactEmail }),
@@ -572,7 +838,6 @@ export const update = mutation({
       entityId: args.id,
       primaryText: args.fullName || existing.fullName,
       secondaryText: args.code || existing.code,
-      departmentId: args.departmentId !== undefined ? args.departmentId : existing.departmentId,
       status: existing.isActive ? "active" : "inactive",
       isDeleted: false,
     });
@@ -837,5 +1102,104 @@ export const recalculateUsageCountsInternal = internalMutation({
       totalProjects: projects.length,
       totalBreakdowns: breakdowns.length,
     };
+  },
+});
+/**
+ * ============================================================================
+ * HIERARCHY QUERIES
+ * ============================================================================
+ */
+
+/**
+ * Get agency hierarchy (parent-child structure)
+ * Similar to the old departments.getHierarchy
+ */
+export const getHierarchy = query({
+  args: {
+    type: v.optional(v.union(v.literal("internal"), v.literal("external"))),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("Not authenticated");
+    }
+
+    let agencies = await ctx.db
+      .query("implementingAgencies")
+      .withIndex("isActive", (q) => q.eq("isActive", true))
+      .collect();
+
+    // Filter by type if requested
+    if (args.type) {
+      agencies = agencies.filter(a => a.type === args.type);
+    }
+
+    // Build hierarchy structure
+    const agencyMap = new Map(agencies.map(a => [a._id, { ...a, children: [] as any[] }]));
+    const rootAgencies: any[] = [];
+
+    agencies.forEach(agency => {
+      const agencyWithChildren = agencyMap.get(agency._id);
+      if (agency.parentAgencyId) {
+        const parent = agencyMap.get(agency.parentAgencyId);
+        if (parent) {
+          parent.children.push(agencyWithChildren);
+        } else {
+          // Parent not in filtered list, treat as root
+          rootAgencies.push(agencyWithChildren);
+        }
+      } else {
+        rootAgencies.push(agencyWithChildren);
+      }
+    });
+
+    // Sort by displayOrder
+    const sortByOrder = (arr: any[]) => {
+      arr.sort((a, b) => {
+        if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
+          return a.displayOrder - b.displayOrder;
+        }
+        return a.fullName.localeCompare(b.fullName);
+      });
+      arr.forEach(item => {
+        if (item.children.length > 0) {
+          sortByOrder(item.children);
+        }
+      });
+    };
+
+    sortByOrder(rootAgencies);
+
+    return rootAgencies;
+  },
+});
+
+/**
+ * Get child agencies for a parent agency
+ */
+export const getChildren = query({
+  args: {
+    parentId: v.id("implementingAgencies"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) {
+      throw new Error("Not authenticated");
+    }
+
+    const children = await ctx.db
+      .query("implementingAgencies")
+      .withIndex("parentAgencyId", (q) => q.eq("parentAgencyId", args.parentId))
+      .collect();
+
+    // Sort by displayOrder
+    children.sort((a, b) => {
+      if (a.displayOrder !== undefined && b.displayOrder !== undefined) {
+        return a.displayOrder - b.displayOrder;
+      }
+      return a.fullName.localeCompare(b.fullName);
+    });
+
+    return children;
   },
 });
