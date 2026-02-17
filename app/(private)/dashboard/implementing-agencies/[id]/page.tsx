@@ -2,9 +2,17 @@
 
 import Link from "next/link"
 import { useParams } from "next/navigation"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   ArrowLeft,
   Building2,
@@ -22,12 +30,24 @@ import {
   PiggyBank,
   Heart,
   GraduationCap,
+  Eye,
+  EyeOff,
+  Wallet,
+  BarChart3,
+  LayoutGrid,
+  Rows3,
+  List,
 } from "lucide-react"
 import { ThemeToggle } from "@/components/shared"
 import { ProjectCard, ProjectItem } from "../components/ProjectCard"
+import { CompactProjectCard } from "../components/CompactProjectCard"
+import { ProjectListView } from "../components/ProjectListView"
+import { EditableContactItem } from "../components/EditableContactItem"
+import { EditableAgencyName } from "../components/EditableAgencyName"
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { useBreadcrumb } from "@/contexts/BreadcrumbContext"
 
 // Helper function
 function formatCurrency(amount: number): string {
@@ -94,7 +114,31 @@ export default function AgencyDetailPage() {
   const params = useParams()
   const id = params?.id as Id<"implementingAgencies">
 
+  // Show/hide statistics state - MUST be before any conditional returns
+  const [showStatistics, setShowStatistics] = useState(false)
+  // Dashboard statistics modal state
+  const [showDashboardStats, setShowDashboardStats] = useState(false)
+  // View mode state: 'compact', 'detailed', 'list'
+  const [viewMode, setViewMode] = useState<"compact" | "detailed" | "list">("detailed")
+
   const agency = useQuery(api.implementingAgencies.get, { id })
+  const { setCustomBreadcrumbs } = useBreadcrumb()
+
+  // Set custom breadcrumb with agency code when agency data loads
+  useEffect(() => {
+    if (agency) {
+      setCustomBreadcrumbs([
+        { label: "Home", href: "/dashboard" },
+        { label: "Implementing Agencies", href: "/dashboard/implementing-agencies" },
+        { label: agency.code },
+      ])
+    }
+
+    // Clear custom breadcrumbs when leaving the page
+    return () => {
+      setCustomBreadcrumbs(null)
+    }
+  }, [agency, setCustomBreadcrumbs])
 
   if (agency === undefined) {
     return (
@@ -138,6 +182,33 @@ export default function AgencyDetailPage() {
     avgProjectBudget: agency.avgProjectBudget || 0
   }
 
+  // Helper to render projects based on view mode
+  const renderProjects = (projects: CategorizedProjectItem[]) => {
+    if (projects.length === 0) return null
+
+    switch (viewMode) {
+      case "compact":
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {projects.map((project) => (
+              <CompactProjectCard key={project.id} project={project as ProjectItem} />
+            ))}
+          </div>
+        )
+      case "list":
+        return <ProjectListView projects={projects as ProjectItem[]} />
+      case "detailed":
+      default:
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {projects.map((project) => (
+              <ProjectCard key={project.id} project={project as ProjectItem} />
+            ))}
+          </div>
+        )
+    }
+  }
+
   // Helper to render a category section
   const renderCategorySection = (
     categoryKey: ProjectCategory,
@@ -153,6 +224,24 @@ export default function AgencyDetailPage() {
     const ongoing = projects.filter(p => p.status === "ongoing")
     const completed = projects.filter(p => p.status === "completed")
     const delayed = projects.filter(p => p.status === "delayed")
+
+    // For list view, combine all projects without status grouping
+    if (viewMode === "list") {
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <IconComponent className={`h-5 w-5 ${config.color}`} />
+            <h4 className="text-xl font-cinzel font-semibold">{config.label}</h4>
+            <Badge variant="outline" className={`${config.borderColor} ${config.color}`}>
+              {projects.length}
+            </Badge>
+          </div>
+          <div className="pl-8">
+            {renderProjects(projects)}
+          </div>
+        </div>
+      )
+    }
 
     return (
       <div className="space-y-4">
@@ -171,11 +260,7 @@ export default function AgencyDetailPage() {
               <Clock className="h-4 w-4 text-[#15803D]" />
               <span>Ongoing ({ongoing.length})</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {ongoing.map((project) => (
-                <ProjectCard key={project.id} project={project as ProjectItem} />
-              ))}
-            </div>
+            {renderProjects(ongoing)}
           </div>
         )}
 
@@ -186,11 +271,7 @@ export default function AgencyDetailPage() {
               <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <span>Completed ({completed.length})</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {completed.map((project) => (
-                <ProjectCard key={project.id} project={project as ProjectItem} />
-              ))}
-            </div>
+            {renderProjects(completed)}
           </div>
         )}
 
@@ -201,11 +282,7 @@ export default function AgencyDetailPage() {
               <Pause className="h-4 w-4 text-gray-600 dark:text-gray-400" />
               <span>Delayed ({delayed.length})</span>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {delayed.map((project) => (
-                <ProjectCard key={project.id} project={project as ProjectItem} />
-              ))}
-            </div>
+            {renderProjects(delayed)}
           </div>
         )}
       </div>
@@ -219,25 +296,85 @@ export default function AgencyDetailPage() {
       <main className="container mx-auto px-4 py-6 md:py-10 space-y-8">
         {/* Agency Header */}
         <div className="space-y-6">
-          <div className="flex items-start gap-4">
-            <div className="p-4 md:p-6 rounded-2xl" style={{ backgroundColor: "#15803D20" }}>
-              <Building2 className="h-10 w-10 md:h-12 md:w-12" style={{ color: "#15803D" }} />
-            </div>
-            <div className="flex-1 space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="outline" className={`${getTypeColor(agency.type)} font-medium`}>
-                  {agency.type === "internal" ? "PROVINCIAL" : "EXTERNAL"}
-                </Badge>
+          <div className="flex flex-col md:flex-row md:items-start gap-4 md:gap-8">
+            {/* Left: Icon and Main Info */}
+            <div className="flex items-start gap-4 flex-1">
+              <div className="p-4 md:p-6 rounded-2xl shrink-0" style={{ backgroundColor: "#15803D20" }}>
+                <Building2 className="h-10 w-10 md:h-12 md:w-12" style={{ color: "#15803D" }} />
               </div>
-              <div>
-                <h2 className="text-3xl md:text-5xl font-cinzel font-bold tracking-tight mb-2">{agency.code}</h2>
-                <p className="text-lg md:text-xl text-muted-foreground">{agency.fullName}</p>
+              <div className="flex-1 space-y-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Badge variant="outline" className={`${getTypeColor(agency.type)} font-medium`}>
+                    {agency.type === "internal" ? "PROVINCIAL" : "EXTERNAL"}
+                  </Badge>
+                </div>
+                <div>
+                  <h2 className="text-3xl md:text-5xl font-cinzel font-bold tracking-tight mb-2">{agency.code}</h2>
+                  <EditableAgencyName
+                    id={agency._id}
+                    value={agency.fullName}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Right: Contact Info */}
+            <div className="md:w-72 space-y-2 md:pt-2">
+              <EditableContactItem
+                id={agency._id}
+                icon={<User className="h-4 w-4" />}
+                label="Head Officer"
+                value={agency.contactPerson}
+                fieldName="contactPerson"
+              />
+              <EditableContactItem
+                id={agency._id}
+                icon={<Mail className="h-4 w-4" />}
+                label="Email"
+                value={agency.contactEmail}
+                fieldName="contactEmail"
+              />
+              <EditableContactItem
+                id={agency._id}
+                icon={<Phone className="h-4 w-4" />}
+                label="Phone"
+                value={agency.contactPhone}
+                fieldName="contactPhone"
+              />
+              <EditableContactItem
+                id={agency._id}
+                icon={<MapPin className="h-4 w-4" />}
+                label="Address"
+                value={agency.address}
+                fieldName="address"
+              />
+              {/* Statistics Toggle Buttons */}
+              <div className="pt-2 flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowStatistics(!showStatistics)}
+                  className="flex-1 justify-end gap-2 text-xs"
+                >
+                  <span className="truncate text-right">{showStatistics ? "Hide Statistics" : "Show Statistics"}</span>
+                  {showStatistics ? <EyeOff className="h-4 w-4 shrink-0" /> : <Eye className="h-4 w-4 shrink-0" />}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowDashboardStats(true)}
+                  className="flex-1 justify-end gap-2 text-xs"
+                >
+                  <span className="truncate text-right">Dashboard Statistics</span>
+                  <BarChart3 className="h-4 w-4 shrink-0" />
+                </Button>
               </div>
             </div>
           </div>
         </div>
 
         {/* Status Information Card */}
+        {showStatistics && (
         <Card className="border-2">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-6">
@@ -319,62 +456,58 @@ export default function AgencyDetailPage() {
               <Card className="border">
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <FileText className="h-4 w-4" />
-                    <span>Average per Project</span>
+                    <Wallet className="h-4 w-4" />
+                    <span>Total Obligated</span>
                   </div>
-                  <p className="text-2xl font-bold font-cinzel">{formatCurrency(stats.avgProjectBudget)}</p>
+                  <p className="text-2xl font-bold font-cinzel">{formatCurrency(agency.obligatedBudget || 0)}</p>
                 </CardContent>
               </Card>
             </div>
           </CardContent>
         </Card>
+        )}
 
-        {/* Contact Information */}
-        <Card className="border-2">
-          <CardContent className="p-6">
-            <h3 className="text-xl font-cinzel font-semibold mb-4">Contact Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <User className="h-5 w-5 text-[#15803D] mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Head Officer</p>
-                    <p className="font-semibold">{agency.contactPerson || "N/A"}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Mail className="h-5 w-5 text-[#15803D] mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Email Address</p>
-                    <p className="font-semibold">{agency.contactEmail || "N/A"}</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <Phone className="h-5 w-5 text-[#15803D] mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Contact Number</p>
-                    <p className="font-semibold">{agency.contactPhone || "N/A"}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-[#15803D] mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Office Address</p>
-                    <p className="font-semibold">{agency.address || "N/A"}</p>
-                  </div>
-                </div>
-              </div>
+        {/* Dashboard Statistics Modal */}
+        <Dialog open={showDashboardStats} onOpenChange={setShowDashboardStats}>
+          <DialogContent className="sm:max-w-md resize-x min-w-[300px]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                Dashboard Pie and Graph Statistics
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-8 text-center space-y-4">
+              <div className="text-6xl font-bold text-muted-foreground/30">📊</div>
+              <h3 className="text-xl font-bold">Dashboard Summary Stats</h3>
+              <p className="text-lg text-muted-foreground">of an Office Feature</p>
+              <Badge variant="secondary" className="text-sm px-4 py-1">
+                Coming Soon
+              </Badge>
             </div>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
 
-        {/* Projects Section - Categorized */}
+        {/* Projects Section - Categorized with View Tabs */}
         <div className="space-y-8">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h3 className="text-2xl md:text-3xl font-cinzel font-bold">Projects Portfolio</h3>
-            <p className="text-sm text-muted-foreground">{agency.totalProjects} total projects</p>
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-muted-foreground">{agency.totalProjects} total projects</p>
+              {/* View Mode Tabs */}
+              <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "compact" | "detailed" | "list")} className="w-auto">
+                <TabsList className="h-8">
+                  <TabsTrigger value="compact" className="px-2.5 py-1">
+                    <LayoutGrid className="h-4 w-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="detailed" className="px-2.5 py-1">
+                    <Rows3 className="h-4 w-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="list" className="px-2.5 py-1">
+                    <List className="h-4 w-4" />
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
 
           {/* Project 11 Plans / Budget Items */}

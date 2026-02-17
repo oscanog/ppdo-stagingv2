@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { ImplementingAgenciesTable } from "./components/table"
 import { Agency } from "./types/agency-table.types"
 import { DeleteAgencyModal } from "./components/modals/DeleteAgencyModal"
+import { EditAgencyModal } from "./components/modals/EditAgencyModal"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AgencyGallery } from "./components/AgencyGallery"
@@ -30,6 +31,10 @@ export default function ImplementingAgenciesPage() {
   // Delete Modal State
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [selectedAgencyId, setSelectedAgencyId] = useState<Id<"implementingAgencies"> | null>(null)
+
+  // Edit Modal State
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [selectedAgency, setSelectedAgency] = useState<Agency | null>(null)
 
   // Statistics Visibility State
   const [showStatistics, setShowStatistics] = useState(false)
@@ -54,6 +59,16 @@ export default function ImplementingAgenciesPage() {
     setSelectedAgencyId(null)
   }, [])
 
+  const handleEdit = useCallback((agency: Agency) => {
+    setSelectedAgency(agency)
+    setEditModalOpen(true)
+  }, [])
+
+  const handleEditSuccess = useCallback(() => {
+    setEditModalOpen(false)
+    setSelectedAgency(null)
+  }, [])
+
   if (implementingAgencies === undefined) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -72,13 +87,20 @@ export default function ImplementingAgenciesPage() {
         onSuccess={handleDeleteSuccess}
       />
 
+      <EditAgencyModal
+        agency={selectedAgency}
+        open={editModalOpen}
+        onOpenChange={setEditModalOpen}
+        onSuccess={handleEditSuccess}
+      />
+
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 md:py-10 space-y-8">
         <Tabs defaultValue="table" className="space-y-8">
           {/* Page Title & Actions */}
           <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div className="space-y-2">
-              <h2 className="text-3xl md:text-4xl font-cinzel font-bold tracking-tight">Implementing Agencies</h2>
+              <h2 className="text-3xl md:text-4xl font-cinzel font-bold tracking-tight">Implementing Office and Agencies</h2>
               <p className="text-muted-foreground text-base md:text-lg max-w-3xl">
                 Comprehensive overview of offices or agencies responsible for executing development projects across the
                 province.
@@ -184,6 +206,7 @@ export default function ImplementingAgenciesPage() {
             <ImplementingAgenciesTable
               agencies={implementingAgencies as Agency[]}
               onDelete={handleDelete}
+              onEdit={handleEdit}
             />
           </TabsContent>
 
