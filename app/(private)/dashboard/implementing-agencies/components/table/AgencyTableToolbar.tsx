@@ -55,6 +55,7 @@ interface AgencyTableToolbarProps {
   // Actions
   onAdd?: () => void;
   onOpenTrash?: () => void;
+  onBulkPermanentDelete?: () => void;
   onExportCSV: () => void;
   onShare?: () => void;
   onFullscreen?: () => void;
@@ -70,6 +71,7 @@ function AgencySortDropdown({
   value: AgencySortOption;
   onChange: (v: AgencySortOption) => void;
 }) {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const currentOption = AGENCY_SORT_OPTIONS.find((opt) => opt.value === value);
   const displayLabel = currentOption?.label || "Sort By";
 
@@ -81,10 +83,10 @@ function AgencySortDropdown({
 
   return (
     <TooltipProvider>
-      <Tooltip>
+      <Tooltip open={isDropdownOpen ? false : undefined}>
         <TooltipTrigger asChild>
           <div>
-            <DropdownMenu>
+            <DropdownMenu onOpenChange={setIsDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                   <ArrowUpDown className="w-4 h-4" />
@@ -146,6 +148,7 @@ export function AgencyTableToolbar({
   onClearSelection,
   onAdd,
   onOpenTrash,
+  onBulkPermanentDelete,
   onExportCSV,
   onShare,
   onFullscreen,
@@ -169,6 +172,20 @@ export function AgencyTableToolbar({
                 Clear
               </button>
             </div>
+          )}
+
+          {selectedCount > 0 && onBulkPermanentDelete && (
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={onBulkPermanentDelete}
+              className="gap-2"
+              title="Permanently delete selected agencies"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Permanent Delete</span>
+            </Button>
           )}
 
           {/* Collapsible toolbar actions */}
@@ -240,6 +257,15 @@ export function AgencyTableToolbar({
                       <FileSpreadsheet className="w-4 h-4 mr-2" />
                       Export CSV
                     </DropdownMenuItem>
+                    {selectedCount > 0 && onBulkPermanentDelete && (
+                      <DropdownMenuItem
+                        onClick={onBulkPermanentDelete}
+                        className="text-red-600 dark:text-red-400"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Permanent Delete Selected
+                      </DropdownMenuItem>
+                    )}
                     {isAdmin && onShare && (
                       <DropdownMenuItem onClick={onShare}>
                         <Share2 className="w-4 h-4 mr-2" />
