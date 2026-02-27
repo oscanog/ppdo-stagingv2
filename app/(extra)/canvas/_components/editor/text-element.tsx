@@ -7,6 +7,47 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { TextElement } from "../editor";
 
+const TABLE_LINE_HEIGHT = 1.2;
+const TABLE_MIN_ROW_HEIGHT = 22;
+const TABLE_MIN_HEADER_ROW_HEIGHT = 30;
+const TABLE_ROW_RENDER_SAFETY = 8;
+const TABLE_HEADER_RENDER_SAFETY = 5;
+const TABLE_CELL_HORIZONTAL_PADDING = 6;
+
+function resolveLineHeight(lineHeight: TextElement['lineHeight']): number {
+  if (typeof lineHeight === 'number' && Number.isFinite(lineHeight) && lineHeight > 0) {
+    return lineHeight;
+  }
+  return TABLE_LINE_HEIGHT;
+}
+
+function getTableRowKind(elementId: string): 'header' | 'data' | 'category' | 'total' | null {
+  if (elementId.startsWith('header-')) return 'header';
+  if (elementId.startsWith('cell-')) return 'data';
+  if (elementId.startsWith('category-header-')) return 'category';
+  if (elementId.startsWith('total-')) return 'total';
+  return null;
+}
+
+function getPreviewTableRowHeight(element: TextElement): number {
+  const rowKind = getTableRowKind(element.id);
+  if (rowKind === 'category' || rowKind === 'total') {
+    return Math.max(TABLE_MIN_ROW_HEIGHT, element.height);
+  }
+
+  if (rowKind === 'header' || rowKind === 'data') {
+    const lineHeight = resolveLineHeight(element.lineHeight);
+    const lineCount = Math.max(1, element.text.split('\n').length);
+    const contentHeight = lineCount * element.fontSize * lineHeight;
+    const minRowHeight = rowKind === 'header' ? TABLE_MIN_HEADER_ROW_HEIGHT : TABLE_MIN_ROW_HEIGHT;
+    const renderSafety = rowKind === 'header' ? TABLE_HEADER_RENDER_SAFETY : TABLE_ROW_RENDER_SAFETY;
+    const normalizedHeight = Math.max(contentHeight + renderSafety, minRowHeight);
+    return Math.max(normalizedHeight, element.height);
+  }
+
+  return Math.max(TABLE_MIN_ROW_HEIGHT, element.height);
+}
+
 interface TextElementComponentProps {
   element: TextElement;
   isSelected: boolean;
@@ -26,9 +67,25 @@ export default function TextElementComponent({
   onUpdateText,
   onEditingChange,
 }: TextElementComponentProps) {
+  const CATEGORY_ROW_TEXT_LEFT_PADDING = TABLE_CELL_HORIZONTAL_PADDING;
   const [editText, setEditText] = useState(element.text);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const [isEditingLocal, setIsEditingLocal] = useState(isEditing);
+  const isCategoryRow = element.id.startsWith('category-header-');
+  const isTableText = Boolean(
+    element.groupId && element.groupName?.toLowerCase().includes('table')
+  );
+  const tableRowHeight = isTableText ? getPreviewTableRowHeight(element) : null;
+  const resolvedTextAlign = element.textAlign || 'left';
+  const tableHorizontalInsetStyle: React.CSSProperties =
+    !isTableText || isCategoryRow
+      ? {}
+      : resolvedTextAlign === 'right'
+        ? { paddingRight: `${TABLE_CELL_HORIZONTAL_PADDING}px` }
+        : resolvedTextAlign === 'left'
+          ? { paddingLeft: `${TABLE_CELL_HORIZONTAL_PADDING}px` }
+          : {};
+  const textStyles = getTextStyles();
 
   React.useEffect(() => {
     if (isEditing && textareaRef.current) {
@@ -62,14 +119,14 @@ export default function TextElementComponent({
     }
   };
 
-  const getTextStyles = () => {
+  function getTextStyles() {
     const styles: React.CSSProperties = {
       fontSize: `${element.fontSize}px`,
       fontWeight: element.bold ? 700 : 400,
       fontStyle: element.italic ? 'italic' : 'normal',
       textDecoration: element.underline ? 'underline' : 'none',
       color: element.color,
-      backgroundColor: element.backgroundColor,
+      backgroundColor: isCategoryRow ? undefined : element.backgroundColor,
       textShadow: element.shadow ? '2px 2px 4px rgba(0,0,0,0.3)' : 'none',
       WebkitTextStroke: element.outline ? '0.5px rgba(0,0,0,0.5)' : 'none',
       lineHeight: element.lineHeight ?? 'normal', // Apply line height multiplier
@@ -94,7 +151,7 @@ export default function TextElementComponent({
     }
 
     return styles;
-  };
+  }
 
   return (
     <div
@@ -107,7 +164,11 @@ export default function TextElementComponent({
         left: `${element.x}px`,
         top: `${element.y}px`,
         width: `${element.width}px`,
-        minHeight: `${element.height}px`,
+        height: isCategoryRow ? `${element.height}px` : tableRowHeight ? `${tableRowHeight}px` : undefined,
+        minHeight: `${tableRowHeight ?? element.height}px`,
+        backgroundColor: isCategoryRow ? element.backgroundColor : undefined,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
       }}
     >
       {isEditing ? (
@@ -119,7 +180,11 @@ export default function TextElementComponent({
           onKeyDown={handleKeyDown}
           onClick={(e) => e.stopPropagation()}
           className="w-full h-full border border-blue-500 rounded resize-none focus:outline-none"
-          style={getTextStyles()}
+          style={{
+            ...getTextStyles(),
+            boxSizing: 'border-box',
+            ...tableHorizontalInsetStyle,
+          }}
         />
       ) : (
         <div
@@ -127,9 +192,35 @@ export default function TextElementComponent({
           onClick={(e) => e.stopPropagation()}
           className={`w-full h-full break-words whitespace-pre-wrap ${isSelected ? 'bg-blue-50' : ''
             }`}
-          style={getTextStyles()}
+          style={{
+            ...textStyles,
+            ...(isTableText && !isCategoryRow ? {
+              display: 'flex',
+              alignItems: 'center',
+            } : {}),
+            ...(isCategoryRow ? {
+              display: 'flex',
+              alignItems: 'center',
+              paddingLeft: `${CATEGORY_ROW_TEXT_LEFT_PADDING}px`,
+              boxSizing: 'border-box',
+            } : {}),
+          }}
         >
-          {element.text}
+          {isTableText && !isCategoryRow ? (
+            <div
+              className="w-full break-words whitespace-pre-wrap"
+              style={{
+                ...textStyles,
+                width: '100%',
+                boxSizing: 'border-box',
+                ...tableHorizontalInsetStyle,
+              }}
+            >
+              {element.text}
+            </div>
+          ) : (
+            element.text
+          )}
         </div>
       )}
 

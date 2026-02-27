@@ -7,7 +7,8 @@ import {
   DEFAULT_TABLE_STYLE,
   CellBounds,
   ColumnDefinition,
-  BudgetTotals
+  BudgetTotals,
+  clampTableFontSize,
 } from './types';
 import { BudgetItem } from "@/components/features/ppdo/odpp/table-pages/11_project_plan/types";
 import {
@@ -54,6 +55,23 @@ const TOTAL_ROW_TEXT_TOP_INSET = 0;
 // âœ… Extra left padding for first column text (spacing from left border)
 const FIRST_COLUMN_LEFT_PADDING = 20;
 
+function toCamelCaseHeaderLabel(rawLabel: string): string {
+  const normalized = rawLabel
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) return rawLabel;
+
+  return normalized
+    .split(' ')
+    .map((word) => {
+      const lower = word.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(' ');
+}
+
 /**
  * Converts budget table data into canvas pages
  * Supports row markers for category/group headers and dynamic text wrapping
@@ -73,13 +91,14 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
     showHeader = true,
     showFooter = true,
   } = config;
+  const tableFontSize = clampTableFontSize(config.tableFontSize);
 
   // Set module-level margins from config (safe: synchronous, single-threaded)
   const uniformMargin = config.margin ?? 22;
   MARGIN_LEFT = config.margins?.left ?? uniformMargin;
   MARGIN_RIGHT = config.margins?.right ?? uniformMargin;
   MARGIN_TOP = config.margins?.top ?? uniformMargin;
-  MARGIN_BOTTOM = config.margins?.bottom ?? uniformMargin;
+  MARGIN_BOTTOM = showFooter ? 0 : (config.margins?.bottom ?? uniformMargin);
 
   const isLandscape = config.orientation === 'landscape';
   const baseSize = PAGE_SIZES[pageSize as keyof typeof PAGE_SIZES] || PAGE_SIZES.A4;
@@ -90,6 +109,8 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
   const reservedHeaderHeight = showHeader ? (config.headerHeight ?? HEADER_HEIGHT) : 0;
   const reservedFooterHeight = showFooter ? (config.footerHeight ?? FOOTER_HEIGHT) : 0;
   const availableHeight = size.height - reservedHeaderHeight - reservedFooterHeight - MARGIN_TOP - MARGIN_BOTTOM;
+  const contentTop = MARGIN_TOP;
+  const contentBottom = contentTop + availableHeight;
 
   // Filter visible columns
   const visibleColumns = columns.filter(col => !hiddenColumns.has(col.key));
@@ -106,11 +127,11 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
 
   // Pre-calculate header height with text wrapping
   const columnLabels = new Map<string, string>();
-  visibleColumns.forEach(col => columnLabels.set(col.key, col.label));
+  visibleColumns.forEach(col => columnLabels.set(col.key, toCamelCaseHeaderLabel(col.label)));
   const headerWrappedData = calculateWrappedHeader(
     columnLabels,
     columnWidthMap,
-    DEFAULT_TABLE_STYLE.headerFontSize,
+    tableFontSize,
     'Inter',
     CELL_TEXT_PADDING,
     MIN_HEADER_ROW_HEIGHT,
@@ -136,7 +157,7 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
     const wrappedData = calculateWrappedRow(
       cellValues,
       columnWidthMap,
-      DEFAULT_TABLE_STYLE.dataFontSize,
+      tableFontSize,
       'Inter',
       CELL_TEXT_PADDING,
       MIN_ROW_HEIGHT,
@@ -164,7 +185,7 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
   let itemIndex = 0;
   while (itemIndex < preCalculatedRows.length) {
     const pageElements: TextElement[] = [];
-    let currentY = MARGIN_TOP;
+    let currentY = contentTop;
     const globalRowIndex = itemIndex;
 
     // Create unique group ID for this page's table data
@@ -178,6 +199,7 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
         columnWidths,
         currentY,
         headerWrappedData,
+        tableFontSize,
         groupId,
         groupName
       ));
@@ -195,14 +217,21 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
       }
 
       // Check if this row fits on the current page
-      if (currentY + rowHeightNeeded > availableHeight && pageElements.length > (includeHeaders ? visibleColumns.length : 0)) {
+      if (currentY + rowHeightNeeded > contentBottom && pageElements.length > (includeHeaders ? visibleColumns.length : 0)) {
         // Row doesn't fit and we have content, start a new page
         break;
       }
 
       // Add category marker if present
       if (rowData.markerLabel) {
-        pageElements.push(...createCategoryHeaderRow(rowData.markerLabel, columnWidths, currentY, groupId, groupName));
+        pageElements.push(...createCategoryHeaderRow(
+          rowData.markerLabel,
+          columnWidths,
+          currentY,
+          tableFontSize,
+          groupId,
+          groupName
+        ));
         currentY += MIN_ROW_HEIGHT;
       }
 
@@ -213,6 +242,7 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
         columnWidths,
         currentY,
         rowData.wrappedData,
+        tableFontSize,
         groupId,
         groupName
       ));
@@ -235,12 +265,19 @@ export function convertTableToCanvas(config: ConversionConfig): ConversionResult
   // Add totals page if requested
   if (includeTotals && pages.length > 0) {
     const lastPage = pages[pages.length - 1];
-    const hasSpace = checkSpaceForTotals(lastPage, availableHeight);
+    const hasSpace = checkSpaceForTotals(lastPage, contentBottom);
 
     if (hasSpace) {
-      addTotalsToPage(lastPage, totals, visibleColumns, columnWidths);
+      addTotalsToPage(lastPage, totals, visibleColumns, columnWidths, tableFontSize);
     } else {
-      const totalsPage = createTotalsPage(pageSize, totals, visibleColumns, columnWidths, config.orientation);
+      const totalsPage = createTotalsPage(
+        pageSize,
+        totals,
+        visibleColumns,
+        columnWidths,
+        tableFontSize,
+        config.orientation
+      );
       pages.push(totalsPage);
     }
   }
@@ -421,7 +458,14 @@ function createDataPage(
 
     if (markerAtThisIndex) {
       // Render category header
-      elements.push(...createCategoryHeaderRow(markerAtThisIndex.label, columnWidths, currentY, groupId, groupName));
+      elements.push(...createCategoryHeaderRow(
+        markerAtThisIndex.label,
+        columnWidths,
+        currentY,
+        undefined,
+        groupId,
+        groupName
+      ));
       currentY += MIN_ROW_HEIGHT;
     }
 
@@ -453,13 +497,15 @@ function createTableHeaders(
   let currentX = MARGIN_LEFT;
 
   columns.forEach((col, index) => {
+    const headerLabel = toCamelCaseHeaderLabel(col.label);
+
     // Extra left padding for first column
     const firstColPadding = index === 0 ? FIRST_COLUMN_LEFT_PADDING : 0;
 
     elements.push({
       id: `header-${col.key}-${Date.now()}`,
       type: 'text',
-      text: col.label,
+      text: headerLabel,
       x: currentX + CELL_TEXT_PADDING + firstColPadding,
       y: y + HEADER_ROW_TEXT_TOP_INSET,
       width: columnWidths[index] - (CELL_TEXT_PADDING * 2) - firstColPadding,
@@ -492,6 +538,7 @@ function createTableHeadersWithWrapping(
   columnWidths: number[],
   y: number,
   wrappedData: WrappedRowData,
+  tableFontSize: number = DEFAULT_TABLE_STYLE.dataFontSize,
   groupId?: string,
   groupName?: string
 ): TextElement[] {
@@ -501,7 +548,9 @@ function createTableHeadersWithWrapping(
   columns.forEach((col, index) => {
     // Find the wrapped cell data for this column
     const cellData = wrappedData.cells.find(c => c.columnKey === col.key);
-    const wrappedText = cellData ? cellData.lines.join('\n') : col.label;
+    const wrappedText = cellData
+      ? cellData.lines.join('\n')
+      : toCamelCaseHeaderLabel(col.label);
 
     // Extra left padding for first column
     const firstColPadding = index === 0 ? FIRST_COLUMN_LEFT_PADDING : 0;
@@ -518,7 +567,7 @@ function createTableHeadersWithWrapping(
       y: y + HEADER_ROW_TEXT_TOP_INSET + verticalSlackTop,
       width: columnWidths[index] - (CELL_TEXT_PADDING * 2) - firstColPadding,
       height: textBoxHeight,
-      fontSize: DEFAULT_TABLE_STYLE.headerFontSize,
+      fontSize: tableFontSize,
       fontFamily: 'Inter',
       bold: true,
       italic: false,
@@ -545,23 +594,21 @@ function createCategoryHeaderRow(
   categoryLabel: string,
   columnWidths: number[],
   y: number,
+  tableFontSize: number = DEFAULT_TABLE_STYLE.dataFontSize,
   groupId?: string,
   groupName?: string
 ): TextElement[] {
   const totalWidth = columnWidths.reduce((sum, w) => sum + w, 0);
 
-  // Apply extra left padding to category header as well for consistency
-  const firstColPadding = FIRST_COLUMN_LEFT_PADDING;
-
   return [{
     id: `category-header-${categoryLabel}-${Date.now()}`,
     type: 'text',
     text: categoryLabel,
-    x: MARGIN_LEFT + CELL_TEXT_PADDING + firstColPadding,
-    y: y + CATEGORY_ROW_TEXT_TOP_INSET,
-    width: totalWidth - (CELL_TEXT_PADDING * 2) - firstColPadding,
-    height: MIN_ROW_HEIGHT - (CELL_TEXT_PADDING * 2),
-    fontSize: 11,
+    x: MARGIN_LEFT,
+    y,
+    width: totalWidth,
+    height: MIN_ROW_HEIGHT,
+    fontSize: tableFontSize,
     fontFamily: 'Inter',
     bold: true,
     italic: false,
@@ -569,6 +616,7 @@ function createCategoryHeaderRow(
     color: '#18181b',
     shadow: false,
     outline: false,
+    backgroundColor: '#e5e7eb',
     visible: true,
     lineHeight: LINE_HEIGHT,
     groupId,
@@ -634,6 +682,7 @@ function createTableRowWithWrapping(
   columnWidths: number[],
   y: number,
   wrappedData: WrappedRowData,
+  tableFontSize: number = DEFAULT_TABLE_STYLE.dataFontSize,
   groupId?: string,
   groupName?: string
 ): TextElement[] {
@@ -660,7 +709,7 @@ function createTableRowWithWrapping(
       y: y + DATA_ROW_TEXT_TOP_INSET + verticalSlackTop,
       width: columnWidths[index] - (CELL_TEXT_PADDING * 2) - firstColPadding,
       height: textBoxHeight,
-      fontSize: DEFAULT_TABLE_STYLE.dataFontSize,
+      fontSize: tableFontSize,
       fontFamily: 'Inter',
       bold: false,
       italic: false,
@@ -694,7 +743,7 @@ function formatCellValue(item: BudgetItem, key: string): string {
   }
 
   // Percentage formatting
-  if (key === 'utilizationRate') {
+  if (key === 'utilizationRate' || key === 'utilRate') {
     return `${value.toFixed(1)}%`;
   }
 
@@ -706,6 +755,21 @@ function formatCellValue(item: BudgetItem, key: string): string {
   return String(value);
 }
 
+function calculateTotalsUtilizationRate(totals: BudgetTotals): number {
+  const explicitRate = (totals as any).utilizationRate;
+  if (typeof explicitRate === 'number' && Number.isFinite(explicitRate)) {
+    return explicitRate;
+  }
+
+  const allocated = Number((totals as any).totalBudgetAllocated ?? 0);
+  const utilized = Number((totals as any).totalBudgetUtilized ?? 0);
+
+  if (!Number.isFinite(allocated) || allocated <= 0) return 0;
+  if (!Number.isFinite(utilized)) return 0;
+
+  return (utilized / allocated) * 100;
+}
+
 /**
  * Create totals page
  */
@@ -714,6 +778,7 @@ function createTotalsPage(
   totals: BudgetTotals,
   columns: ColumnDefinition[],
   columnWidths: number[],
+  tableFontSize: number = DEFAULT_TABLE_STYLE.dataFontSize,
   orientation: 'portrait' | 'landscape' = 'portrait'
 ): Page {
   const elements: TextElement[] = [];
@@ -723,7 +788,15 @@ function createTotalsPage(
   const groupId = `table-group-totals-${Date.now()}`;
   const groupName = 'Table (Totals)';
 
-  elements.push(...createTotalsRow(totals, columns, columnWidths, y, groupId, groupName));
+  elements.push(...createTotalsRow(
+    totals,
+    columns,
+    columnWidths,
+    y,
+    tableFontSize,
+    groupId,
+    groupName
+  ));
 
   return {
     id: `page-totals-${Date.now()}`,
@@ -741,7 +814,8 @@ function addTotalsToPage(
   page: Page,
   totals: BudgetTotals,
   columns: ColumnDefinition[],
-  columnWidths: number[]
+  columnWidths: number[],
+  tableFontSize: number = DEFAULT_TABLE_STYLE.dataFontSize
 ): void {
   const lastElement = page.elements[page.elements.length - 1];
   const y = getPageTableOuterBottom(page) ?? (lastElement ? lastElement.y + lastElement.height + CELL_TEXT_PADDING * 2 : MARGIN_TOP);
@@ -750,7 +824,15 @@ function addTotalsToPage(
   const existingGroupId = lastElement?.groupId;
   const existingGroupName = lastElement?.groupName;
 
-  const totalsElements = createTotalsRow(totals, columns, columnWidths, y, existingGroupId, existingGroupName);
+  const totalsElements = createTotalsRow(
+    totals,
+    columns,
+    columnWidths,
+    y,
+    tableFontSize,
+    existingGroupId,
+    existingGroupName
+  );
   page.elements.push(...totalsElements);
 }
 
@@ -762,17 +844,21 @@ function createTotalsRow(
   columns: ColumnDefinition[],
   columnWidths: number[],
   y: number,
+  tableFontSize: number = DEFAULT_TABLE_STYLE.dataFontSize,
   groupId?: string,
   groupName?: string
 ): TextElement[] {
   const elements: TextElement[] = [];
   let currentX = MARGIN_LEFT;
+  const totalUtilizationRate = calculateTotalsUtilizationRate(totals);
 
   columns.forEach((col, index) => {
     let value = '';
 
     if (col.key === 'particular') {
       value = 'TOTAL';
+    } else if (col.key === 'utilizationRate' || col.key === 'utilRate') {
+      value = `${totalUtilizationRate.toFixed(1)}%`;
     } else if (col.key in totals) {
       const totalValue = (totals as any)[col.key];
       value = formatCellValue({ [col.key]: totalValue } as any, col.key);
@@ -790,7 +876,7 @@ function createTotalsRow(
         y: y + TOTAL_ROW_TEXT_TOP_INSET,
         width: columnWidths[index] - (CELL_TEXT_PADDING * 2) - firstColPadding,
         height: MIN_ROW_HEIGHT - (CELL_TEXT_PADDING * 2),
-        fontSize: DEFAULT_TABLE_STYLE.totalsFontSize,
+        fontSize: tableFontSize,
         fontFamily: 'Inter',
         bold: true,
         italic: false,
@@ -814,7 +900,7 @@ function createTotalsRow(
 /**
  * Check if page has space for totals row
  */
-function checkSpaceForTotals(page: Page, availableHeight: number): boolean {
+function checkSpaceForTotals(page: Page, contentBottom: number): boolean {
   if (page.elements.length === 0) return true;
 
   const lastElementBottom = getPageTableOuterBottom(page) ?? (() => {
@@ -822,7 +908,7 @@ function checkSpaceForTotals(page: Page, availableHeight: number): boolean {
     return lastElement.y + lastElement.height + CELL_TEXT_PADDING * 2;
   })();
 
-  return (lastElementBottom + MIN_ROW_HEIGHT) < availableHeight;
+  return (lastElementBottom + MIN_ROW_HEIGHT) <= contentBottom;
 }
 
 function getPageTableOuterBottom(page: Page): number | null {
